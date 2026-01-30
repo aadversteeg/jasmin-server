@@ -1,9 +1,9 @@
-namespace Core.Infrastructure.WebApp.Models;
+namespace Core.Infrastructure.WebApp.Models.McpServers;
 
 /// <summary>
 /// Response model for complete MCP server configuration.
 /// </summary>
-public record McpServerDefinitionResponse(
+public record DetailsResponse(
     string Name,
     string Command,
     IReadOnlyList<string> Args,

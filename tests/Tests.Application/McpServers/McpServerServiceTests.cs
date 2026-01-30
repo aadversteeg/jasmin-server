@@ -78,4 +78,103 @@ public class McpServerServiceTests
         result.IsSuccess.Should().BeTrue();
         result.Value.HasValue.Should().BeFalse();
     }
+
+    [Fact(DisplayName = "MSS-005: Create should delegate to repository")]
+    public void MSS005()
+    {
+        var chronosId = McpServerId.Create("chronos").Value;
+        var definition = new McpServerDefinition(
+            chronosId,
+            "docker",
+            new List<string> { "run" }.AsReadOnly(),
+            new Dictionary<string, string>().AsReadOnly());
+        _mockRepository.Setup(x => x.Create(It.IsAny<McpServerDefinition>()))
+            .Returns(Result<McpServerDefinition, Error>.Success(definition));
+
+        var result = _service.Create(definition);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Id.Value.Should().Be("chronos");
+        _mockRepository.Verify(x => x.Create(definition), Times.Once);
+    }
+
+    [Fact(DisplayName = "MSS-006: Create should return error when repository fails")]
+    public void MSS006()
+    {
+        var chronosId = McpServerId.Create("chronos").Value;
+        var definition = new McpServerDefinition(
+            chronosId, "docker", Array.Empty<string>().ToList().AsReadOnly(),
+            new Dictionary<string, string>().AsReadOnly());
+        var error = Errors.DuplicateMcpServerId("chronos");
+        _mockRepository.Setup(x => x.Create(It.IsAny<McpServerDefinition>()))
+            .Returns(Result<McpServerDefinition, Error>.Failure(error));
+
+        var result = _service.Create(definition);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Code.Should().Be(ErrorCodes.DuplicateMcpServerId);
+    }
+
+    [Fact(DisplayName = "MSS-007: Update should delegate to repository")]
+    public void MSS007()
+    {
+        var chronosId = McpServerId.Create("chronos").Value;
+        var definition = new McpServerDefinition(
+            chronosId,
+            "npx",
+            new List<string> { "-y", "package" }.AsReadOnly(),
+            new Dictionary<string, string>().AsReadOnly());
+        _mockRepository.Setup(x => x.Update(It.IsAny<McpServerDefinition>()))
+            .Returns(Result<McpServerDefinition, Error>.Success(definition));
+
+        var result = _service.Update(definition);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Command.Should().Be("npx");
+        _mockRepository.Verify(x => x.Update(definition), Times.Once);
+    }
+
+    [Fact(DisplayName = "MSS-008: Update should return error when server not found")]
+    public void MSS008()
+    {
+        var id = McpServerId.Create("non-existent").Value;
+        var definition = new McpServerDefinition(
+            id, "docker", Array.Empty<string>().ToList().AsReadOnly(),
+            new Dictionary<string, string>().AsReadOnly());
+        var error = Errors.McpServerNotFound("non-existent");
+        _mockRepository.Setup(x => x.Update(It.IsAny<McpServerDefinition>()))
+            .Returns(Result<McpServerDefinition, Error>.Failure(error));
+
+        var result = _service.Update(definition);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Code.Should().Be(ErrorCodes.McpServerNotFound);
+    }
+
+    [Fact(DisplayName = "MSS-009: Delete should delegate to repository")]
+    public void MSS009()
+    {
+        var id = McpServerId.Create("chronos").Value;
+        _mockRepository.Setup(x => x.Delete(It.Is<McpServerId>(i => i.Value == "chronos")))
+            .Returns(Result<Unit, Error>.Success(Unit.Value));
+
+        var result = _service.Delete(id);
+
+        result.IsSuccess.Should().BeTrue();
+        _mockRepository.Verify(x => x.Delete(id), Times.Once);
+    }
+
+    [Fact(DisplayName = "MSS-010: Delete should return error when server not found")]
+    public void MSS010()
+    {
+        var id = McpServerId.Create("non-existent").Value;
+        var error = Errors.McpServerNotFound("non-existent");
+        _mockRepository.Setup(x => x.Delete(It.IsAny<McpServerId>()))
+            .Returns(Result<Unit, Error>.Failure(error));
+
+        var result = _service.Delete(id);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Code.Should().Be(ErrorCodes.McpServerNotFound);
+    }
 }

@@ -20,4 +20,16 @@ public static class Errors
     public static Error ConfigFileReadError(string path, string message) => new(
         ErrorCodes.ConfigFileReadError,
         $"Error reading configuration file '{path}': {message}");
+
+    public static Error ConfigFileWriteError(string path, string message) => new(
+        ErrorCodes.ConfigFileWriteError,
+        $"Error writing configuration file '{path}': {message}");
+
+    public static Error DuplicateMcpServerId(string id) => new(
+        ErrorCodes.DuplicateMcpServerId,
+        $"An MCP server with id '{id}' already exists.");
+
+    public static Error McpServerNotFound(string id) => new(
+        ErrorCodes.McpServerNotFound,
+        $"MCP server with id '{id}' was not found.");
 }

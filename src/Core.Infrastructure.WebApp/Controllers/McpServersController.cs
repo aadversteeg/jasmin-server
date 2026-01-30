@@ -2,7 +2,7 @@ using Ave.Extensions.Functional;
 using Core.Application.McpServers;
 using Core.Domain.McpServers;
 using Core.Infrastructure.WebApp.Extensions;
-using Core.Infrastructure.WebApp.Models;
+using Core.Infrastructure.WebApp.Models.McpServers;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Core.Infrastructure.WebApp.Controllers;
@@ -26,12 +26,12 @@ public class McpServersController : ControllerBase
     /// </summary>
     /// <returns>A list of MCP server summary information.</returns>
     [HttpGet]
-    [ProducesResponseType(typeof(IReadOnlyList<McpServerInfoResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(IReadOnlyList<ListResponse>), StatusCodes.Status200OK)]
     public IActionResult GetAll()
     {
         return _mcpServerService
             .GetAll()
-            .ToActionResult(Mapper.ToResponse);
+            .ToActionResult(Mapper.ToListResponse);
     }
 
     /// <summary>
@@ -39,14 +39,67 @@ public class McpServersController : ControllerBase
     /// </summary>
     /// <param name="id">The identifier of the MCP server.</param>
     /// <returns>The server definition if found.</returns>
-    [HttpGet("{id}")]
-    [ProducesResponseType(typeof(McpServerDefinitionResponse), StatusCodes.Status200OK)]
+    [HttpGet("{id}", Name = "GetMcpServerById")]
+    [ProducesResponseType(typeof(DetailsResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public IActionResult GetById(string id)
     {
         return McpServerId.Create(id)
             .OnSuccessBind(_mcpServerService.GetById)
-            .ToActionResult(Mapper.ToResponse);
+            .ToActionResult(Mapper.ToDetailsResponse);
+    }
+
+    /// <summary>
+    /// Creates a new MCP server configuration.
+    /// </summary>
+    /// <param name="request">The server configuration to create.</param>
+    /// <returns>The created server definition.</returns>
+    [HttpPost]
+    [ProducesResponseType(typeof(DetailsResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public IActionResult Create([FromBody] CreateRequest request)
+    {
+        return Mapper.ToDomain(request)
+            .OnSuccessBind(_mcpServerService.Create)
+            .ToCreatedResult(
+                "GetMcpServerById",
+                def => new { id = def.Id.Value },
+                Mapper.ToDetailsResponse);
+    }
+
+    /// <summary>
+    /// Updates an existing MCP server configuration.
+    /// </summary>
+    /// <param name="id">The identifier of the MCP server to update.</param>
+    /// <param name="request">The updated server configuration.</param>
+    /// <returns>The updated server definition.</returns>
+    [HttpPut("{id}")]
+    [ProducesResponseType(typeof(DetailsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public IActionResult Update(string id, [FromBody] UpdateRequest request)
+    {
+        return McpServerId.Create(id)
+            .OnSuccessBind(serverId => Mapper.ToDomain(serverId, request))
+            .OnSuccessBind(_mcpServerService.Update)
+            .ToOkResult(Mapper.ToDetailsResponse);
+    }
+
+    /// <summary>
+    /// Deletes an MCP server configuration.
+    /// </summary>
+    /// <param name="id">The identifier of the MCP server to delete.</param>
+    /// <returns>No content if successful.</returns>
+    [HttpDelete("{id}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public IActionResult Delete(string id)
+    {
+        return McpServerId.Create(id)
+            .OnSuccessBind(_mcpServerService.Delete)
+            .ToNoContentResult();
     }
 }

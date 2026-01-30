@@ -9,4 +9,7 @@ public static class ErrorCodes
     public static readonly ErrorCode ConfigFileNotFound = new("CONFIG_FILE_NOT_FOUND");
     public static readonly ErrorCode ConfigFileInvalid = new("CONFIG_FILE_INVALID");
     public static readonly ErrorCode ConfigFileReadError = new("CONFIG_FILE_READ_ERROR");
+    public static readonly ErrorCode ConfigFileWriteError = new("CONFIG_FILE_WRITE_ERROR");
+    public static readonly ErrorCode DuplicateMcpServerId = new("DUPLICATE_MCP_SERVER_ID");
+    public static readonly ErrorCode McpServerNotFound = new("MCP_SERVER_NOT_FOUND");
 }
