@@ -1,4 +1,5 @@
 using Core.Domain.McpServers;
+using Core.Domain.Paging;
 
 namespace Core.Application.McpServers;
 
@@ -59,4 +60,18 @@ public interface IMcpServerConnectionStatusCache
     /// <param name="id">The server identifier.</param>
     /// <returns>The list of events for the server.</returns>
     IReadOnlyList<McpServerEvent> GetEvents(McpServerId id);
+
+    /// <summary>
+    /// Gets events for the specified server with paging, filtering, and sorting.
+    /// </summary>
+    /// <param name="id">The server identifier.</param>
+    /// <param name="paging">The paging parameters.</param>
+    /// <param name="dateFilter">Optional date range filter.</param>
+    /// <param name="sortDirection">The sort direction (default: Descending).</param>
+    /// <returns>A paged result of events.</returns>
+    PagedResult<McpServerEvent> GetEvents(
+        McpServerId id,
+        PagingParameters paging,
+        DateRangeFilter? dateFilter = null,
+        SortDirection sortDirection = SortDirection.Descending);
 }

@@ -1,6 +1,8 @@
 using Ave.Extensions.Functional;
 using Core.Domain.McpServers;
 using Core.Domain.Models;
+using Core.Domain.Paging;
+using Core.Infrastructure.WebApp.Models.Paging;
 
 using McpServerEvent = Core.Domain.McpServers.McpServerEvent;
 
@@ -94,4 +96,17 @@ public static class Mapper
             request.Command,
             (request.Args ?? []).AsReadOnly(),
             (request.Env ?? new Dictionary<string, string>()).AsReadOnly()));
+
+    public static PagedResponse<EventResponse> ToPagedResponse(
+        PagedResult<McpServerEvent> source,
+        TimeZoneInfo timeZone)
+    {
+        var items = source.Items.Select(e => ToEventResponse(e, timeZone)).ToList().AsReadOnly();
+        return new PagedResponse<EventResponse>(
+            items,
+            source.Page,
+            source.PageSize,
+            source.TotalItems,
+            source.TotalPages);
+    }
 }

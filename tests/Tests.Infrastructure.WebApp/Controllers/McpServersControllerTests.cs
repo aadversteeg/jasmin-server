@@ -2,9 +2,11 @@ using Ave.Extensions.Functional;
 using Core.Application.McpServers;
 using Core.Domain.McpServers;
 using Core.Domain.Models;
+using Core.Domain.Paging;
 using Core.Infrastructure.ModelContextProtocol.InMemory;
 using Core.Infrastructure.WebApp.Controllers;
 using Core.Infrastructure.WebApp.Models.McpServers;
+using Core.Infrastructure.WebApp.Models.Paging;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -273,7 +275,7 @@ public class McpServersControllerTests
         result.Should().BeOfType<BadRequestObjectResult>();
     }
 
-    [Fact(DisplayName = "MSC-017: GetEvents should return events for existing server")]
+    [Fact(DisplayName = "MSC-017: GetEvents should return paged events for existing server")]
     public void MSC017()
     {
         var chronosId = McpServerName.Create("chronos").Value;
@@ -287,19 +289,26 @@ public class McpServersControllerTests
             new(McpServerEventType.Starting, new DateTime(2024, 1, 15, 10, 0, 0, DateTimeKind.Utc)),
             new(McpServerEventType.Started, new DateTime(2024, 1, 15, 10, 0, 1, DateTimeKind.Utc))
         };
+        var pagedEvents = new PagedResult<McpServerEvent>(events, 1, 20, 2);
         _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
             .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
-        _mockService.Setup(x => x.GetEvents(It.Is<McpServerName>(id => id.Value == "chronos")))
-            .Returns(Result<IReadOnlyList<McpServerEvent>, Error>.Success(events));
+        _mockService.Setup(x => x.GetEvents(
+                It.Is<McpServerName>(id => id.Value == "chronos"),
+                It.IsAny<PagingParameters>(),
+                It.IsAny<DateRangeFilter?>(),
+                It.IsAny<SortDirection>()))
+            .Returns(Result<PagedResult<McpServerEvent>, Error>.Success(pagedEvents));
 
         var result = _controller.GetEvents("chronos");
 
         result.Should().BeOfType<OkObjectResult>();
         var okResult = (OkObjectResult)result;
-        var response = okResult.Value as IReadOnlyList<EventResponse>;
+        var response = okResult.Value as PagedResponse<EventResponse>;
         response.Should().NotBeNull();
-        response.Should().HaveCount(2);
-        response![0].EventType.Should().Be("Starting");
+        response!.Items.Should().HaveCount(2);
+        response.Items[0].EventType.Should().Be("Starting");
+        response.Page.Should().Be(1);
+        response.TotalItems.Should().Be(2);
     }
 
     [Fact(DisplayName = "MSC-018: GetEvents should return NotFound for non-existent server")]
@@ -316,7 +325,23 @@ public class McpServersControllerTests
     [Fact(DisplayName = "MSC-019: GetEvents should return BadRequest for invalid timezone")]
     public void MSC019()
     {
-        var result = _controller.GetEvents("chronos", "Invalid/Timezone");
+        var result = _controller.GetEvents("chronos", timeZone: "Invalid/Timezone");
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact(DisplayName = "MSC-021: GetEvents should return BadRequest for invalid page")]
+    public void MSC021()
+    {
+        var result = _controller.GetEvents("chronos", page: 0);
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact(DisplayName = "MSC-022: GetEvents should return BadRequest for invalid pageSize")]
+    public void MSC022()
+    {
+        var result = _controller.GetEvents("chronos", pageSize: 101);
 
         result.Should().BeOfType<BadRequestObjectResult>();
     }

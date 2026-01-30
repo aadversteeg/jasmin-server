@@ -1,6 +1,7 @@
 using Ave.Extensions.Functional;
 using Core.Domain.McpServers;
 using Core.Domain.Models;
+using Core.Domain.Paging;
 
 using McpServerEvent = Core.Domain.McpServers.McpServerEvent;
 
@@ -58,5 +59,17 @@ public class McpServerService : IMcpServerService
         var serverId = _statusCache.GetOrCreateId(name);
         var events = _statusCache.GetEvents(serverId);
         return Result<IReadOnlyList<McpServerEvent>, Error>.Success(events);
+    }
+
+    /// <inheritdoc />
+    public Result<PagedResult<McpServerEvent>, Error> GetEvents(
+        McpServerName name,
+        PagingParameters paging,
+        DateRangeFilter? dateFilter = null,
+        SortDirection sortDirection = SortDirection.Descending)
+    {
+        var serverId = _statusCache.GetOrCreateId(name);
+        var pagedEvents = _statusCache.GetEvents(serverId, paging, dateFilter, sortDirection);
+        return Result<PagedResult<McpServerEvent>, Error>.Success(pagedEvents);
     }
 }

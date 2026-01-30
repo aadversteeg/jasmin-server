@@ -1,7 +1,9 @@
 using Core.Application.McpServers;
 using Core.Domain.McpServers;
+using Core.Domain.Paging;
 using Core.Infrastructure.ModelContextProtocol.InMemory;
 using Core.Infrastructure.WebApp.Models.McpServers.Requests;
+using Core.Infrastructure.WebApp.Models.Paging;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 
@@ -93,21 +95,41 @@ public class McpServerRequestsController : ControllerBase
     }
 
     /// <summary>
-    /// Gets all requests for a specific server.
+    /// Gets all requests for a specific server with optional paging, filtering, and sorting.
     /// </summary>
     /// <param name="serverId">The identifier of the MCP server.</param>
     /// <param name="timeZone">Optional timezone for timestamps.</param>
-    /// <returns>A list of requests for the server.</returns>
+    /// <param name="page">Page number (1-based). Default: 1.</param>
+    /// <param name="pageSize">Number of items per page (1-100). Default: 20.</param>
+    /// <param name="orderBy">Field to order by: 'createdAt' or 'completedAt'. Default: 'createdAt'.</param>
+    /// <param name="orderDirection">Sort direction: 'asc' or 'desc'. Default: 'desc'.</param>
+    /// <param name="from">Filter requests from this timestamp (inclusive).</param>
+    /// <param name="to">Filter requests up to this timestamp (inclusive).</param>
+    /// <returns>A paged list of requests for the server.</returns>
     [HttpGet]
-    [ProducesResponseType(typeof(IReadOnlyList<RequestResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PagedResponse<RequestResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public IActionResult GetAll(string serverId, [FromQuery] string? timeZone = null)
+    public IActionResult GetAll(
+        string serverId,
+        [FromQuery] string? timeZone = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string orderBy = "createdAt",
+        [FromQuery] string orderDirection = "desc",
+        [FromQuery] DateTime? from = null,
+        [FromQuery] DateTime? to = null)
     {
         var resolvedTimeZone = ResolveTimeZone(timeZone);
         if (resolvedTimeZone == null)
         {
             return BadRequest(new { error = $"Invalid timezone: {timeZone}" });
+        }
+
+        var pagingResult = PagingParameters.Create(page, pageSize);
+        if (pagingResult.IsFailure)
+        {
+            return BadRequest(new { error = pagingResult.Error.Message });
         }
 
         var serverNameResult = McpServerName.Create(serverId);
@@ -130,10 +152,19 @@ public class McpServerRequestsController : ControllerBase
             return NotFound(new { error = $"MCP server '{serverId}' not found" });
         }
 
-        var requests = _requestStore.GetByServerName(serverName);
-        var responses = requests.Select(r => RequestMapper.ToResponse(r, resolvedTimeZone)).ToList();
+        var dateFilter = new DateRangeFilter(from, to);
+        var sortDir = orderDirection.ToLowerInvariant() == "asc"
+            ? SortDirection.Ascending
+            : SortDirection.Descending;
 
-        return Ok(responses);
+        var pagedRequests = _requestStore.GetByServerName(
+            serverName,
+            pagingResult.Value,
+            dateFilter,
+            orderBy,
+            sortDir);
+
+        return Ok(RequestMapper.ToPagedResponse(pagedRequests, resolvedTimeZone));
     }
 
     /// <summary>

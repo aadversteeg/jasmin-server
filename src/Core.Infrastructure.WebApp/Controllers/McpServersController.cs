@@ -1,9 +1,11 @@
 using Ave.Extensions.Functional;
 using Core.Application.McpServers;
 using Core.Domain.McpServers;
+using Core.Domain.Paging;
 using Core.Infrastructure.ModelContextProtocol.InMemory;
 using Core.Infrastructure.WebApp.Extensions;
 using Core.Infrastructure.WebApp.Models.McpServers;
+using Core.Infrastructure.WebApp.Models.Paging;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 
@@ -130,22 +132,45 @@ public class McpServersController : ControllerBase
     }
 
     /// <summary>
-    /// Gets the events for a specific MCP server.
+    /// Gets the events for a specific MCP server with optional paging, filtering, and sorting.
     /// </summary>
     /// <param name="id">The identifier of the MCP server.</param>
     /// <param name="timeZone">Optional timezone for timestamps. Defaults to configured timezone or UTC.</param>
-    /// <returns>The list of events for the server.</returns>
+    /// <param name="page">Page number (1-based). Default: 1.</param>
+    /// <param name="pageSize">Number of items per page (1-100). Default: 20.</param>
+    /// <param name="orderDirection">Sort direction: 'asc' or 'desc'. Default: 'desc'.</param>
+    /// <param name="from">Filter events from this timestamp (inclusive).</param>
+    /// <param name="to">Filter events up to this timestamp (inclusive).</param>
+    /// <returns>A paged list of events for the server.</returns>
     [HttpGet("{id}/events", Name = "GetMcpServerEvents")]
-    [ProducesResponseType(typeof(IReadOnlyList<EventResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PagedResponse<EventResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public IActionResult GetEvents(string id, [FromQuery] string? timeZone = null)
+    public IActionResult GetEvents(
+        string id,
+        [FromQuery] string? timeZone = null,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string orderDirection = "desc",
+        [FromQuery] DateTime? from = null,
+        [FromQuery] DateTime? to = null)
     {
         var resolvedTimeZone = ResolveTimeZone(timeZone);
         if (resolvedTimeZone == null)
         {
             return BadRequest($"Invalid timezone: {timeZone}");
         }
+
+        var pagingResult = PagingParameters.Create(page, pageSize);
+        if (pagingResult.IsFailure)
+        {
+            return BadRequest(pagingResult.Error.Message);
+        }
+
+        var dateFilter = new DateRangeFilter(from, to);
+        var sortDir = orderDirection.ToLowerInvariant() == "asc"
+            ? SortDirection.Ascending
+            : SortDirection.Descending;
 
         return McpServerName.Create(id)
             .OnSuccessBind(serverName =>
@@ -154,18 +179,18 @@ public class McpServersController : ControllerBase
                 var definitionResult = _mcpServerService.GetById(serverName);
                 if (definitionResult.IsFailure)
                 {
-                    return Result<IReadOnlyList<McpServerEvent>, Core.Domain.Models.Error>.Failure(definitionResult.Error);
+                    return Result<PagedResult<McpServerEvent>, Core.Domain.Models.Error>.Failure(definitionResult.Error);
                 }
 
                 if (!definitionResult.Value.HasValue)
                 {
-                    return Result<IReadOnlyList<McpServerEvent>, Core.Domain.Models.Error>.Failure(
+                    return Result<PagedResult<McpServerEvent>, Core.Domain.Models.Error>.Failure(
                         Core.Domain.Models.Errors.McpServerNotFound(id));
                 }
 
-                return _mcpServerService.GetEvents(serverName);
+                return _mcpServerService.GetEvents(serverName, pagingResult.Value, dateFilter, sortDir);
             })
-            .ToOkResult(events => events.Select(e => Mapper.ToEventResponse(e, resolvedTimeZone)).ToList().AsReadOnly());
+            .ToOkResult(pagedEvents => Mapper.ToPagedResponse(pagedEvents, resolvedTimeZone));
     }
 
     /// <summary>

@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using Ave.Extensions.Functional;
 using Core.Application.McpServers;
 using Core.Domain.McpServers;
+using Core.Domain.Paging;
 
 namespace Core.Infrastructure.ModelContextProtocol.InMemory;
 
@@ -63,5 +64,48 @@ public class McpServerRequestStore : IMcpServerRequestStore
     public void Update(McpServerRequest request)
     {
         _requests[request.Id.Value] = request;
+    }
+
+    /// <inheritdoc />
+    public PagedResult<McpServerRequest> GetByServerName(
+        McpServerName serverName,
+        PagingParameters paging,
+        DateRangeFilter? dateFilter = null,
+        string orderBy = "createdAt",
+        SortDirection sortDirection = SortDirection.Descending)
+    {
+        if (!_serverToRequests.TryGetValue(serverName.Value, out var requestIds))
+        {
+            return new PagedResult<McpServerRequest>([], paging.Page, paging.PageSize, 0);
+        }
+
+        lock (_listLock)
+        {
+            var requests = requestIds
+                .Select(id => _requests.TryGetValue(id, out var req) ? req : null)
+                .Where(req => req != null)
+                .Select(req => req!);
+
+            if (dateFilter != null)
+            {
+                requests = requests.Where(r => dateFilter.IsInRange(r.CreatedAtUtc));
+            }
+
+            var totalItems = requests.Count();
+
+            requests = orderBy.ToLowerInvariant() switch
+            {
+                "completedat" => sortDirection == SortDirection.Ascending
+                    ? requests.OrderBy(r => r.CompletedAtUtc ?? DateTime.MaxValue)
+                    : requests.OrderByDescending(r => r.CompletedAtUtc ?? DateTime.MinValue),
+                _ => sortDirection == SortDirection.Ascending
+                    ? requests.OrderBy(r => r.CreatedAtUtc)
+                    : requests.OrderByDescending(r => r.CreatedAtUtc)
+            };
+
+            var items = requests.Skip(paging.Skip).Take(paging.PageSize).ToList();
+
+            return new PagedResult<McpServerRequest>(items, paging.Page, paging.PageSize, totalItems);
+        }
     }
 }

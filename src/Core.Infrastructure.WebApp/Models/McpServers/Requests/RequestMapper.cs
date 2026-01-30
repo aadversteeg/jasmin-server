@@ -1,6 +1,8 @@
 using Ave.Extensions.Functional;
 using Core.Domain.McpServers;
 using Core.Domain.Models;
+using Core.Domain.Paging;
+using Core.Infrastructure.WebApp.Models.Paging;
 
 namespace Core.Infrastructure.WebApp.Models.McpServers.Requests;
 
@@ -48,6 +50,19 @@ public static class RequestMapper
         var domainRequest = new McpServerRequest(requestId, serverName, action, targetInstanceId);
 
         return Result<McpServerRequest, Error>.Success(domainRequest);
+    }
+
+    public static PagedResponse<RequestResponse> ToPagedResponse(
+        PagedResult<McpServerRequest> source,
+        TimeZoneInfo timeZone)
+    {
+        var items = source.Items.Select(r => ToResponse(r, timeZone)).ToList().AsReadOnly();
+        return new PagedResponse<RequestResponse>(
+            items,
+            source.Page,
+            source.PageSize,
+            source.TotalItems,
+            source.TotalPages);
     }
 
     private static string FormatTimestamp(DateTime utcDateTime, TimeZoneInfo timeZone)

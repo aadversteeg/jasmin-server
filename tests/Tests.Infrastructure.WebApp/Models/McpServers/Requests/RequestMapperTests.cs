@@ -1,4 +1,5 @@
 using Core.Domain.McpServers;
+using Core.Domain.Paging;
 using Core.Infrastructure.WebApp.Models.McpServers.Requests;
 using FluentAssertions;
 using Xunit;
@@ -140,5 +141,54 @@ public class RequestMapperTests
         var result = RequestMapper.ToResponse(request, amsterdamTz);
 
         result.CreatedAt.Should().Contain("+");
+    }
+
+    [Fact(DisplayName = "RMAP-011: ToPagedResponse should map paged requests correctly")]
+    public void RMAP011()
+    {
+        var serverName = McpServerName.Create("chronos").Value;
+        var requests = new List<McpServerRequest>
+        {
+            new(McpServerRequestId.Create(), serverName, McpServerRequestAction.Start),
+            new(McpServerRequestId.Create(), serverName, McpServerRequestAction.Stop, McpServerInstanceId.Create())
+        };
+        var pagedResult = new PagedResult<McpServerRequest>(requests, 2, 10, 25);
+
+        var result = RequestMapper.ToPagedResponse(pagedResult, TimeZoneInfo.Utc);
+
+        result.Items.Should().HaveCount(2);
+        result.Page.Should().Be(2);
+        result.PageSize.Should().Be(10);
+        result.TotalItems.Should().Be(25);
+        result.TotalPages.Should().Be(3);
+    }
+
+    [Fact(DisplayName = "RMAP-012: ToPagedResponse should map request details correctly")]
+    public void RMAP012()
+    {
+        var serverName = McpServerName.Create("chronos").Value;
+        var requests = new List<McpServerRequest>
+        {
+            new(McpServerRequestId.Create(), serverName, McpServerRequestAction.Start)
+        };
+        var pagedResult = new PagedResult<McpServerRequest>(requests, 1, 10, 1);
+
+        var result = RequestMapper.ToPagedResponse(pagedResult, TimeZoneInfo.Utc);
+
+        result.Items[0].ServerName.Should().Be("chronos");
+        result.Items[0].Action.Should().Be("start");
+        result.Items[0].Status.Should().Be("pending");
+    }
+
+    [Fact(DisplayName = "RMAP-013: ToPagedResponse should handle empty paged result")]
+    public void RMAP013()
+    {
+        var pagedResult = new PagedResult<McpServerRequest>([], 1, 10, 0);
+
+        var result = RequestMapper.ToPagedResponse(pagedResult, TimeZoneInfo.Utc);
+
+        result.Items.Should().BeEmpty();
+        result.TotalItems.Should().Be(0);
+        result.TotalPages.Should().Be(0);
     }
 }

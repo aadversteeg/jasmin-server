@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using Core.Application.McpServers;
 using Core.Domain.McpServers;
+using Core.Domain.Paging;
 
 namespace Core.Infrastructure.ModelContextProtocol.InMemory;
 
@@ -73,5 +74,38 @@ public class McpServerConnectionStatusCache : IMcpServerConnectionStatusCache
             }
         }
         return Array.Empty<McpServerEvent>();
+    }
+
+    /// <inheritdoc />
+    public PagedResult<McpServerEvent> GetEvents(
+        McpServerId id,
+        PagingParameters paging,
+        DateRangeFilter? dateFilter = null,
+        SortDirection sortDirection = SortDirection.Descending)
+    {
+        if (!_eventHistory.TryGetValue(id.Value, out var events))
+        {
+            return new PagedResult<McpServerEvent>([], paging.Page, paging.PageSize, 0);
+        }
+
+        lock (_eventLock)
+        {
+            var filtered = events.AsEnumerable();
+
+            if (dateFilter != null)
+            {
+                filtered = filtered.Where(e => dateFilter.IsInRange(e.TimestampUtc));
+            }
+
+            var totalItems = filtered.Count();
+
+            filtered = sortDirection == SortDirection.Ascending
+                ? filtered.OrderBy(e => e.TimestampUtc)
+                : filtered.OrderByDescending(e => e.TimestampUtc);
+
+            var items = filtered.Skip(paging.Skip).Take(paging.PageSize).ToList();
+
+            return new PagedResult<McpServerEvent>(items, paging.Page, paging.PageSize, totalItems);
+        }
     }
 }

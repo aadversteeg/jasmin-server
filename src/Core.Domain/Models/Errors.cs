@@ -44,4 +44,12 @@ public static class Errors
     public static readonly Error InstanceIdRequiredForStop = new(
         ErrorCodes.InstanceIdRequiredForStop,
         "InstanceId is required for stop action.");
+
+    public static Error InvalidPage() => new(
+        ErrorCodes.InvalidPage,
+        "Page must be greater than or equal to 1.");
+
+    public static Error InvalidPageSize() => new(
+        ErrorCodes.InvalidPageSize,
+        "PageSize must be between 1 and 100.");
 }

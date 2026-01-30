@@ -1,4 +1,5 @@
 using Core.Domain.McpServers;
+using Core.Domain.Paging;
 using Core.Infrastructure.WebApp.Models.McpServers;
 using FluentAssertions;
 using Xunit;
@@ -213,5 +214,51 @@ public class MapperTests
         var result = Mapper.ToEventResponse(evt, TimeZoneInfo.Utc);
 
         result.RequestId.Should().BeNull();
+    }
+
+    [Fact(DisplayName = "MAP-015: ToPagedResponse should map paged events correctly")]
+    public void MAP015()
+    {
+        var events = new List<McpServerEvent>
+        {
+            new(McpServerEventType.Starting, new DateTime(2024, 1, 15, 10, 0, 0, DateTimeKind.Utc)),
+            new(McpServerEventType.Started, new DateTime(2024, 1, 15, 10, 0, 1, DateTimeKind.Utc))
+        };
+        var pagedResult = new PagedResult<McpServerEvent>(events, 1, 10, 50);
+
+        var result = Mapper.ToPagedResponse(pagedResult, TimeZoneInfo.Utc);
+
+        result.Items.Should().HaveCount(2);
+        result.Page.Should().Be(1);
+        result.PageSize.Should().Be(10);
+        result.TotalItems.Should().Be(50);
+        result.TotalPages.Should().Be(5);
+    }
+
+    [Fact(DisplayName = "MAP-016: ToPagedResponse should map event details correctly")]
+    public void MAP016()
+    {
+        var events = new List<McpServerEvent>
+        {
+            new(McpServerEventType.Starting, new DateTime(2024, 1, 15, 10, 0, 0, DateTimeKind.Utc))
+        };
+        var pagedResult = new PagedResult<McpServerEvent>(events, 1, 10, 1);
+
+        var result = Mapper.ToPagedResponse(pagedResult, TimeZoneInfo.Utc);
+
+        result.Items[0].EventType.Should().Be("Starting");
+        result.Items[0].TimestampUtc.Should().StartWith("2024-01-15T10:00:00");
+    }
+
+    [Fact(DisplayName = "MAP-017: ToPagedResponse should handle empty paged result")]
+    public void MAP017()
+    {
+        var pagedResult = new PagedResult<McpServerEvent>([], 1, 10, 0);
+
+        var result = Mapper.ToPagedResponse(pagedResult, TimeZoneInfo.Utc);
+
+        result.Items.Should().BeEmpty();
+        result.TotalItems.Should().Be(0);
+        result.TotalPages.Should().Be(0);
     }
 }

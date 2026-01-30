@@ -15,4 +15,6 @@ public static class ErrorCodes
     public static readonly ErrorCode InvalidIncludeOption = new("INVALID_INCLUDE_OPTION");
     public static readonly ErrorCode InvalidRequestAction = new("INVALID_REQUEST_ACTION");
     public static readonly ErrorCode InstanceIdRequiredForStop = new("INSTANCE_ID_REQUIRED_FOR_STOP");
+    public static readonly ErrorCode InvalidPage = new("INVALID_PAGE");
+    public static readonly ErrorCode InvalidPageSize = new("INVALID_PAGE_SIZE");
 }
