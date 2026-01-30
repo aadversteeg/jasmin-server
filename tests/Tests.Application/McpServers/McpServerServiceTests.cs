@@ -11,12 +11,14 @@ namespace Tests.Application.McpServers;
 public class McpServerServiceTests
 {
     private readonly Mock<IMcpServerRepository> _mockRepository;
+    private readonly Mock<IMcpServerConnectionStatusCache> _mockStatusCache;
     private readonly McpServerService _service;
 
     public McpServerServiceTests()
     {
         _mockRepository = new Mock<IMcpServerRepository>();
-        _service = new McpServerService(_mockRepository.Object);
+        _mockStatusCache = new Mock<IMcpServerConnectionStatusCache>();
+        _service = new McpServerService(_mockRepository.Object, _mockStatusCache.Object);
     }
 
     [Fact(DisplayName = "MSS-001: GetAll should delegate to repository")]

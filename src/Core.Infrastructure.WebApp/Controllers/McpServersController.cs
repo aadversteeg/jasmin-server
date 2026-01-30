@@ -7,6 +7,8 @@ using Core.Infrastructure.WebApp.Models.McpServers;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 
+using McpServerEvent = Core.Domain.McpServers.McpServerEvent;
+
 namespace Core.Infrastructure.WebApp.Controllers;
 
 /// <summary>
@@ -71,16 +73,99 @@ public class McpServersController : ControllerBase
     /// Gets the full configuration for a specific MCP server.
     /// </summary>
     /// <param name="id">The identifier of the MCP server.</param>
+    /// <param name="include">Optional comma-separated list of additional data to include (e.g., "events" or "all").</param>
+    /// <param name="timeZone">Optional timezone for timestamps. Defaults to configured timezone or UTC.</param>
     /// <returns>The server definition if found.</returns>
     [HttpGet("{id}", Name = "GetMcpServerById")]
     [ProducesResponseType(typeof(DetailsResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public IActionResult GetById(string id)
+    public IActionResult GetById(string id, [FromQuery] string? include = null, [FromQuery] string? timeZone = null)
     {
+        var resolvedTimeZone = ResolveTimeZone(timeZone);
+        if (resolvedTimeZone == null)
+        {
+            return BadRequest($"Invalid timezone: {timeZone}");
+        }
+
+        var includeOptionsResult = McpServerIncludeOptions.Create(include);
+        if (includeOptionsResult.IsFailure)
+        {
+            return BadRequest(includeOptionsResult.Error.Message);
+        }
+
+        var includeOptions = includeOptionsResult.Value;
+
+        var serverNameResult = McpServerName.Create(id);
+        if (serverNameResult.IsFailure)
+        {
+            return BadRequest(serverNameResult.Error.Message);
+        }
+
+        var serverName = serverNameResult.Value;
+        var definitionResult = _mcpServerService.GetById(serverName);
+        if (definitionResult.IsFailure)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, definitionResult.Error.Message);
+        }
+
+        if (!definitionResult.Value.HasValue)
+        {
+            return NotFound();
+        }
+
+        var definition = definitionResult.Value.Value;
+        IReadOnlyList<McpServerEvent>? events = null;
+
+        if (includeOptions.IncludeEvents)
+        {
+            var eventsResult = _mcpServerService.GetEvents(serverName);
+            if (eventsResult.IsSuccess)
+            {
+                events = eventsResult.Value;
+            }
+        }
+
+        return Ok(Mapper.ToDetailsResponse(definition, events, resolvedTimeZone));
+    }
+
+    /// <summary>
+    /// Gets the events for a specific MCP server.
+    /// </summary>
+    /// <param name="id">The identifier of the MCP server.</param>
+    /// <param name="timeZone">Optional timezone for timestamps. Defaults to configured timezone or UTC.</param>
+    /// <returns>The list of events for the server.</returns>
+    [HttpGet("{id}/events", Name = "GetMcpServerEvents")]
+    [ProducesResponseType(typeof(IReadOnlyList<EventResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public IActionResult GetEvents(string id, [FromQuery] string? timeZone = null)
+    {
+        var resolvedTimeZone = ResolveTimeZone(timeZone);
+        if (resolvedTimeZone == null)
+        {
+            return BadRequest($"Invalid timezone: {timeZone}");
+        }
+
         return McpServerName.Create(id)
-            .OnSuccessBind(_mcpServerService.GetById)
-            .ToActionResult(Mapper.ToDetailsResponse);
+            .OnSuccessBind(serverName =>
+            {
+                // First check if the server exists
+                var definitionResult = _mcpServerService.GetById(serverName);
+                if (definitionResult.IsFailure)
+                {
+                    return Result<IReadOnlyList<McpServerEvent>, Core.Domain.Models.Error>.Failure(definitionResult.Error);
+                }
+
+                if (!definitionResult.Value.HasValue)
+                {
+                    return Result<IReadOnlyList<McpServerEvent>, Core.Domain.Models.Error>.Failure(
+                        Core.Domain.Models.Errors.McpServerNotFound(id));
+                }
+
+                return _mcpServerService.GetEvents(serverName);
+            })
+            .ToOkResult(events => events.Select(e => Mapper.ToEventResponse(e, resolvedTimeZone)).ToList().AsReadOnly());
     }
 
     /// <summary>

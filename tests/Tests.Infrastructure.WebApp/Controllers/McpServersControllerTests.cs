@@ -11,6 +11,8 @@ using Microsoft.Extensions.Options;
 using Moq;
 using Xunit;
 
+using McpServerEvent = Core.Domain.McpServers.McpServerEvent;
+
 namespace Tests.Infrastructure.WebApp.Controllers;
 
 public class McpServersControllerTests
@@ -206,6 +208,123 @@ public class McpServersControllerTests
     public void MSC013()
     {
         var result = _controller.Delete("");
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact(DisplayName = "MSC-014: GetById with include=events should return server with events")]
+    public void MSC014()
+    {
+        var chronosId = McpServerName.Create("chronos").Value;
+        var server = new McpServerDefinition(
+            chronosId,
+            "docker",
+            new List<string> { "run" }.AsReadOnly(),
+            new Dictionary<string, string>().AsReadOnly());
+        var events = new List<McpServerEvent>
+        {
+            new(McpServerEventType.Starting, new DateTime(2024, 1, 15, 10, 0, 0, DateTimeKind.Utc)),
+            new(McpServerEventType.Started, new DateTime(2024, 1, 15, 10, 0, 1, DateTimeKind.Utc))
+        };
+        _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
+            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
+        _mockService.Setup(x => x.GetEvents(It.Is<McpServerName>(id => id.Value == "chronos")))
+            .Returns(Result<IReadOnlyList<McpServerEvent>, Error>.Success(events));
+
+        var result = _controller.GetById("chronos", "events");
+
+        result.Should().BeOfType<OkObjectResult>();
+        var okResult = (OkObjectResult)result;
+        var response = okResult.Value as DetailsResponse;
+        response.Should().NotBeNull();
+        response!.Name.Should().Be("chronos");
+        response.Events.Should().NotBeNull();
+        response.Events.Should().HaveCount(2);
+        response.Events![0].EventType.Should().Be("Starting");
+        response.Events[1].EventType.Should().Be("Started");
+    }
+
+    [Fact(DisplayName = "MSC-015: GetById without include should not return events")]
+    public void MSC015()
+    {
+        var chronosId = McpServerName.Create("chronos").Value;
+        var server = new McpServerDefinition(
+            chronosId,
+            "docker",
+            new List<string> { "run" }.AsReadOnly(),
+            new Dictionary<string, string>().AsReadOnly());
+        _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
+            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
+
+        var result = _controller.GetById("chronos");
+
+        result.Should().BeOfType<OkObjectResult>();
+        var okResult = (OkObjectResult)result;
+        var response = okResult.Value as DetailsResponse;
+        response.Should().NotBeNull();
+        response!.Events.Should().BeNull();
+    }
+
+    [Fact(DisplayName = "MSC-016: GetById with invalid include should return BadRequest")]
+    public void MSC016()
+    {
+        var result = _controller.GetById("chronos", "invalid");
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact(DisplayName = "MSC-017: GetEvents should return events for existing server")]
+    public void MSC017()
+    {
+        var chronosId = McpServerName.Create("chronos").Value;
+        var server = new McpServerDefinition(
+            chronosId,
+            "docker",
+            new List<string>().AsReadOnly(),
+            new Dictionary<string, string>().AsReadOnly());
+        var events = new List<McpServerEvent>
+        {
+            new(McpServerEventType.Starting, new DateTime(2024, 1, 15, 10, 0, 0, DateTimeKind.Utc)),
+            new(McpServerEventType.Started, new DateTime(2024, 1, 15, 10, 0, 1, DateTimeKind.Utc))
+        };
+        _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
+            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
+        _mockService.Setup(x => x.GetEvents(It.Is<McpServerName>(id => id.Value == "chronos")))
+            .Returns(Result<IReadOnlyList<McpServerEvent>, Error>.Success(events));
+
+        var result = _controller.GetEvents("chronos");
+
+        result.Should().BeOfType<OkObjectResult>();
+        var okResult = (OkObjectResult)result;
+        var response = okResult.Value as IReadOnlyList<EventResponse>;
+        response.Should().NotBeNull();
+        response.Should().HaveCount(2);
+        response![0].EventType.Should().Be("Starting");
+    }
+
+    [Fact(DisplayName = "MSC-018: GetEvents should return NotFound for non-existent server")]
+    public void MSC018()
+    {
+        _mockService.Setup(x => x.GetById(It.IsAny<McpServerName>()))
+            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe<McpServerDefinition>.None));
+
+        var result = _controller.GetEvents("non-existent");
+
+        result.Should().BeOfType<NotFoundObjectResult>();
+    }
+
+    [Fact(DisplayName = "MSC-019: GetEvents should return BadRequest for invalid timezone")]
+    public void MSC019()
+    {
+        var result = _controller.GetEvents("chronos", "Invalid/Timezone");
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact(DisplayName = "MSC-020: GetById with invalid timezone should return BadRequest")]
+    public void MSC020()
+    {
+        var result = _controller.GetById("chronos", null, "Invalid/Timezone");
 
         result.Should().BeOfType<BadRequestObjectResult>();
     }

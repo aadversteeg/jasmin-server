@@ -7,4 +7,5 @@ public record DetailsResponse(
     string Name,
     string Command,
     IReadOnlyList<string> Args,
-    IReadOnlyDictionary<string, string> Env);
+    IReadOnlyDictionary<string, string> Env,
+    IReadOnlyList<EventResponse>? Events = null);

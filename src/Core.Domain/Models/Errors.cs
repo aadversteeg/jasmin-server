@@ -32,4 +32,8 @@ public static class Errors
     public static Error McpServerNotFound(string id) => new(
         ErrorCodes.McpServerNotFound,
         $"MCP server with id '{id}' was not found.");
+
+    public static Error InvalidIncludeOption(string option) => new(
+        ErrorCodes.InvalidIncludeOption,
+        $"Invalid value for include option: '{option}'. Valid options are: events, all");
 }

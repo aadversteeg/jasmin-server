@@ -2,6 +2,8 @@ using Ave.Extensions.Functional;
 using Core.Domain.McpServers;
 using Core.Domain.Models;
 
+using McpServerEvent = Core.Domain.McpServers.McpServerEvent;
+
 namespace Core.Infrastructure.WebApp.Models.McpServers;
 
 /// <summary>
@@ -38,6 +40,43 @@ public static class Mapper
 
     public static DetailsResponse ToDetailsResponse(McpServerDefinition source) =>
         new(source.Id.Value, source.Command, source.Args, source.Env);
+
+    public static DetailsResponse ToDetailsResponse(
+        McpServerDefinition source,
+        IReadOnlyList<McpServerEvent>? events,
+        TimeZoneInfo timeZone)
+    {
+        IReadOnlyList<EventResponse>? eventResponses = null;
+        if (events != null)
+        {
+            eventResponses = events.Select(e => ToEventResponse(e, timeZone)).ToList().AsReadOnly();
+        }
+
+        return new(source.Id.Value, source.Command, source.Args, source.Env, eventResponses);
+    }
+
+    public static EventResponse ToEventResponse(McpServerEvent source, TimeZoneInfo timeZone)
+    {
+        var utcDateTime = DateTime.SpecifyKind(source.TimestampUtc, DateTimeKind.Utc);
+        string timestamp;
+
+        if (timeZone == TimeZoneInfo.Utc)
+        {
+            timestamp = utcDateTime.ToString("yyyy-MM-ddTHH:mm:ss.fffffffZ");
+        }
+        else
+        {
+            var convertedDateTime = TimeZoneInfo.ConvertTimeFromUtc(utcDateTime, timeZone);
+            var offset = timeZone.GetUtcOffset(convertedDateTime);
+            var dateTimeOffset = new DateTimeOffset(convertedDateTime, offset);
+            timestamp = dateTimeOffset.ToString("yyyy-MM-ddTHH:mm:ss.fffffffzzz");
+        }
+
+        return new(
+            source.EventType.ToString(),
+            timestamp,
+            source.ErrorMessage);
+    }
 
     public static Result<McpServerDefinition, Error> ToDomain(CreateRequest request) =>
         McpServerName.Create(request.Name)

@@ -2,6 +2,8 @@ using Ave.Extensions.Functional;
 using Core.Domain.McpServers;
 using Core.Domain.Models;
 
+using McpServerEvent = Core.Domain.McpServers.McpServerEvent;
+
 namespace Core.Application.McpServers;
 
 /// <summary>
@@ -42,4 +44,11 @@ public interface IMcpServerService
     /// <param name="id">The identifier of the MCP server to delete.</param>
     /// <returns>A result indicating success or failure.</returns>
     Result<Unit, Error> Delete(McpServerName id);
+
+    /// <summary>
+    /// Gets the events for a specific MCP server.
+    /// </summary>
+    /// <param name="name">The name of the MCP server.</param>
+    /// <returns>A result containing the list of events.</returns>
+    Result<IReadOnlyList<McpServerEvent>, Error> GetEvents(McpServerName name);
 }

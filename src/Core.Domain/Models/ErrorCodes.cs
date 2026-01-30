@@ -12,4 +12,5 @@ public static class ErrorCodes
     public static readonly ErrorCode ConfigFileWriteError = new("CONFIG_FILE_WRITE_ERROR");
     public static readonly ErrorCode DuplicateMcpServerName = new("DUPLICATE_MCP_SERVER_NAME");
     public static readonly ErrorCode McpServerNotFound = new("MCP_SERVER_NOT_FOUND");
+    public static readonly ErrorCode InvalidIncludeOption = new("INVALID_INCLUDE_OPTION");
 }
