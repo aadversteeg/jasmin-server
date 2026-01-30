@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Core.Domain.McpServers;
 using Core.Domain.Paging;
 using Core.Infrastructure.WebApp.Models.McpServers.Requests;
@@ -197,5 +198,136 @@ public class RequestMapperTests
         result.Items.Should().BeEmpty();
         result.TotalItems.Should().Be(0);
         result.TotalPages.Should().Be(0);
+    }
+
+    [Fact(DisplayName = "RMAP-014: ToDomain should create InvokeTool request with all fields")]
+    public void RMAP014()
+    {
+        var serverName = McpServerName.Create("chronos").Value;
+        var instanceId = "550e8400-e29b-41d4-a716-446655440000";
+        var input = JsonSerializer.SerializeToElement(new { timezoneId = "Europe/Amsterdam" });
+        var createRequest = new CreateRequestRequest("invokeTool", instanceId, "get_current_date_and_time", input);
+
+        var result = RequestMapper.ToDomain(serverName, createRequest);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Action.Should().Be(McpServerRequestAction.InvokeTool);
+        result.Value.TargetInstanceId!.Value.Should().Be(instanceId);
+        result.Value.ToolName.Should().Be("get_current_date_and_time");
+        result.Value.Input.Should().NotBeNull();
+    }
+
+    [Fact(DisplayName = "RMAP-015: ToDomain should fail for InvokeTool without instance ID")]
+    public void RMAP015()
+    {
+        var serverName = McpServerName.Create("chronos").Value;
+        var createRequest = new CreateRequestRequest("invokeTool", null, "get_current_date_and_time");
+
+        var result = RequestMapper.ToDomain(serverName, createRequest);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Message.Should().Contain("InstanceId is required");
+    }
+
+    [Fact(DisplayName = "RMAP-016: ToDomain should fail for InvokeTool without tool name")]
+    public void RMAP016()
+    {
+        var serverName = McpServerName.Create("chronos").Value;
+        var instanceId = "550e8400-e29b-41d4-a716-446655440000";
+        var createRequest = new CreateRequestRequest("invokeTool", instanceId, null);
+
+        var result = RequestMapper.ToDomain(serverName, createRequest);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Message.Should().Contain("ToolName is required");
+    }
+
+    [Fact(DisplayName = "RMAP-017: ToResponse should map InvokeTool request with tool name and input")]
+    public void RMAP017()
+    {
+        var requestId = McpServerRequestId.Create();
+        var serverName = McpServerName.Create("chronos").Value;
+        var targetInstanceId = McpServerInstanceId.Create();
+        var input = JsonSerializer.SerializeToElement(new { timezoneId = "Europe/Amsterdam" });
+        var request = new McpServerRequest(
+            requestId,
+            serverName,
+            McpServerRequestAction.InvokeTool,
+            targetInstanceId,
+            "get_current_date_and_time",
+            input);
+
+        var result = RequestMapper.ToResponse(request, TimeZoneInfo.Utc);
+
+        result.Action.Should().Be("invoketool");
+        result.TargetInstanceId.Should().Be(targetInstanceId.Value);
+        result.ToolName.Should().Be("get_current_date_and_time");
+        result.Input.Should().NotBeNull();
+    }
+
+    [Fact(DisplayName = "RMAP-018: ToResponse should map completed InvokeTool request with output")]
+    public void RMAP018()
+    {
+        var requestId = McpServerRequestId.Create();
+        var serverName = McpServerName.Create("chronos").Value;
+        var targetInstanceId = McpServerInstanceId.Create();
+        var input = JsonSerializer.SerializeToElement(new { timezoneId = "Europe/Amsterdam" });
+        var request = new McpServerRequest(
+            requestId,
+            serverName,
+            McpServerRequestAction.InvokeTool,
+            targetInstanceId,
+            "get_current_date_and_time",
+            input);
+
+        var outputContent = new
+        {
+            Content = new[]
+            {
+                new { Type = "text", Text = "Current time: 2024-01-15T10:30:00+01:00" }
+            },
+            IsError = false
+        };
+        var output = JsonSerializer.SerializeToElement(outputContent);
+        request.MarkCompletedWithOutput(output);
+
+        var result = RequestMapper.ToResponse(request, TimeZoneInfo.Utc);
+
+        result.Status.Should().Be("completed");
+        result.Output.Should().NotBeNull();
+        result.Output!.Content.Should().HaveCount(1);
+        result.Output.Content[0].Type.Should().Be("text");
+        result.Output.IsError.Should().BeFalse();
+    }
+
+    [Fact(DisplayName = "RMAP-019: ToResponse should handle InvokeTool request without output")]
+    public void RMAP019()
+    {
+        var requestId = McpServerRequestId.Create();
+        var serverName = McpServerName.Create("chronos").Value;
+        var targetInstanceId = McpServerInstanceId.Create();
+        var request = new McpServerRequest(
+            requestId,
+            serverName,
+            McpServerRequestAction.InvokeTool,
+            targetInstanceId,
+            "get_current_date_and_time");
+
+        var result = RequestMapper.ToResponse(request, TimeZoneInfo.Utc);
+
+        result.Output.Should().BeNull();
+    }
+
+    [Fact(DisplayName = "RMAP-020: ToDomain should accept InvokeTool with case-insensitive action")]
+    public void RMAP020()
+    {
+        var serverName = McpServerName.Create("chronos").Value;
+        var instanceId = "550e8400-e29b-41d4-a716-446655440000";
+        var createRequest = new CreateRequestRequest("INVOKETOOL", instanceId, "test_tool");
+
+        var result = RequestMapper.ToDomain(serverName, createRequest);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Action.Should().Be(McpServerRequestAction.InvokeTool);
     }
 }

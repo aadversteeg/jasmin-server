@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Core.Application.McpServers;
 using Core.Domain.McpServers;
 using Microsoft.Extensions.Hosting;
@@ -69,9 +70,13 @@ public class McpServerRequestProcessorService : BackgroundService
             {
                 await ProcessStartRequestAsync(request, cancellationToken);
             }
-            else
+            else if (request.Action == McpServerRequestAction.Stop)
             {
                 await ProcessStopRequestAsync(request, cancellationToken);
+            }
+            else if (request.Action == McpServerRequestAction.InvokeTool)
+            {
+                await ProcessInvokeToolRequestAsync(request, cancellationToken);
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -142,6 +147,54 @@ public class McpServerRequestProcessorService : BackgroundService
             }.AsReadOnly();
             _statusCache.RecordEvent(serverId, McpServerEventType.StopFailed, eventErrors, request.TargetInstanceId, request.Id);
 
+            request.MarkFailed(ToRequestErrors(result.Error));
+            _logger.LogWarning("Request {RequestId} failed: {Error}",
+                request.Id.Value, result.Error.Message);
+        }
+
+        _store.Update(request);
+    }
+
+    private async Task ProcessInvokeToolRequestAsync(McpServerRequest request, CancellationToken cancellationToken)
+    {
+        if (request.TargetInstanceId == null)
+        {
+            request.MarkFailed(ToRequestErrors("INSTANCE_ID_REQUIRED_FOR_INVOKE_TOOL", "InstanceId is required for invokeTool action"));
+            _store.Update(request);
+            return;
+        }
+
+        if (string.IsNullOrEmpty(request.ToolName))
+        {
+            request.MarkFailed(ToRequestErrors("TOOL_NAME_REQUIRED", "ToolName is required for invokeTool action"));
+            _store.Update(request);
+            return;
+        }
+
+        // Convert JsonElement input to dictionary for the instance manager
+        IReadOnlyDictionary<string, object?>? arguments = null;
+        if (request.Input.HasValue)
+        {
+            arguments = JsonSerializer.Deserialize<Dictionary<string, object?>>(request.Input.Value);
+        }
+
+        var result = await _instanceManager.InvokeToolAsync(
+            request.ServerName,
+            request.TargetInstanceId,
+            request.ToolName,
+            arguments,
+            request.Id,
+            cancellationToken);
+
+        if (result.IsSuccess)
+        {
+            var outputJson = JsonSerializer.SerializeToElement(result.Value);
+            request.MarkCompletedWithOutput(outputJson);
+            _logger.LogInformation("Request {RequestId} completed: invoked tool {ToolName} on instance {InstanceId}",
+                request.Id.Value, request.ToolName, request.TargetInstanceId.Value);
+        }
+        else
+        {
             request.MarkFailed(ToRequestErrors(result.Error));
             _logger.LogWarning("Request {RequestId} failed: {Error}",
                 request.Id.Value, result.Error.Message);

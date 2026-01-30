@@ -59,4 +59,22 @@ public interface IMcpServerInstanceManager
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task StopAllAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Invokes a tool on a running instance.
+    /// </summary>
+    /// <param name="serverName">The name of the server.</param>
+    /// <param name="instanceId">The ID of the instance to invoke the tool on.</param>
+    /// <param name="toolName">The name of the tool to invoke.</param>
+    /// <param name="arguments">Optional arguments to pass to the tool.</param>
+    /// <param name="requestId">Optional request ID for tracking this operation.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A result containing the tool invocation result if successful, or an error.</returns>
+    Task<Result<McpToolInvocationResult, Error>> InvokeToolAsync(
+        McpServerName serverName,
+        McpServerInstanceId instanceId,
+        string toolName,
+        IReadOnlyDictionary<string, object?>? arguments,
+        McpServerRequestId? requestId = null,
+        CancellationToken cancellationToken = default);
 }

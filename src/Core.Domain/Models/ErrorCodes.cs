@@ -21,4 +21,7 @@ public static class ErrorCodes
     public static readonly ErrorCode InvalidPageSize = new("INVALID_PAGE_SIZE");
     public static readonly ErrorCode ConfigurationRequired = new("CONFIGURATION_REQUIRED");
     public static readonly ErrorCode ConfigurationMissing = new("CONFIGURATION_MISSING");
+    public static readonly ErrorCode ToolNameRequired = new("TOOL_NAME_REQUIRED");
+    public static readonly ErrorCode ToolInvocationFailed = new("TOOL_INVOCATION_FAILED");
+    public static readonly ErrorCode InstanceIdRequiredForInvokeTool = new("INSTANCE_ID_REQUIRED_FOR_INVOKE_TOOL");
 }

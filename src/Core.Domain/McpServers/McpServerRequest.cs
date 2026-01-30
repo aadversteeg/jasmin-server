@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace Core.Domain.McpServers;
 
 /// <summary>
@@ -27,11 +29,28 @@ public class McpServerRequest
     /// </summary>
     public IReadOnlyList<McpServerRequestError>? Errors { get; private set; }
 
+    /// <summary>
+    /// For InvokeTool actions: the name of the tool to invoke.
+    /// </summary>
+    public string? ToolName { get; }
+
+    /// <summary>
+    /// For InvokeTool actions: the input arguments for the tool.
+    /// </summary>
+    public JsonElement? Input { get; }
+
+    /// <summary>
+    /// For InvokeTool actions: the output from the tool invocation.
+    /// </summary>
+    public JsonElement? Output { get; private set; }
+
     public McpServerRequest(
         McpServerRequestId id,
         McpServerName serverName,
         McpServerRequestAction action,
-        McpServerInstanceId? targetInstanceId = null)
+        McpServerInstanceId? targetInstanceId = null,
+        string? toolName = null,
+        JsonElement? input = null)
     {
         Id = id;
         ServerName = serverName;
@@ -39,6 +58,8 @@ public class McpServerRequest
         Status = McpServerRequestStatus.Pending;
         CreatedAtUtc = DateTime.UtcNow;
         TargetInstanceId = targetInstanceId;
+        ToolName = toolName;
+        Input = input;
     }
 
     public void MarkRunning()
@@ -51,6 +72,13 @@ public class McpServerRequest
         Status = McpServerRequestStatus.Completed;
         CompletedAtUtc = DateTime.UtcNow;
         ResultInstanceId = resultInstanceId;
+    }
+
+    public void MarkCompletedWithOutput(JsonElement output)
+    {
+        Status = McpServerRequestStatus.Completed;
+        CompletedAtUtc = DateTime.UtcNow;
+        Output = output;
     }
 
     public void MarkFailed(IReadOnlyList<McpServerRequestError> errors)

@@ -13,5 +13,10 @@ public enum McpServerRequestAction
     /// <summary>
     /// Request to stop an existing server instance.
     /// </summary>
-    Stop = 1
+    Stop = 1,
+
+    /// <summary>
+    /// Request to invoke a tool on a running instance.
+    /// </summary>
+    InvokeTool = 2
 }

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Core.Domain.McpServers;
 using Core.Infrastructure.ModelContextProtocol.InMemory;
 using FluentAssertions;
@@ -342,5 +343,126 @@ public class McpServerConnectionStatusCacheTests
         cached.Should().NotBeNull();
         cached!.RetrievalErrors.Should().HaveCount(2);
         cached.RetrievalErrors![0].Category.Should().Be("Tools");
+    }
+
+    [Fact(DisplayName = "MCSC-022: RecordEvent should store tool invocation data")]
+    public void MCSC022()
+    {
+        var id = McpServerId.Create();
+        var instanceId = McpServerInstanceId.Create();
+        var requestId = McpServerRequestId.Create();
+        var input = JsonSerializer.SerializeToElement(new { timezoneId = "Europe/Amsterdam" });
+        var toolInvocationData = new McpServerToolInvocationEventData("get_time", input, null);
+
+        _cache.RecordEvent(
+            id,
+            McpServerEventType.ToolInvoking,
+            instanceId: instanceId,
+            requestId: requestId,
+            toolInvocationData: toolInvocationData);
+
+        var events = _cache.GetEvents(id);
+        events.Should().HaveCount(1);
+        events[0].EventType.Should().Be(McpServerEventType.ToolInvoking);
+        events[0].InstanceId.Should().Be(instanceId);
+        events[0].RequestId.Should().Be(requestId);
+        events[0].ToolInvocationData.Should().NotBeNull();
+        events[0].ToolInvocationData!.ToolName.Should().Be("get_time");
+    }
+
+    [Fact(DisplayName = "MCSC-023: RecordEvent should store ToolInvocationAccepted event")]
+    public void MCSC023()
+    {
+        var id = McpServerId.Create();
+        var instanceId = McpServerInstanceId.Create();
+        var input = JsonSerializer.SerializeToElement(new { param = "value" });
+        var toolInvocationData = new McpServerToolInvocationEventData("test_tool", input, null);
+
+        _cache.RecordEvent(
+            id,
+            McpServerEventType.ToolInvocationAccepted,
+            instanceId: instanceId,
+            toolInvocationData: toolInvocationData);
+
+        var events = _cache.GetEvents(id);
+        events.Should().HaveCount(1);
+        events[0].EventType.Should().Be(McpServerEventType.ToolInvocationAccepted);
+        events[0].ToolInvocationData!.ToolName.Should().Be("test_tool");
+    }
+
+    [Fact(DisplayName = "MCSC-024: RecordEvent should store ToolInvoked event with output")]
+    public void MCSC024()
+    {
+        var id = McpServerId.Create();
+        var instanceId = McpServerInstanceId.Create();
+        var input = JsonSerializer.SerializeToElement(new { param = "value" });
+        var output = JsonSerializer.SerializeToElement(new { result = "success" });
+        var toolInvocationData = new McpServerToolInvocationEventData("test_tool", input, output);
+
+        _cache.RecordEvent(
+            id,
+            McpServerEventType.ToolInvoked,
+            instanceId: instanceId,
+            toolInvocationData: toolInvocationData);
+
+        var events = _cache.GetEvents(id);
+        events.Should().HaveCount(1);
+        events[0].EventType.Should().Be(McpServerEventType.ToolInvoked);
+        events[0].ToolInvocationData!.Output.Should().NotBeNull();
+    }
+
+    [Fact(DisplayName = "MCSC-025: RecordEvent should store ToolInvocationFailed event with errors")]
+    public void MCSC025()
+    {
+        var id = McpServerId.Create();
+        var instanceId = McpServerInstanceId.Create();
+        var input = JsonSerializer.SerializeToElement(new { param = "value" });
+        var toolInvocationData = new McpServerToolInvocationEventData("test_tool", input, null);
+        var errors = new List<McpServerEventError>
+        {
+            new("ToolNotFound", "Tool 'test_tool' was not found")
+        }.AsReadOnly();
+
+        _cache.RecordEvent(
+            id,
+            McpServerEventType.ToolInvocationFailed,
+            errors,
+            instanceId: instanceId,
+            toolInvocationData: toolInvocationData);
+
+        var events = _cache.GetEvents(id);
+        events.Should().HaveCount(1);
+        events[0].EventType.Should().Be(McpServerEventType.ToolInvocationFailed);
+        events[0].Errors.Should().NotBeNull();
+        events[0].Errors.Should().HaveCount(1);
+        events[0].ToolInvocationData!.ToolName.Should().Be("test_tool");
+    }
+
+    [Fact(DisplayName = "MCSC-026: Tool invocation events should maintain order")]
+    public void MCSC026()
+    {
+        var id = McpServerId.Create();
+        var instanceId = McpServerInstanceId.Create();
+        var requestId = McpServerRequestId.Create();
+        var input = JsonSerializer.SerializeToElement(new { param = "value" });
+        var output = JsonSerializer.SerializeToElement(new { result = "done" });
+
+        _cache.RecordEvent(id, McpServerEventType.ToolInvocationAccepted,
+            instanceId: instanceId, requestId: requestId,
+            toolInvocationData: new McpServerToolInvocationEventData("tool", input, null));
+        Thread.Sleep(10);
+        _cache.RecordEvent(id, McpServerEventType.ToolInvoking,
+            instanceId: instanceId, requestId: requestId,
+            toolInvocationData: new McpServerToolInvocationEventData("tool", input, null));
+        Thread.Sleep(10);
+        _cache.RecordEvent(id, McpServerEventType.ToolInvoked,
+            instanceId: instanceId, requestId: requestId,
+            toolInvocationData: new McpServerToolInvocationEventData("tool", input, output));
+
+        var events = _cache.GetEvents(id);
+        events.Should().HaveCount(3);
+        events[0].EventType.Should().Be(McpServerEventType.ToolInvocationAccepted);
+        events[1].EventType.Should().Be(McpServerEventType.ToolInvoking);
+        events[2].EventType.Should().Be(McpServerEventType.ToolInvoked);
     }
 }

@@ -117,4 +117,72 @@ public class McpServerRequestTests
         request.Errors.Should().BeNull();
         request.TargetInstanceId.Should().BeNull();
     }
+
+    [Fact(DisplayName = "REQ-009: InvokeTool action should have ToolName and Input")]
+    public void REQ009()
+    {
+        var requestId = McpServerRequestId.Create();
+        var serverName = McpServerName.Create("test-server").Value;
+        var targetInstanceId = McpServerInstanceId.Create();
+        var input = System.Text.Json.JsonSerializer.SerializeToElement(new { timezoneId = "Europe/Amsterdam" });
+
+        var request = new McpServerRequest(
+            requestId,
+            serverName,
+            McpServerRequestAction.InvokeTool,
+            targetInstanceId,
+            "get_current_date_and_time",
+            input);
+
+        request.Action.Should().Be(McpServerRequestAction.InvokeTool);
+        request.TargetInstanceId.Should().Be(targetInstanceId);
+        request.ToolName.Should().Be("get_current_date_and_time");
+        request.Input.Should().NotBeNull();
+    }
+
+    [Fact(DisplayName = "REQ-010: MarkCompletedWithOutput should set status, timestamp, and output")]
+    public void REQ010()
+    {
+        var requestId = McpServerRequestId.Create();
+        var serverName = McpServerName.Create("test-server").Value;
+        var targetInstanceId = McpServerInstanceId.Create();
+        var request = new McpServerRequest(
+            requestId,
+            serverName,
+            McpServerRequestAction.InvokeTool,
+            targetInstanceId,
+            "get_current_date_and_time");
+        var beforeCompletion = DateTime.UtcNow;
+        var output = System.Text.Json.JsonSerializer.SerializeToElement(new { result = "2024-01-15T10:30:00+01:00" });
+
+        request.MarkCompletedWithOutput(output);
+
+        request.Status.Should().Be(McpServerRequestStatus.Completed);
+        request.CompletedAtUtc.Should().NotBeNull();
+        request.CompletedAtUtc!.Value.Should().BeOnOrAfter(beforeCompletion);
+        request.Output.Should().NotBeNull();
+    }
+
+    [Fact(DisplayName = "REQ-011: New InvokeTool request should have null Output")]
+    public void REQ011()
+    {
+        var requestId = McpServerRequestId.Create();
+        var serverName = McpServerName.Create("test-server").Value;
+        var targetInstanceId = McpServerInstanceId.Create();
+
+        var request = new McpServerRequest(
+            requestId,
+            serverName,
+            McpServerRequestAction.InvokeTool,
+            targetInstanceId,
+            "test-tool");
+
+        request.Output.Should().BeNull();
+    }
+
+    [Fact(DisplayName = "REQ-012: InvokeTool action enum value should be 2")]
+    public void REQ012()
+    {
+        ((int)McpServerRequestAction.InvokeTool).Should().Be(2);
+    }
 }

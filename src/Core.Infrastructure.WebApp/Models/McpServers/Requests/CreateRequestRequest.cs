@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace Core.Infrastructure.WebApp.Models.McpServers.Requests;
 
 /// <summary>
@@ -5,4 +7,6 @@ namespace Core.Infrastructure.WebApp.Models.McpServers.Requests;
 /// </summary>
 public record CreateRequestRequest(
     string Action,
-    string? InstanceId);
+    string? InstanceId,
+    string? ToolName = null,
+    JsonElement? Input = null);

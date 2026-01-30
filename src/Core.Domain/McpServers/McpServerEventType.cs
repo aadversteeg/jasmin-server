@@ -63,5 +63,25 @@ public enum McpServerEventType
     /// <summary>
     /// Server metadata retrieval failed (partially or completely).
     /// </summary>
-    MetadataRetrievalFailed = 11
+    MetadataRetrievalFailed = 11,
+
+    /// <summary>
+    /// Request to invoke a tool was accepted and queued.
+    /// </summary>
+    ToolInvocationAccepted = 12,
+
+    /// <summary>
+    /// Tool invocation is starting.
+    /// </summary>
+    ToolInvoking = 13,
+
+    /// <summary>
+    /// Tool was invoked successfully.
+    /// </summary>
+    ToolInvoked = 14,
+
+    /// <summary>
+    /// Tool invocation failed.
+    /// </summary>
+    ToolInvocationFailed = 15
 }

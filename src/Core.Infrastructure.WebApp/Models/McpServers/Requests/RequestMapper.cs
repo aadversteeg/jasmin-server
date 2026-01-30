@@ -1,4 +1,6 @@
+using System.Text.Json;
 using Ave.Extensions.Functional;
+using Core.Application.McpServers;
 using Core.Domain.McpServers;
 using Core.Domain.Models;
 using Core.Domain.Paging;
@@ -15,6 +17,13 @@ public static class RequestMapper
     {
         var errors = source.Errors?.Select(e => new RequestErrorResponse(e.Code, e.Message)).ToList().AsReadOnly();
 
+        // Map tool invocation output if present
+        ToolInvocationOutputResponse? output = null;
+        if (source.Output.HasValue)
+        {
+            output = MapToolInvocationOutput(source.Output.Value);
+        }
+
         return new RequestResponse(
             source.Id.Value,
             source.ServerName.Value,
@@ -24,7 +33,10 @@ public static class RequestMapper
             source.CompletedAtUtc.HasValue ? FormatTimestamp(source.CompletedAtUtc.Value, timeZone) : null,
             source.TargetInstanceId?.Value,
             source.ResultInstanceId?.Value,
-            errors);
+            errors,
+            source.ToolName,
+            source.Input,
+            output);
     }
 
     public static Result<McpServerRequest, Error> ToDomain(
@@ -38,6 +50,7 @@ public static class RequestMapper
         }
 
         McpServerInstanceId? targetInstanceId = null;
+
         if (action == McpServerRequestAction.Stop)
         {
             if (string.IsNullOrEmpty(request.InstanceId))
@@ -47,11 +60,50 @@ public static class RequestMapper
             }
             targetInstanceId = McpServerInstanceId.From(request.InstanceId);
         }
+        else if (action == McpServerRequestAction.InvokeTool)
+        {
+            if (string.IsNullOrEmpty(request.InstanceId))
+            {
+                return Result<McpServerRequest, Error>.Failure(
+                    Errors.InstanceIdRequiredForInvokeTool);
+            }
+            if (string.IsNullOrEmpty(request.ToolName))
+            {
+                return Result<McpServerRequest, Error>.Failure(
+                    Errors.ToolNameRequired);
+            }
+            targetInstanceId = McpServerInstanceId.From(request.InstanceId);
+        }
 
         var requestId = McpServerRequestId.Create();
-        var domainRequest = new McpServerRequest(requestId, serverName, action, targetInstanceId);
+        var domainRequest = new McpServerRequest(
+            requestId,
+            serverName,
+            action,
+            targetInstanceId,
+            request.ToolName,
+            request.Input);
 
         return Result<McpServerRequest, Error>.Success(domainRequest);
+    }
+
+    private static ToolInvocationOutputResponse MapToolInvocationOutput(JsonElement outputJson)
+    {
+        var result = JsonSerializer.Deserialize<McpToolInvocationResult>(outputJson);
+        if (result == null)
+        {
+            return new ToolInvocationOutputResponse(
+                Array.Empty<ToolContentBlockResponse>().AsReadOnly(),
+                null,
+                false);
+        }
+
+        var content = result.Content
+            .Select(c => new ToolContentBlockResponse(c.Type, c.Text, c.MimeType, c.Data, c.Uri))
+            .ToList()
+            .AsReadOnly();
+
+        return new ToolInvocationOutputResponse(content, result.StructuredContent, result.IsError);
     }
 
     public static PagedResponse<RequestResponse> ToPagedResponse(

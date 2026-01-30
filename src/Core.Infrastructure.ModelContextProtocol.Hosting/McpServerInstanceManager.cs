@@ -1,10 +1,13 @@
 using System.Collections.Concurrent;
+using System.Text.Json;
 using Ave.Extensions.Functional;
 using Core.Application.McpServers;
 using Core.Domain.McpServers;
 using Core.Domain.Models;
 using Microsoft.Extensions.Logging;
+using ModelContextProtocol;
 using ModelContextProtocol.Client;
+using ModelContextProtocol.Protocol;
 
 namespace Core.Infrastructure.ModelContextProtocol.Hosting;
 
@@ -218,6 +221,143 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
         await Task.WhenAll(tasks);
 
         _logger.LogInformation("All MCP server instances stopped");
+    }
+
+    /// <inheritdoc />
+    public async Task<Result<McpToolInvocationResult, Error>> InvokeToolAsync(
+        McpServerName serverName,
+        McpServerInstanceId instanceId,
+        string toolName,
+        IReadOnlyDictionary<string, object?>? arguments,
+        McpServerRequestId? requestId = null,
+        CancellationToken cancellationToken = default)
+    {
+        // Get instance from dictionary, validate it exists
+        if (!_instances.TryGetValue(instanceId.Value, out var instance))
+        {
+            return Result<McpToolInvocationResult, Error>.Failure(new Error(
+                ErrorCodes.McpServerInstanceNotFound,
+                $"Instance '{instanceId.Value}' not found"));
+        }
+
+        if (instance.ServerName.Value != serverName.Value)
+        {
+            return Result<McpToolInvocationResult, Error>.Failure(new Error(
+                ErrorCodes.McpServerInstanceNotFound,
+                $"Instance '{instanceId.Value}' does not belong to server '{serverName.Value}'"));
+        }
+
+        var serverId = instance.ServerId;
+
+        // Record ToolInvoking event
+        _logger.LogDebug("Invoking tool {ToolName} on instance {InstanceId}", toolName, instanceId.Value);
+        var inputJson = arguments != null ? JsonSerializer.SerializeToElement(arguments) : (JsonElement?)null;
+        _statusCache.RecordEvent(serverId, McpServerEventType.ToolInvoking,
+            instanceId: instanceId, requestId: requestId,
+            toolInvocationData: new McpServerToolInvocationEventData(toolName, inputJson, null));
+
+        try
+        {
+            // Call client.CallToolAsync
+            var sdkResult = await instance.Client.CallToolAsync(
+                toolName, arguments, cancellationToken: cancellationToken);
+
+            // Map SDK result to domain model
+            var result = MapToToolInvocationResult(sdkResult);
+
+            // Record ToolInvoked event
+            var outputJson = JsonSerializer.SerializeToElement(result);
+            _statusCache.RecordEvent(serverId, McpServerEventType.ToolInvoked,
+                instanceId: instanceId, requestId: requestId,
+                toolInvocationData: new McpServerToolInvocationEventData(toolName, inputJson, outputJson));
+
+            _logger.LogInformation("Tool {ToolName} invoked successfully on instance {InstanceId}", toolName, instanceId.Value);
+            return Result<McpToolInvocationResult, Error>.Success(result);
+        }
+        catch (McpException ex)
+        {
+            // Record ToolInvocationFailed event (MCP protocol error)
+            _logger.LogWarning(ex, "Tool invocation failed for {ToolName} on instance {InstanceId}: MCP error", toolName, instanceId.Value);
+            _statusCache.RecordEvent(serverId, McpServerEventType.ToolInvocationFailed,
+                errors: ToEventErrors(ex),
+                instanceId: instanceId, requestId: requestId,
+                toolInvocationData: new McpServerToolInvocationEventData(toolName, inputJson, null));
+
+            return Result<McpToolInvocationResult, Error>.Failure(new Error(
+                ErrorCodes.ToolInvocationFailed,
+                $"Tool invocation failed: {ex.Message}"));
+        }
+        catch (Exception ex)
+        {
+            // Record ToolInvocationFailed event (unexpected error)
+            _logger.LogError(ex, "Tool invocation failed for {ToolName} on instance {InstanceId}", toolName, instanceId.Value);
+            _statusCache.RecordEvent(serverId, McpServerEventType.ToolInvocationFailed,
+                errors: ToEventErrors(ex),
+                instanceId: instanceId, requestId: requestId,
+                toolInvocationData: new McpServerToolInvocationEventData(toolName, inputJson, null));
+
+            return Result<McpToolInvocationResult, Error>.Failure(new Error(
+                ErrorCodes.ToolInvocationFailed,
+                $"Tool invocation failed: {ex.Message}"));
+        }
+    }
+
+    private static McpToolInvocationResult MapToToolInvocationResult(CallToolResult sdkResult)
+    {
+        var content = sdkResult.Content
+            .Select(MapContentBlock)
+            .ToList()
+            .AsReadOnly();
+
+        return new McpToolInvocationResult(
+            content,
+            sdkResult.StructuredContent != null
+                ? JsonSerializer.SerializeToElement(sdkResult.StructuredContent)
+                : null,
+            sdkResult.IsError ?? false);
+    }
+
+    private static McpToolContentBlock MapContentBlock(ContentBlock contentBlock)
+    {
+        return contentBlock switch
+        {
+            TextContentBlock text => new McpToolContentBlock(
+                text.Type,
+                text.Text,
+                null,
+                null,
+                null),
+            ImageContentBlock image => new McpToolContentBlock(
+                image.Type,
+                null,
+                image.MimeType,
+                image.Data,
+                null),
+            AudioContentBlock audio => new McpToolContentBlock(
+                audio.Type,
+                null,
+                audio.MimeType,
+                audio.Data,
+                null),
+            EmbeddedResourceBlock embedded => new McpToolContentBlock(
+                embedded.Type,
+                embedded.Resource is TextResourceContents textResource ? textResource.Text : null,
+                embedded.Resource.MimeType,
+                embedded.Resource is BlobResourceContents blobResource ? blobResource.Blob : null,
+                embedded.Resource.Uri),
+            ResourceLinkBlock resourceLink => new McpToolContentBlock(
+                resourceLink.Type,
+                null,
+                resourceLink.MimeType,
+                null,
+                resourceLink.Uri),
+            _ => new McpToolContentBlock(
+                contentBlock.Type,
+                null,
+                null,
+                null,
+                null)
+        };
     }
 
     /// <inheritdoc />

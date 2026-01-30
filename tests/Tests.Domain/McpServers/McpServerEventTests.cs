@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Core.Domain.McpServers;
 using FluentAssertions;
 using Xunit;
@@ -126,5 +127,83 @@ public class McpServerEventTests
         var evt2 = new McpServerEvent(McpServerEventType.Started, timestamp, null, null, requestId2);
 
         evt1.Should().NotBe(evt2);
+    }
+
+    [Fact(DisplayName = "MSE-011: Tool invocation event types should be defined")]
+    public void MSE011()
+    {
+        var eventTypes = Enum.GetValues<McpServerEventType>();
+
+        eventTypes.Should().Contain(McpServerEventType.ToolInvocationAccepted);
+        eventTypes.Should().Contain(McpServerEventType.ToolInvoking);
+        eventTypes.Should().Contain(McpServerEventType.ToolInvoked);
+        eventTypes.Should().Contain(McpServerEventType.ToolInvocationFailed);
+    }
+
+    [Fact(DisplayName = "MSE-012: Tool invocation event types should have correct values")]
+    public void MSE012()
+    {
+        ((int)McpServerEventType.ToolInvocationAccepted).Should().Be(12);
+        ((int)McpServerEventType.ToolInvoking).Should().Be(13);
+        ((int)McpServerEventType.ToolInvoked).Should().Be(14);
+        ((int)McpServerEventType.ToolInvocationFailed).Should().Be(15);
+    }
+
+    [Fact(DisplayName = "MSE-013: Event should store tool invocation data")]
+    public void MSE013()
+    {
+        var timestamp = DateTime.UtcNow;
+        var input = JsonSerializer.SerializeToElement(new { timezoneId = "Europe/Amsterdam" });
+        var toolInvocationData = new McpServerToolInvocationEventData("get_time", input, null);
+
+        var evt = new McpServerEvent(
+            McpServerEventType.ToolInvoking,
+            timestamp,
+            ToolInvocationData: toolInvocationData);
+
+        evt.ToolInvocationData.Should().NotBeNull();
+        evt.ToolInvocationData!.ToolName.Should().Be("get_time");
+        evt.ToolInvocationData.Input.Should().NotBeNull();
+        evt.ToolInvocationData.Output.Should().BeNull();
+    }
+
+    [Fact(DisplayName = "MSE-014: Event without tool invocation data should have null ToolInvocationData")]
+    public void MSE014()
+    {
+        var timestamp = DateTime.UtcNow;
+
+        var evt = new McpServerEvent(McpServerEventType.Starting, timestamp);
+
+        evt.ToolInvocationData.Should().BeNull();
+    }
+
+    [Fact(DisplayName = "MSE-015: Tool invocation completed event should store output")]
+    public void MSE015()
+    {
+        var timestamp = DateTime.UtcNow;
+        var input = JsonSerializer.SerializeToElement(new { param = "value" });
+        var output = JsonSerializer.SerializeToElement(new { result = "success" });
+        var toolInvocationData = new McpServerToolInvocationEventData("test_tool", input, output);
+
+        var evt = new McpServerEvent(
+            McpServerEventType.ToolInvoked,
+            timestamp,
+            ToolInvocationData: toolInvocationData);
+
+        evt.ToolInvocationData.Should().NotBeNull();
+        evt.ToolInvocationData!.Output.Should().NotBeNull();
+    }
+
+    [Fact(DisplayName = "MSE-016: McpServerToolInvocationEventData record should store all properties")]
+    public void MSE016()
+    {
+        var input = JsonSerializer.SerializeToElement(new { arg1 = "value1" });
+        var output = JsonSerializer.SerializeToElement(new { result = "done" });
+
+        var data = new McpServerToolInvocationEventData("my_tool", input, output);
+
+        data.ToolName.Should().Be("my_tool");
+        data.Input.Should().NotBeNull();
+        data.Output.Should().NotBeNull();
     }
 }

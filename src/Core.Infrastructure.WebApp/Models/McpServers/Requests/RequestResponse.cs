@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace Core.Infrastructure.WebApp.Models.McpServers.Requests;
 
 /// <summary>
@@ -12,4 +14,7 @@ public record RequestResponse(
     string? CompletedAt,
     string? TargetInstanceId,
     string? ResultInstanceId,
-    IReadOnlyList<RequestErrorResponse>? Errors);
+    IReadOnlyList<RequestErrorResponse>? Errors,
+    string? ToolName = null,
+    JsonElement? Input = null,
+    ToolInvocationOutputResponse? Output = null);

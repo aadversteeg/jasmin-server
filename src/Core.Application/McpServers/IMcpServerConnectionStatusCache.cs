@@ -54,6 +54,7 @@ public interface IMcpServerConnectionStatusCache
     /// <param name="requestId">Optional request identifier for request-initiated events.</param>
     /// <param name="oldConfiguration">Previous configuration for update/delete events.</param>
     /// <param name="configuration">Configuration for create/update/start events.</param>
+    /// <param name="toolInvocationData">Data for tool invocation events.</param>
     void RecordEvent(
         McpServerId id,
         McpServerEventType eventType,
@@ -61,7 +62,8 @@ public interface IMcpServerConnectionStatusCache
         McpServerInstanceId? instanceId = null,
         McpServerRequestId? requestId = null,
         McpServerEventConfiguration? oldConfiguration = null,
-        McpServerEventConfiguration? configuration = null);
+        McpServerEventConfiguration? configuration = null,
+        McpServerToolInvocationEventData? toolInvocationData = null);
 
     /// <summary>
     /// Gets all events for the specified server, ordered by timestamp.
