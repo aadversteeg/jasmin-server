@@ -42,4 +42,19 @@ public interface IMcpServerConnectionStatusCache
     /// </summary>
     /// <param name="name">The server name.</param>
     void RemoveByName(McpServerName name);
+
+    /// <summary>
+    /// Records an event for the specified server.
+    /// </summary>
+    /// <param name="id">The server identifier.</param>
+    /// <param name="eventType">The type of event.</param>
+    /// <param name="errorMessage">Optional error message for failure events.</param>
+    void RecordEvent(McpServerId id, McpServerEventType eventType, string? errorMessage = null);
+
+    /// <summary>
+    /// Gets all events for the specified server, ordered by timestamp.
+    /// </summary>
+    /// <param name="id">The server identifier.</param>
+    /// <returns>The list of events for the server.</returns>
+    IReadOnlyList<McpServerEvent> GetEvents(McpServerId id);
 }

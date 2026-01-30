@@ -150,4 +150,102 @@ public class McpServerConnectionStatusCacheTests
         var entry = _cache.GetEntry(id);
         entry.Status.Should().NotBe(McpServerConnectionStatus.Unknown);
     }
+
+    [Fact(DisplayName = "MCSC-011: RecordEvent should store event with timestamp")]
+    public void MCSC011()
+    {
+        var id = McpServerId.Create();
+        var beforeRecord = DateTime.UtcNow;
+
+        _cache.RecordEvent(id, McpServerEventType.Starting);
+
+        var events = _cache.GetEvents(id);
+        events.Should().HaveCount(1);
+        events[0].EventType.Should().Be(McpServerEventType.Starting);
+        events[0].TimestampUtc.Should().BeOnOrAfter(beforeRecord);
+        events[0].ErrorMessage.Should().BeNull();
+    }
+
+    [Fact(DisplayName = "MCSC-012: RecordEvent should store error message for failures")]
+    public void MCSC012()
+    {
+        var id = McpServerId.Create();
+        var errorMessage = "Connection refused";
+
+        _cache.RecordEvent(id, McpServerEventType.StartFailed, errorMessage);
+
+        var events = _cache.GetEvents(id);
+        events.Should().HaveCount(1);
+        events[0].EventType.Should().Be(McpServerEventType.StartFailed);
+        events[0].ErrorMessage.Should().Be(errorMessage);
+    }
+
+    [Fact(DisplayName = "MCSC-013: GetEvents should return empty list for unknown Id")]
+    public void MCSC013()
+    {
+        var id = McpServerId.Create();
+
+        var events = _cache.GetEvents(id);
+
+        events.Should().BeEmpty();
+    }
+
+    [Fact(DisplayName = "MCSC-014: GetEvents should return events ordered by timestamp")]
+    public void MCSC014()
+    {
+        var id = McpServerId.Create();
+
+        _cache.RecordEvent(id, McpServerEventType.Starting);
+        Thread.Sleep(10); // Ensure different timestamps
+        _cache.RecordEvent(id, McpServerEventType.Started);
+        Thread.Sleep(10);
+        _cache.RecordEvent(id, McpServerEventType.Stopping);
+        Thread.Sleep(10);
+        _cache.RecordEvent(id, McpServerEventType.Stopped);
+
+        var events = _cache.GetEvents(id);
+        events.Should().HaveCount(4);
+        events[0].EventType.Should().Be(McpServerEventType.Starting);
+        events[1].EventType.Should().Be(McpServerEventType.Started);
+        events[2].EventType.Should().Be(McpServerEventType.Stopping);
+        events[3].EventType.Should().Be(McpServerEventType.Stopped);
+
+        // Verify ordering
+        for (int i = 1; i < events.Count; i++)
+        {
+            events[i].TimestampUtc.Should().BeOnOrAfter(events[i - 1].TimestampUtc);
+        }
+    }
+
+    [Fact(DisplayName = "MCSC-015: RemoveByName should also clear events")]
+    public void MCSC015()
+    {
+        var name = McpServerName.Create("test-server").Value;
+        var id = _cache.GetOrCreateId(name);
+        _cache.RecordEvent(id, McpServerEventType.Starting);
+        _cache.RecordEvent(id, McpServerEventType.Started);
+
+        _cache.RemoveByName(name);
+
+        // After removal, events should be gone for old id
+        var events = _cache.GetEvents(id);
+        events.Should().BeEmpty();
+    }
+
+    [Fact(DisplayName = "MCSC-016: Cache should be thread-safe for concurrent RecordEvent")]
+    public void MCSC016()
+    {
+        var id = McpServerId.Create();
+
+        var action = () => Parallel.For(0, 100, i =>
+        {
+            var eventType = i % 2 == 0 ? McpServerEventType.Starting : McpServerEventType.Started;
+            _cache.RecordEvent(id, eventType);
+        });
+
+        action.Should().NotThrow();
+
+        var events = _cache.GetEvents(id);
+        events.Should().HaveCount(100);
+    }
 }

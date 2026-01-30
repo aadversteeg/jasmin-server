@@ -54,22 +54,41 @@ public class McpServerConnectionInitializationService : BackgroundService
             if (definitionResult.IsFailure || !definitionResult.Value.HasValue)
             {
                 _logger.LogWarning("Could not retrieve definition for server {ServerName}", serverName.Value);
+                _statusCache.RecordEvent(serverId, McpServerEventType.StartFailed, "Server definition not found");
                 _statusCache.SetStatus(serverId, McpServerConnectionStatus.Failed);
                 return;
             }
 
             var definition = definitionResult.Value.Value;
-            var success = await _client.TestConnectionAsync(definition, stoppingToken);
 
-            var status = success ? McpServerConnectionStatus.Verified : McpServerConnectionStatus.Failed;
-            _statusCache.SetStatus(serverId, status);
+            // Record starting event
+            _statusCache.RecordEvent(serverId, McpServerEventType.Starting);
+
+            bool success;
+            string? errorMessage = null;
+            try
+            {
+                success = await _client.TestConnectionAsync(definition, stoppingToken);
+            }
+            catch (Exception ex)
+            {
+                success = false;
+                errorMessage = ex.Message;
+            }
 
             if (success)
             {
+                // Record started then stopping then stopped (since TestConnectionAsync starts and stops)
+                _statusCache.RecordEvent(serverId, McpServerEventType.Started);
+                _statusCache.RecordEvent(serverId, McpServerEventType.Stopping);
+                _statusCache.RecordEvent(serverId, McpServerEventType.Stopped);
+                _statusCache.SetStatus(serverId, McpServerConnectionStatus.Verified);
                 _logger.LogInformation("Successfully connected to MCP server {ServerName}", serverName.Value);
             }
             else
             {
+                _statusCache.RecordEvent(serverId, McpServerEventType.StartFailed, errorMessage);
+                _statusCache.SetStatus(serverId, McpServerConnectionStatus.Failed);
                 _logger.LogWarning("Failed to connect to MCP server {ServerName}", serverName.Value);
             }
         }
@@ -79,6 +98,7 @@ public class McpServerConnectionInitializationService : BackgroundService
         }
         catch (Exception ex)
         {
+            _statusCache.RecordEvent(serverId, McpServerEventType.StartFailed, ex.Message);
             _statusCache.SetStatus(serverId, McpServerConnectionStatus.Failed);
             _logger.LogError(ex, "Error initializing connection for server {ServerName}", serverName.Value);
         }
