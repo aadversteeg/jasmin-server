@@ -50,20 +50,27 @@ public class MapperTests
         result.TimestampUtc.Should().EndWith("+01:00");
     }
 
-    [Fact(DisplayName = "MAP-004: ToEventResponse should include error message when present")]
+    [Fact(DisplayName = "MAP-004: ToEventResponse should include errors when present")]
     public void MAP004()
     {
+        var errors = new List<McpServerEventError>
+        {
+            new("ConnectionError", "Connection refused")
+        }.AsReadOnly();
         var evt = new McpServerEvent(
             McpServerEventType.StartFailed,
             new DateTime(2024, 1, 15, 10, 30, 0, DateTimeKind.Utc),
-            "Connection refused");
+            errors);
 
         var result = Mapper.ToEventResponse(evt, TimeZoneInfo.Utc);
 
-        result.ErrorMessage.Should().Be("Connection refused");
+        result.Errors.Should().NotBeNull();
+        result.Errors.Should().HaveCount(1);
+        result.Errors![0].Code.Should().Be("ConnectionError");
+        result.Errors[0].Message.Should().Be("Connection refused");
     }
 
-    [Fact(DisplayName = "MAP-005: ToEventResponse should have null error message when not present")]
+    [Fact(DisplayName = "MAP-005: ToEventResponse should have null errors when not present")]
     public void MAP005()
     {
         var evt = new McpServerEvent(
@@ -72,7 +79,7 @@ public class MapperTests
 
         var result = Mapper.ToEventResponse(evt, TimeZoneInfo.Utc);
 
-        result.ErrorMessage.Should().BeNull();
+        result.Errors.Should().BeNull();
     }
 
     [Fact(DisplayName = "MAP-006: ToDetailsResponse with events should include events")]

@@ -74,10 +74,12 @@ public static class Mapper
             timestamp = dateTimeOffset.ToString("yyyy-MM-ddTHH:mm:ss.fffffffzzz");
         }
 
+        var errors = source.Errors?.Select(e => new EventErrorResponse(e.Code, e.Message)).ToList().AsReadOnly();
+
         return new(
             source.EventType.ToString(),
             timestamp,
-            source.ErrorMessage,
+            errors,
             source.InstanceId?.Value,
             source.RequestId?.Value);
     }

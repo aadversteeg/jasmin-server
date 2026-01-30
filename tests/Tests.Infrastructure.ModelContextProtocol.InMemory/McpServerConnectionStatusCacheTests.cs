@@ -163,21 +163,27 @@ public class McpServerConnectionStatusCacheTests
         events.Should().HaveCount(1);
         events[0].EventType.Should().Be(McpServerEventType.Starting);
         events[0].TimestampUtc.Should().BeOnOrAfter(beforeRecord);
-        events[0].ErrorMessage.Should().BeNull();
+        events[0].Errors.Should().BeNull();
     }
 
-    [Fact(DisplayName = "MCSC-012: RecordEvent should store error message for failures")]
+    [Fact(DisplayName = "MCSC-012: RecordEvent should store errors for failures")]
     public void MCSC012()
     {
         var id = McpServerId.Create();
-        var errorMessage = "Connection refused";
+        var errors = new List<McpServerEventError>
+        {
+            new("ConnectionError", "Connection refused")
+        }.AsReadOnly();
 
-        _cache.RecordEvent(id, McpServerEventType.StartFailed, errorMessage);
+        _cache.RecordEvent(id, McpServerEventType.StartFailed, errors);
 
         var events = _cache.GetEvents(id);
         events.Should().HaveCount(1);
         events[0].EventType.Should().Be(McpServerEventType.StartFailed);
-        events[0].ErrorMessage.Should().Be(errorMessage);
+        events[0].Errors.Should().NotBeNull();
+        events[0].Errors.Should().HaveCount(1);
+        events[0].Errors![0].Code.Should().Be("ConnectionError");
+        events[0].Errors[0].Message.Should().Be("Connection refused");
     }
 
     [Fact(DisplayName = "MCSC-013: GetEvents should return empty list for unknown Id")]

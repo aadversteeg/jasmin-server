@@ -6,6 +6,6 @@ namespace Core.Infrastructure.WebApp.Models.McpServers;
 public record EventResponse(
     string EventType,
     string TimestampUtc,
-    string? ErrorMessage,
+    IReadOnlyList<EventErrorResponse>? Errors,
     string? InstanceId,
     string? RequestId);

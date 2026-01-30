@@ -13,17 +13,20 @@ public class McpServerRequestProcessorService : BackgroundService
     private readonly IMcpServerRequestQueue _queue;
     private readonly IMcpServerRequestStore _store;
     private readonly IMcpServerInstanceManager _instanceManager;
+    private readonly IMcpServerConnectionStatusCache _statusCache;
     private readonly ILogger<McpServerRequestProcessorService> _logger;
 
     public McpServerRequestProcessorService(
         IMcpServerRequestQueue queue,
         IMcpServerRequestStore store,
         IMcpServerInstanceManager instanceManager,
+        IMcpServerConnectionStatusCache statusCache,
         ILogger<McpServerRequestProcessorService> logger)
     {
         _queue = queue;
         _store = store;
         _instanceManager = instanceManager;
+        _statusCache = statusCache;
         _logger = logger;
     }
 
@@ -130,6 +133,15 @@ public class McpServerRequestProcessorService : BackgroundService
         }
         else
         {
+            // Record StopFailed event since the instance manager couldn't record it
+            // (instance was not found, so it didn't have access to the server ID)
+            var serverId = _statusCache.GetOrCreateId(request.ServerName);
+            var errors = new List<McpServerEventError>
+            {
+                new(result.Error.Code.Value, result.Error.Message)
+            }.AsReadOnly();
+            _statusCache.RecordEvent(serverId, McpServerEventType.StopFailed, errors, request.TargetInstanceId, request.Id);
+
             request.MarkFailed(result.Error.Message);
             _logger.LogWarning("Request {RequestId} failed: {Error}",
                 request.Id.Value, result.Error.Message);

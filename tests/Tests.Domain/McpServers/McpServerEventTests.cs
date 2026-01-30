@@ -15,19 +15,25 @@ public class McpServerEventTests
 
         evt.EventType.Should().Be(McpServerEventType.Starting);
         evt.TimestampUtc.Should().Be(timestamp);
-        evt.ErrorMessage.Should().BeNull();
+        evt.Errors.Should().BeNull();
     }
 
-    [Fact(DisplayName = "MSE-002: Event should store error message for failures")]
+    [Fact(DisplayName = "MSE-002: Event should store errors for failures")]
     public void MSE002()
     {
         var timestamp = DateTime.UtcNow;
-        var errorMessage = "Connection refused";
+        var errors = new List<McpServerEventError>
+        {
+            new("ConnectionError", "Connection refused")
+        }.AsReadOnly();
 
-        var evt = new McpServerEvent(McpServerEventType.StartFailed, timestamp, errorMessage);
+        var evt = new McpServerEvent(McpServerEventType.StartFailed, timestamp, errors);
 
         evt.EventType.Should().Be(McpServerEventType.StartFailed);
-        evt.ErrorMessage.Should().Be(errorMessage);
+        evt.Errors.Should().NotBeNull();
+        evt.Errors.Should().HaveCount(1);
+        evt.Errors![0].Code.Should().Be("ConnectionError");
+        evt.Errors[0].Message.Should().Be("Connection refused");
     }
 
     [Fact(DisplayName = "MSE-003: All event types should be defined")]
