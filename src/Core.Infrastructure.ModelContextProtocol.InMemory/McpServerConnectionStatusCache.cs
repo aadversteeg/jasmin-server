@@ -6,28 +6,39 @@ namespace Core.Infrastructure.ModelContextProtocol.InMemory;
 
 /// <summary>
 /// Thread-safe in-memory cache for MCP server connection status.
+/// Maintains a mapping from server names to internal IDs.
 /// </summary>
 public class McpServerConnectionStatusCache : IMcpServerConnectionStatusCache
 {
-    private readonly ConcurrentDictionary<string, McpServerStatusCacheEntry> _cache = new();
+    private readonly ConcurrentDictionary<string, McpServerId> _nameToIdMap = new();
+    private readonly ConcurrentDictionary<string, McpServerStatusCacheEntry> _statusCache = new();
 
     /// <inheritdoc />
-    public McpServerStatusCacheEntry GetEntry(McpServerName id)
+    public McpServerId GetOrCreateId(McpServerName name)
     {
-        return _cache.TryGetValue(id.Value, out var entry)
+        return _nameToIdMap.GetOrAdd(name.Value, _ => McpServerId.Create());
+    }
+
+    /// <inheritdoc />
+    public McpServerStatusCacheEntry GetEntry(McpServerId id)
+    {
+        return _statusCache.TryGetValue(id.Value, out var entry)
             ? entry
             : new McpServerStatusCacheEntry(McpServerConnectionStatus.Unknown, null);
     }
 
     /// <inheritdoc />
-    public void SetStatus(McpServerName id, McpServerConnectionStatus status)
+    public void SetStatus(McpServerId id, McpServerConnectionStatus status)
     {
-        _cache[id.Value] = new McpServerStatusCacheEntry(status, DateTime.UtcNow);
+        _statusCache[id.Value] = new McpServerStatusCacheEntry(status, DateTime.UtcNow);
     }
 
     /// <inheritdoc />
-    public void RemoveStatus(McpServerName id)
+    public void RemoveByName(McpServerName name)
     {
-        _cache.TryRemove(id.Value, out _);
+        if (_nameToIdMap.TryRemove(name.Value, out var id))
+        {
+            _statusCache.TryRemove(id.Value, out _);
+        }
     }
 }

@@ -44,14 +44,16 @@ public class McpServerConnectionInitializationService : BackgroundService
         _logger.LogInformation("MCP server connection initialization completed");
     }
 
-    private async Task InitializeServerAsync(McpServerName serverId, CancellationToken stoppingToken)
+    private async Task InitializeServerAsync(McpServerName serverName, CancellationToken stoppingToken)
     {
+        var serverId = _statusCache.GetOrCreateId(serverName);
+
         try
         {
-            var definitionResult = _repository.GetById(serverId);
+            var definitionResult = _repository.GetById(serverName);
             if (definitionResult.IsFailure || !definitionResult.Value.HasValue)
             {
-                _logger.LogWarning("Could not retrieve definition for server {ServerId}", serverId.Value);
+                _logger.LogWarning("Could not retrieve definition for server {ServerName}", serverName.Value);
                 _statusCache.SetStatus(serverId, McpServerConnectionStatus.Failed);
                 return;
             }
@@ -64,21 +66,21 @@ public class McpServerConnectionInitializationService : BackgroundService
 
             if (success)
             {
-                _logger.LogInformation("Successfully connected to MCP server {ServerId}", serverId.Value);
+                _logger.LogInformation("Successfully connected to MCP server {ServerName}", serverName.Value);
             }
             else
             {
-                _logger.LogWarning("Failed to connect to MCP server {ServerId}", serverId.Value);
+                _logger.LogWarning("Failed to connect to MCP server {ServerName}", serverName.Value);
             }
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
-            _logger.LogInformation("Connection initialization cancelled for server {ServerId}", serverId.Value);
+            _logger.LogInformation("Connection initialization cancelled for server {ServerName}", serverName.Value);
         }
         catch (Exception ex)
         {
             _statusCache.SetStatus(serverId, McpServerConnectionStatus.Failed);
-            _logger.LogError(ex, "Error initializing connection for server {ServerId}", serverId.Value);
+            _logger.LogError(ex, "Error initializing connection for server {ServerName}", serverName.Value);
         }
     }
 }

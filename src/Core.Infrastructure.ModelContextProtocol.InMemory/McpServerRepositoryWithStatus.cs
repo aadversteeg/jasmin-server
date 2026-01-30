@@ -28,7 +28,8 @@ public class McpServerRepositoryWithStatus : IMcpServerRepository
             .OnSuccessMap(servers => servers
                 .Select(s =>
                 {
-                    var entry = _statusCache.GetEntry(s.Id);
+                    var serverId = _statusCache.GetOrCreateId(s.Id);
+                    var entry = _statusCache.GetEntry(serverId);
                     return s.WithStatus(entry.Status, entry.UpdatedOnUtc);
                 })
                 .ToList() as IReadOnlyList<McpServerInfo>);
@@ -44,7 +45,8 @@ public class McpServerRepositoryWithStatus : IMcpServerRepository
         var result = _inner.Create(definition);
         if (result.IsSuccess)
         {
-            _statusCache.SetStatus(definition.Id, McpServerConnectionStatus.Unknown);
+            var serverId = _statusCache.GetOrCreateId(definition.Id);
+            _statusCache.SetStatus(serverId, McpServerConnectionStatus.Unknown);
         }
         return result;
     }
@@ -59,7 +61,7 @@ public class McpServerRepositoryWithStatus : IMcpServerRepository
         var result = _inner.Delete(id);
         if (result.IsSuccess)
         {
-            _statusCache.RemoveStatus(id);
+            _statusCache.RemoveByName(id);
         }
         return result;
     }

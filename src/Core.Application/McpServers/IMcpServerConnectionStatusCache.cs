@@ -15,22 +15,31 @@ public record McpServerStatusCacheEntry(McpServerConnectionStatus Status, DateTi
 public interface IMcpServerConnectionStatusCache
 {
     /// <summary>
-    /// Gets the cached status entry for a server.
+    /// Gets or creates an McpServerId for the given server name.
+    /// If the name already has a mapping, returns the existing Id.
+    /// Otherwise creates a new Id and stores the mapping.
+    /// </summary>
+    /// <param name="name">The server name.</param>
+    /// <returns>The McpServerId associated with the name.</returns>
+    McpServerId GetOrCreateId(McpServerName name);
+
+    /// <summary>
+    /// Gets the cached status entry for a server by its Id.
     /// </summary>
     /// <param name="id">The server identifier.</param>
     /// <returns>The cached entry with status and timestamp, or Unknown status with null timestamp if not cached.</returns>
-    McpServerStatusCacheEntry GetEntry(McpServerName id);
+    McpServerStatusCacheEntry GetEntry(McpServerId id);
 
     /// <summary>
-    /// Sets the connection status for a server with current UTC timestamp.
+    /// Sets the connection status for a server by its Id with current UTC timestamp.
     /// </summary>
     /// <param name="id">The server identifier.</param>
     /// <param name="status">The connection status to cache.</param>
-    void SetStatus(McpServerName id, McpServerConnectionStatus status);
+    void SetStatus(McpServerId id, McpServerConnectionStatus status);
 
     /// <summary>
-    /// Removes the cached status for a server.
+    /// Removes the cached status and name mapping for a server.
     /// </summary>
-    /// <param name="id">The server identifier.</param>
-    void RemoveStatus(McpServerName id);
+    /// <param name="name">The server name.</param>
+    void RemoveByName(McpServerName name);
 }

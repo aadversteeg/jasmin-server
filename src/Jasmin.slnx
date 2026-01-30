@@ -12,5 +12,6 @@
     <Project Path="../tests/Tests.Application/Tests.Application.csproj" />
     <Project Path="../tests/Tests.Infrastructure.McpServers.FileStorage/Tests.Infrastructure.McpServers.FileStorage.csproj" />
     <Project Path="../tests/Tests.Infrastructure.WebApp/Tests.Infrastructure.WebApp.csproj" />
+    <Project Path="../tests/Tests.Infrastructure.ModelContextProtocol.InMemory/Tests.Infrastructure.ModelContextProtocol.InMemory.csproj" />
   </Folder>
 </Solution>
