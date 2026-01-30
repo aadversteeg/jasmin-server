@@ -355,13 +355,70 @@ public class McpServersController : ControllerBase
     /// </summary>
     /// <param name="id">The identifier of the MCP server.</param>
     /// <param name="instanceId">The identifier of the instance.</param>
+    /// <param name="include">Optional comma-separated list of additional data to include (e.g., "tools", "prompts", "resources", or "all").</param>
     /// <param name="timeZone">Optional timezone for timestamps. Defaults to configured timezone or UTC.</param>
     /// <returns>The instance details if found.</returns>
     [HttpGet("{id}/instances/{instanceId}", Name = "GetMcpServerInstance")]
     [ProducesResponseType(typeof(InstanceResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public IActionResult GetInstance(string id, string instanceId, [FromQuery] string? timeZone = null)
+    public IActionResult GetInstance(string id, string instanceId, [FromQuery] string? include = null, [FromQuery] string? timeZone = null)
+    {
+        var resolvedTimeZone = ResolveTimeZone(timeZone);
+        if (resolvedTimeZone == null)
+        {
+            return BadRequest(ErrorResponse.Single("INVALID_TIMEZONE", $"Invalid timezone: {timeZone}"));
+        }
+
+        var includeOptionsResult = McpServerInstanceIncludeOptions.Create(include);
+        if (includeOptionsResult.IsFailure)
+        {
+            return BadRequest(ErrorResponse.FromError(includeOptionsResult.Error));
+        }
+
+        var serverNameResult = McpServerName.Create(id);
+        if (serverNameResult.IsFailure)
+        {
+            return BadRequest(ErrorResponse.FromError(serverNameResult.Error));
+        }
+
+        var serverName = serverNameResult.Value;
+
+        // Check if server exists
+        var definitionResult = _mcpServerService.GetById(serverName);
+        if (definitionResult.IsFailure)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, ErrorResponse.FromError(definitionResult.Error));
+        }
+
+        if (!definitionResult.Value.HasValue)
+        {
+            return NotFound();
+        }
+
+        var mcpInstanceId = McpServerInstanceId.From(instanceId);
+        var instance = _instanceManager.GetInstance(serverName, mcpInstanceId);
+
+        if (instance == null)
+        {
+            return NotFound();
+        }
+
+        return Ok(InstanceMapper.ToResponse(instance, resolvedTimeZone, includeOptionsResult.Value));
+    }
+
+    /// <summary>
+    /// Gets the tools exposed by a specific MCP server instance.
+    /// </summary>
+    /// <param name="id">The identifier of the MCP server.</param>
+    /// <param name="instanceId">The identifier of the instance.</param>
+    /// <param name="timeZone">Optional timezone for timestamps. Defaults to configured timezone or UTC.</param>
+    /// <returns>A list of tools exposed by the instance.</returns>
+    [HttpGet("{id}/instances/{instanceId}/tools", Name = "GetMcpServerInstanceTools")]
+    [ProducesResponseType(typeof(ToolListResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public IActionResult GetInstanceTools(string id, string instanceId, [FromQuery] string? timeZone = null)
     {
         var resolvedTimeZone = ResolveTimeZone(timeZone);
         if (resolvedTimeZone == null)
@@ -397,7 +454,107 @@ public class McpServersController : ControllerBase
             return NotFound();
         }
 
-        return Ok(InstanceMapper.ToResponse(instance, resolvedTimeZone));
+        return Ok(ToolMapper.ToListResponse(instance.Metadata, resolvedTimeZone));
+    }
+
+    /// <summary>
+    /// Gets the prompts exposed by a specific MCP server instance.
+    /// </summary>
+    /// <param name="id">The identifier of the MCP server.</param>
+    /// <param name="instanceId">The identifier of the instance.</param>
+    /// <param name="timeZone">Optional timezone for timestamps. Defaults to configured timezone or UTC.</param>
+    /// <returns>A list of prompts exposed by the instance.</returns>
+    [HttpGet("{id}/instances/{instanceId}/prompts", Name = "GetMcpServerInstancePrompts")]
+    [ProducesResponseType(typeof(PromptListResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public IActionResult GetInstancePrompts(string id, string instanceId, [FromQuery] string? timeZone = null)
+    {
+        var resolvedTimeZone = ResolveTimeZone(timeZone);
+        if (resolvedTimeZone == null)
+        {
+            return BadRequest(ErrorResponse.Single("INVALID_TIMEZONE", $"Invalid timezone: {timeZone}"));
+        }
+
+        var serverNameResult = McpServerName.Create(id);
+        if (serverNameResult.IsFailure)
+        {
+            return BadRequest(ErrorResponse.FromError(serverNameResult.Error));
+        }
+
+        var serverName = serverNameResult.Value;
+
+        // Check if server exists
+        var definitionResult = _mcpServerService.GetById(serverName);
+        if (definitionResult.IsFailure)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, ErrorResponse.FromError(definitionResult.Error));
+        }
+
+        if (!definitionResult.Value.HasValue)
+        {
+            return NotFound();
+        }
+
+        var mcpInstanceId = McpServerInstanceId.From(instanceId);
+        var instance = _instanceManager.GetInstance(serverName, mcpInstanceId);
+
+        if (instance == null)
+        {
+            return NotFound();
+        }
+
+        return Ok(PromptMapper.ToListResponse(instance.Metadata, resolvedTimeZone));
+    }
+
+    /// <summary>
+    /// Gets the resources exposed by a specific MCP server instance.
+    /// </summary>
+    /// <param name="id">The identifier of the MCP server.</param>
+    /// <param name="instanceId">The identifier of the instance.</param>
+    /// <param name="timeZone">Optional timezone for timestamps. Defaults to configured timezone or UTC.</param>
+    /// <returns>A list of resources exposed by the instance.</returns>
+    [HttpGet("{id}/instances/{instanceId}/resources", Name = "GetMcpServerInstanceResources")]
+    [ProducesResponseType(typeof(ResourceListResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public IActionResult GetInstanceResources(string id, string instanceId, [FromQuery] string? timeZone = null)
+    {
+        var resolvedTimeZone = ResolveTimeZone(timeZone);
+        if (resolvedTimeZone == null)
+        {
+            return BadRequest(ErrorResponse.Single("INVALID_TIMEZONE", $"Invalid timezone: {timeZone}"));
+        }
+
+        var serverNameResult = McpServerName.Create(id);
+        if (serverNameResult.IsFailure)
+        {
+            return BadRequest(ErrorResponse.FromError(serverNameResult.Error));
+        }
+
+        var serverName = serverNameResult.Value;
+
+        // Check if server exists
+        var definitionResult = _mcpServerService.GetById(serverName);
+        if (definitionResult.IsFailure)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, ErrorResponse.FromError(definitionResult.Error));
+        }
+
+        if (!definitionResult.Value.HasValue)
+        {
+            return NotFound();
+        }
+
+        var mcpInstanceId = McpServerInstanceId.From(instanceId);
+        var instance = _instanceManager.GetInstance(serverName, mcpInstanceId);
+
+        if (instance == null)
+        {
+            return NotFound();
+        }
+
+        return Ok(ResourceMapper.ToListResponse(instance.Metadata, resolvedTimeZone));
     }
 
     /// <summary>

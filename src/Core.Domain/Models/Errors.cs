@@ -37,6 +37,10 @@ public static class Errors
         ErrorCodes.InvalidIncludeOption,
         $"Invalid value for include option: '{option}'. Valid options are: configuration, events, requests, instances, tools, prompts, resources, all");
 
+    public static Error InvalidInstanceIncludeOption(string option) => new(
+        ErrorCodes.InvalidInstanceIncludeOption,
+        $"Invalid value for instance include option: '{option}'. Valid options are: tools, prompts, resources, all");
+
     public static readonly Error ConfigurationRequired = new(
         ErrorCodes.ConfigurationRequired,
         "Configuration is required when creating a server.");

@@ -118,8 +118,9 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
             _statusCache.SetStatus(serverId, McpServerConnectionStatus.Verified);
             _logger.LogInformation("Started MCP server instance {InstanceId} for {ServerName}", instanceId.Value, serverName.Value);
 
-            // Retrieve and cache metadata
-            await RetrieveAndCacheMetadataAsync(client, serverId, instanceId, requestId, cancellationToken);
+            // Retrieve metadata and store with instance
+            var metadata = await RetrieveMetadataAsync(client, serverId, instanceId, requestId, cancellationToken);
+            instance.Metadata = metadata;
 
             return Result<McpServerInstanceId, Error>.Success(instanceId);
         }
@@ -179,7 +180,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
     {
         return _instances.Values
             .Where(i => i.ServerName.Value == serverName.Value)
-            .Select(i => new McpServerInstanceInfo(i.InstanceId, i.ServerName, i.StartedAtUtc, i.Configuration))
+            .Select(i => new McpServerInstanceInfo(i.InstanceId, i.ServerName, i.StartedAtUtc, i.Configuration, i.Metadata))
             .ToList()
             .AsReadOnly();
     }
@@ -190,7 +191,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
         if (_instances.TryGetValue(instanceId.Value, out var instance) &&
             instance.ServerName.Value == serverName.Value)
         {
-            return new McpServerInstanceInfo(instance.InstanceId, instance.ServerName, instance.StartedAtUtc, instance.Configuration);
+            return new McpServerInstanceInfo(instance.InstanceId, instance.ServerName, instance.StartedAtUtc, instance.Configuration, instance.Metadata);
         }
 
         return null;
@@ -200,7 +201,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
     public IReadOnlyList<McpServerInstanceInfo> GetAllRunningInstances()
     {
         return _instances.Values
-            .Select(i => new McpServerInstanceInfo(i.InstanceId, i.ServerName, i.StartedAtUtc, i.Configuration))
+            .Select(i => new McpServerInstanceInfo(i.InstanceId, i.ServerName, i.StartedAtUtc, i.Configuration, i.Metadata))
             .ToList()
             .AsReadOnly();
     }
@@ -225,7 +226,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
         await StopAllAsync();
     }
 
-    private async Task RetrieveAndCacheMetadataAsync(
+    private async Task<McpServerMetadata> RetrieveMetadataAsync(
         McpClient client,
         McpServerId serverId,
         McpServerInstanceId instanceId,
@@ -295,15 +296,13 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
             errors.Add(new McpServerMetadataError("Resources", ex.Message));
         }
 
-        // Create and cache metadata
+        // Create metadata
         var metadata = new McpServerMetadata(
             tools,
             prompts,
             resources,
             DateTime.UtcNow,
             errors.Count > 0 ? errors.AsReadOnly() : null);
-
-        _statusCache.SetMetadata(serverId, metadata);
 
         // Record completion event
         if (errors.Count == 0)
@@ -317,6 +316,8 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
             var eventErrors = errors.Select(e => new McpServerEventError(e.Category, e.ErrorMessage)).ToList();
             _statusCache.RecordEvent(serverId, McpServerEventType.MetadataRetrievalFailed, eventErrors, instanceId, requestId);
         }
+
+        return metadata;
     }
 
     private static IReadOnlyList<McpServerEventError> ToEventErrors(Error error)
@@ -340,6 +341,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
         public McpClient Client { get; }
         public DateTime StartedAtUtc { get; }
         public McpServerEventConfiguration? Configuration { get; }
+        public McpServerMetadata? Metadata { get; set; }
 
         public ManagedMcpServerInstance(
             McpServerInstanceId instanceId,

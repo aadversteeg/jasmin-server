@@ -11,15 +11,18 @@ public class McpServerConnectionInitializationService : BackgroundService
 {
     private readonly IMcpServerRepository _repository;
     private readonly IMcpServerInstanceManager _instanceManager;
+    private readonly IMcpServerConnectionStatusCache _statusCache;
     private readonly ILogger<McpServerConnectionInitializationService> _logger;
 
     public McpServerConnectionInitializationService(
         IMcpServerRepository repository,
         IMcpServerInstanceManager instanceManager,
+        IMcpServerConnectionStatusCache statusCache,
         ILogger<McpServerConnectionInitializationService> logger)
     {
         _repository = repository;
         _instanceManager = instanceManager;
+        _statusCache = statusCache;
         _logger = logger;
     }
 
@@ -56,6 +59,14 @@ public class McpServerConnectionInitializationService : BackgroundService
             var instanceId = startResult.Value;
             _logger.LogInformation("Successfully started MCP server {ServerName} with instance {InstanceId}",
                 serverName.Value, instanceId.Value);
+
+            // Copy metadata from instance to server cache before stopping
+            var instance = _instanceManager.GetInstance(serverName, instanceId);
+            if (instance?.Metadata != null)
+            {
+                var serverId = _statusCache.GetOrCreateId(serverName);
+                _statusCache.SetMetadata(serverId, instance.Metadata);
+            }
 
             // Stop the instance after verifying connection
             var stopResult = await _instanceManager.StopInstanceAsync(instanceId, null, stoppingToken);

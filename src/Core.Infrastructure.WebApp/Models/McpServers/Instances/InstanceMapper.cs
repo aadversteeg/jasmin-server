@@ -1,5 +1,8 @@
 using Core.Application.McpServers;
 using Core.Domain.McpServers;
+using Core.Infrastructure.WebApp.Models.McpServers.Prompts;
+using Core.Infrastructure.WebApp.Models.McpServers.Resources;
+using Core.Infrastructure.WebApp.Models.McpServers.Tools;
 
 namespace Core.Infrastructure.WebApp.Models.McpServers.Instances;
 
@@ -10,11 +13,44 @@ public static class InstanceMapper
 {
     public static InstanceResponse ToResponse(McpServerInstanceInfo source, TimeZoneInfo timeZone)
     {
+        return ToResponse(source, timeZone, McpServerInstanceIncludeOptions.Default);
+    }
+
+    public static InstanceResponse ToResponse(
+        McpServerInstanceInfo source,
+        TimeZoneInfo timeZone,
+        McpServerInstanceIncludeOptions includeOptions)
+    {
+        IReadOnlyList<ToolResponse>? tools = null;
+        IReadOnlyList<PromptResponse>? prompts = null;
+        IReadOnlyList<ResourceResponse>? resources = null;
+
+        if (source.Metadata != null)
+        {
+            if (includeOptions.IncludeTools && source.Metadata.Tools != null)
+            {
+                tools = source.Metadata.Tools.Select(ToolMapper.ToResponse).ToList().AsReadOnly();
+            }
+
+            if (includeOptions.IncludePrompts && source.Metadata.Prompts != null)
+            {
+                prompts = source.Metadata.Prompts.Select(PromptMapper.ToResponse).ToList().AsReadOnly();
+            }
+
+            if (includeOptions.IncludeResources && source.Metadata.Resources != null)
+            {
+                resources = source.Metadata.Resources.Select(ResourceMapper.ToResponse).ToList().AsReadOnly();
+            }
+        }
+
         return new InstanceResponse(
             source.InstanceId.Value,
             source.ServerName.Value,
             FormatTimestamp(source.StartedAtUtc, timeZone),
-            ToConfigurationResponse(source.Configuration));
+            ToConfigurationResponse(source.Configuration),
+            tools,
+            prompts,
+            resources);
     }
 
     public static InstanceListResponse ToListResponse(

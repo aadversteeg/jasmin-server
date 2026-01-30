@@ -424,7 +424,7 @@ public class McpServersControllerTests
         };
         var instances = new List<McpServerInstanceInfo>
         {
-            new(McpServerInstanceId.Create(), chronosId, DateTime.UtcNow, null)
+            new(McpServerInstanceId.Create(), chronosId, DateTime.UtcNow, null, null)
         };
         _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
             .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
@@ -519,8 +519,8 @@ public class McpServersControllerTests
             new Dictionary<string, string>().AsReadOnly());
         var instances = new List<McpServerInstanceInfo>
         {
-            new(McpServerInstanceId.Create(), chronosId, new DateTime(2024, 1, 15, 10, 0, 0, DateTimeKind.Utc), config),
-            new(McpServerInstanceId.Create(), chronosId, new DateTime(2024, 1, 15, 11, 0, 0, DateTimeKind.Utc), config)
+            new(McpServerInstanceId.Create(), chronosId, new DateTime(2024, 1, 15, 10, 0, 0, DateTimeKind.Utc), config, null),
+            new(McpServerInstanceId.Create(), chronosId, new DateTime(2024, 1, 15, 11, 0, 0, DateTimeKind.Utc), config, null)
         };
         _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
             .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
@@ -591,7 +591,8 @@ public class McpServersControllerTests
             instanceId,
             chronosId,
             new DateTime(2024, 1, 15, 10, 0, 0, DateTimeKind.Utc),
-            config);
+            config,
+            null);
         _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
             .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
         _mockInstanceManager.Setup(x => x.GetInstance(
@@ -663,7 +664,7 @@ public class McpServersControllerTests
             new Dictionary<string, string>().AsReadOnly());
         var instances = new List<McpServerInstanceInfo>
         {
-            new(McpServerInstanceId.Create(), chronosId, DateTime.UtcNow, config)
+            new(McpServerInstanceId.Create(), chronosId, DateTime.UtcNow, config, null)
         };
         _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
             .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
@@ -932,5 +933,206 @@ public class McpServersControllerTests
         var result = _controller.GetResources("chronos", "Invalid/Timezone");
 
         result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact(DisplayName = "MSC-051: GetInstance with include=tools should return instance with tools")]
+    public void MSC051()
+    {
+        var chronosId = McpServerName.Create("chronos").Value;
+        var server = new McpServerDefinition(chronosId);
+        var instanceId = McpServerInstanceId.Create();
+        var tools = new List<McpTool> { new("read_file", "Read File", null, null) };
+        var metadata = new McpServerMetadata(tools, null, null, DateTime.UtcNow, null);
+        var instance = new McpServerInstanceInfo(instanceId, chronosId, DateTime.UtcNow, null, metadata);
+        _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
+            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
+        _mockInstanceManager.Setup(x => x.GetInstance(
+                It.Is<McpServerName>(id => id.Value == "chronos"),
+                It.Is<McpServerInstanceId>(id => id.Value == instanceId.Value)))
+            .Returns(instance);
+
+        var result = _controller.GetInstance("chronos", instanceId.Value, "tools");
+
+        result.Should().BeOfType<OkObjectResult>();
+        var okResult = (OkObjectResult)result;
+        var response = okResult.Value as InstanceResponse;
+        response.Should().NotBeNull();
+        response!.Tools.Should().NotBeNull();
+        response.Tools.Should().HaveCount(1);
+        response.Tools![0].Name.Should().Be("read_file");
+        response.Prompts.Should().BeNull();
+        response.Resources.Should().BeNull();
+    }
+
+    [Fact(DisplayName = "MSC-052: GetInstance with include=all should return instance with all metadata")]
+    public void MSC052()
+    {
+        var chronosId = McpServerName.Create("chronos").Value;
+        var server = new McpServerDefinition(chronosId);
+        var instanceId = McpServerInstanceId.Create();
+        var tools = new List<McpTool> { new("tool1", null, null, null) };
+        var prompts = new List<McpPrompt> { new("prompt1", null, null, null) };
+        var resources = new List<McpResource> { new("resource1", "file:///r1", null, null, null) };
+        var metadata = new McpServerMetadata(tools, prompts, resources, DateTime.UtcNow, null);
+        var instance = new McpServerInstanceInfo(instanceId, chronosId, DateTime.UtcNow, null, metadata);
+        _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
+            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
+        _mockInstanceManager.Setup(x => x.GetInstance(
+                It.Is<McpServerName>(id => id.Value == "chronos"),
+                It.Is<McpServerInstanceId>(id => id.Value == instanceId.Value)))
+            .Returns(instance);
+
+        var result = _controller.GetInstance("chronos", instanceId.Value, "all");
+
+        result.Should().BeOfType<OkObjectResult>();
+        var okResult = (OkObjectResult)result;
+        var response = okResult.Value as InstanceResponse;
+        response.Should().NotBeNull();
+        response!.Tools.Should().HaveCount(1);
+        response.Prompts.Should().HaveCount(1);
+        response.Resources.Should().HaveCount(1);
+    }
+
+    [Fact(DisplayName = "MSC-053: GetInstance with invalid include should return BadRequest")]
+    public void MSC053()
+    {
+        var chronosId = McpServerName.Create("chronos").Value;
+        var server = new McpServerDefinition(chronosId);
+        _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
+            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
+
+        var result = _controller.GetInstance("chronos", Guid.NewGuid().ToString(), "invalid");
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact(DisplayName = "MSC-054: GetInstanceTools should return tools for existing instance")]
+    public void MSC054()
+    {
+        var chronosId = McpServerName.Create("chronos").Value;
+        var server = new McpServerDefinition(chronosId);
+        var instanceId = McpServerInstanceId.Create();
+        var tools = new List<McpTool>
+        {
+            new("read_file", "Read File", "Reads a file", "{\"type\":\"object\"}"),
+            new("write_file", "Write File", "Writes a file", null)
+        };
+        var metadata = new McpServerMetadata(tools, null, null, new DateTime(2024, 1, 15, 10, 30, 0, DateTimeKind.Utc), null);
+        var instance = new McpServerInstanceInfo(instanceId, chronosId, DateTime.UtcNow, null, metadata);
+        _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
+            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
+        _mockInstanceManager.Setup(x => x.GetInstance(
+                It.Is<McpServerName>(id => id.Value == "chronos"),
+                It.Is<McpServerInstanceId>(id => id.Value == instanceId.Value)))
+            .Returns(instance);
+
+        var result = _controller.GetInstanceTools("chronos", instanceId.Value);
+
+        result.Should().BeOfType<OkObjectResult>();
+        var okResult = (OkObjectResult)result;
+        var response = okResult.Value as ToolListResponse;
+        response.Should().NotBeNull();
+        response!.Items.Should().HaveCount(2);
+        response.Items[0].Name.Should().Be("read_file");
+        response.RetrievedAt.Should().StartWith("2024-01-15T10:30:00");
+    }
+
+    [Fact(DisplayName = "MSC-055: GetInstanceTools should return NotFound for non-existent instance")]
+    public void MSC055()
+    {
+        var chronosId = McpServerName.Create("chronos").Value;
+        var server = new McpServerDefinition(chronosId);
+        _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
+            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
+        _mockInstanceManager.Setup(x => x.GetInstance(
+                It.IsAny<McpServerName>(),
+                It.IsAny<McpServerInstanceId>()))
+            .Returns((McpServerInstanceInfo?)null);
+
+        var result = _controller.GetInstanceTools("chronos", Guid.NewGuid().ToString());
+
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact(DisplayName = "MSC-056: GetInstancePrompts should return prompts for existing instance")]
+    public void MSC056()
+    {
+        var chronosId = McpServerName.Create("chronos").Value;
+        var server = new McpServerDefinition(chronosId);
+        var instanceId = McpServerInstanceId.Create();
+        var prompts = new List<McpPrompt>
+        {
+            new("generate", "Generate Text", "Generates text", null)
+        };
+        var metadata = new McpServerMetadata(null, prompts, null, DateTime.UtcNow, null);
+        var instance = new McpServerInstanceInfo(instanceId, chronosId, DateTime.UtcNow, null, metadata);
+        _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
+            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
+        _mockInstanceManager.Setup(x => x.GetInstance(
+                It.Is<McpServerName>(id => id.Value == "chronos"),
+                It.Is<McpServerInstanceId>(id => id.Value == instanceId.Value)))
+            .Returns(instance);
+
+        var result = _controller.GetInstancePrompts("chronos", instanceId.Value);
+
+        result.Should().BeOfType<OkObjectResult>();
+        var okResult = (OkObjectResult)result;
+        var response = okResult.Value as PromptListResponse;
+        response.Should().NotBeNull();
+        response!.Items.Should().HaveCount(1);
+        response.Items[0].Name.Should().Be("generate");
+    }
+
+    [Fact(DisplayName = "MSC-057: GetInstanceResources should return resources for existing instance")]
+    public void MSC057()
+    {
+        var chronosId = McpServerName.Create("chronos").Value;
+        var server = new McpServerDefinition(chronosId);
+        var instanceId = McpServerInstanceId.Create();
+        var resources = new List<McpResource>
+        {
+            new("config", "file:///config.json", "Config", "App config", "application/json")
+        };
+        var metadata = new McpServerMetadata(null, null, resources, DateTime.UtcNow, null);
+        var instance = new McpServerInstanceInfo(instanceId, chronosId, DateTime.UtcNow, null, metadata);
+        _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
+            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
+        _mockInstanceManager.Setup(x => x.GetInstance(
+                It.Is<McpServerName>(id => id.Value == "chronos"),
+                It.Is<McpServerInstanceId>(id => id.Value == instanceId.Value)))
+            .Returns(instance);
+
+        var result = _controller.GetInstanceResources("chronos", instanceId.Value);
+
+        result.Should().BeOfType<OkObjectResult>();
+        var okResult = (OkObjectResult)result;
+        var response = okResult.Value as ResourceListResponse;
+        response.Should().NotBeNull();
+        response!.Items.Should().HaveCount(1);
+        response.Items[0].Name.Should().Be("config");
+        response.Items[0].MimeType.Should().Be("application/json");
+    }
+
+    [Fact(DisplayName = "MSC-058: GetInstanceTools should return empty list for instance with no metadata")]
+    public void MSC058()
+    {
+        var chronosId = McpServerName.Create("chronos").Value;
+        var server = new McpServerDefinition(chronosId);
+        var instanceId = McpServerInstanceId.Create();
+        var instance = new McpServerInstanceInfo(instanceId, chronosId, DateTime.UtcNow, null, null);
+        _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
+            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
+        _mockInstanceManager.Setup(x => x.GetInstance(
+                It.Is<McpServerName>(id => id.Value == "chronos"),
+                It.Is<McpServerInstanceId>(id => id.Value == instanceId.Value)))
+            .Returns(instance);
+
+        var result = _controller.GetInstanceTools("chronos", instanceId.Value);
+
+        result.Should().BeOfType<OkObjectResult>();
+        var okResult = (OkObjectResult)result;
+        var response = okResult.Value as ToolListResponse;
+        response.Should().NotBeNull();
+        response!.Items.Should().BeEmpty();
     }
 }

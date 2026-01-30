@@ -1,6 +1,9 @@
 using Core.Application.McpServers;
 using Core.Domain.McpServers;
 using Core.Infrastructure.WebApp.Models.McpServers.Instances;
+using Core.Infrastructure.WebApp.Models.McpServers.Prompts;
+using Core.Infrastructure.WebApp.Models.McpServers.Resources;
+using Core.Infrastructure.WebApp.Models.McpServers.Tools;
 using FluentAssertions;
 using Xunit;
 
@@ -21,7 +24,8 @@ public class InstanceMapperTests
             instanceId,
             serverName,
             new DateTime(2024, 1, 15, 10, 30, 0, DateTimeKind.Utc),
-            config);
+            config,
+            null);
 
         var result = InstanceMapper.ToResponse(instance, TimeZoneInfo.Utc);
 
@@ -43,7 +47,8 @@ public class InstanceMapperTests
             McpServerInstanceId.Create(),
             serverName,
             DateTime.UtcNow,
-            config);
+            config,
+            null);
 
         var result = InstanceMapper.ToResponse(instance, TimeZoneInfo.Utc);
 
@@ -61,6 +66,7 @@ public class InstanceMapperTests
             McpServerInstanceId.Create(),
             serverName,
             DateTime.UtcNow,
+            null,
             null);
 
         var result = InstanceMapper.ToResponse(instance, TimeZoneInfo.Utc);
@@ -76,6 +82,7 @@ public class InstanceMapperTests
             McpServerInstanceId.Create(),
             serverName,
             new DateTime(2024, 1, 15, 10, 30, 0, DateTimeKind.Utc),
+            null,
             null);
         var amsterdamTz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Amsterdam");
 
@@ -92,8 +99,8 @@ public class InstanceMapperTests
         var serverName = McpServerName.Create("chronos").Value;
         var instances = new List<McpServerInstanceInfo>
         {
-            new(McpServerInstanceId.Create(), serverName, new DateTime(2024, 1, 15, 10, 0, 0, DateTimeKind.Utc), null),
-            new(McpServerInstanceId.Create(), serverName, new DateTime(2024, 1, 15, 11, 0, 0, DateTimeKind.Utc), null)
+            new(McpServerInstanceId.Create(), serverName, new DateTime(2024, 1, 15, 10, 0, 0, DateTimeKind.Utc), null, null),
+            new(McpServerInstanceId.Create(), serverName, new DateTime(2024, 1, 15, 11, 0, 0, DateTimeKind.Utc), null, null)
         };
 
         var result = InstanceMapper.ToListResponse(instances, TimeZoneInfo.Utc);
@@ -123,8 +130,8 @@ public class InstanceMapperTests
             new Dictionary<string, string>().AsReadOnly());
         var instances = new List<McpServerInstanceInfo>
         {
-            new(McpServerInstanceId.Create(), serverName, DateTime.UtcNow, config),
-            new(McpServerInstanceId.Create(), serverName, DateTime.UtcNow, null)
+            new(McpServerInstanceId.Create(), serverName, DateTime.UtcNow, config, null),
+            new(McpServerInstanceId.Create(), serverName, DateTime.UtcNow, null, null)
         };
 
         var result = InstanceMapper.ToListResponse(instances, TimeZoneInfo.Utc);
@@ -132,5 +139,146 @@ public class InstanceMapperTests
         result.Items[0].Configuration.Should().NotBeNull();
         result.Items[0].Configuration!.Command.Should().Be("docker");
         result.Items[1].Configuration.Should().BeNull();
+    }
+
+    [Fact(DisplayName = "IMP-008: ToResponse with include tools should include tools from metadata")]
+    public void IMP008()
+    {
+        var serverName = McpServerName.Create("chronos").Value;
+        var tools = new List<McpTool>
+        {
+            new("get_time", "Get Time", "Gets the current time", null)
+        };
+        var metadata = new McpServerMetadata(tools, null, null, DateTime.UtcNow, null);
+        var instance = new McpServerInstanceInfo(
+            McpServerInstanceId.Create(),
+            serverName,
+            DateTime.UtcNow,
+            null,
+            metadata);
+        var includeOptions = McpServerInstanceIncludeOptions.Create("tools").Value;
+
+        var result = InstanceMapper.ToResponse(instance, TimeZoneInfo.Utc, includeOptions);
+
+        result.Tools.Should().NotBeNull();
+        result.Tools.Should().HaveCount(1);
+        result.Tools![0].Name.Should().Be("get_time");
+        result.Prompts.Should().BeNull();
+        result.Resources.Should().BeNull();
+    }
+
+    [Fact(DisplayName = "IMP-009: ToResponse with include prompts should include prompts from metadata")]
+    public void IMP009()
+    {
+        var serverName = McpServerName.Create("chronos").Value;
+        var prompts = new List<McpPrompt>
+        {
+            new("generate", "Generate Text", "Generates text", null)
+        };
+        var metadata = new McpServerMetadata(null, prompts, null, DateTime.UtcNow, null);
+        var instance = new McpServerInstanceInfo(
+            McpServerInstanceId.Create(),
+            serverName,
+            DateTime.UtcNow,
+            null,
+            metadata);
+        var includeOptions = McpServerInstanceIncludeOptions.Create("prompts").Value;
+
+        var result = InstanceMapper.ToResponse(instance, TimeZoneInfo.Utc, includeOptions);
+
+        result.Tools.Should().BeNull();
+        result.Prompts.Should().NotBeNull();
+        result.Prompts.Should().HaveCount(1);
+        result.Prompts![0].Name.Should().Be("generate");
+        result.Resources.Should().BeNull();
+    }
+
+    [Fact(DisplayName = "IMP-010: ToResponse with include resources should include resources from metadata")]
+    public void IMP010()
+    {
+        var serverName = McpServerName.Create("chronos").Value;
+        var resources = new List<McpResource>
+        {
+            new("config", "file:///config.json", "Config", "App config", "application/json")
+        };
+        var metadata = new McpServerMetadata(null, null, resources, DateTime.UtcNow, null);
+        var instance = new McpServerInstanceInfo(
+            McpServerInstanceId.Create(),
+            serverName,
+            DateTime.UtcNow,
+            null,
+            metadata);
+        var includeOptions = McpServerInstanceIncludeOptions.Create("resources").Value;
+
+        var result = InstanceMapper.ToResponse(instance, TimeZoneInfo.Utc, includeOptions);
+
+        result.Tools.Should().BeNull();
+        result.Prompts.Should().BeNull();
+        result.Resources.Should().NotBeNull();
+        result.Resources.Should().HaveCount(1);
+        result.Resources![0].Name.Should().Be("config");
+    }
+
+    [Fact(DisplayName = "IMP-011: ToResponse with include all should include all metadata")]
+    public void IMP011()
+    {
+        var serverName = McpServerName.Create("chronos").Value;
+        var tools = new List<McpTool> { new("tool1", null, null, null) };
+        var prompts = new List<McpPrompt> { new("prompt1", null, null, null) };
+        var resources = new List<McpResource> { new("resource1", "file:///r1", null, null, null) };
+        var metadata = new McpServerMetadata(tools, prompts, resources, DateTime.UtcNow, null);
+        var instance = new McpServerInstanceInfo(
+            McpServerInstanceId.Create(),
+            serverName,
+            DateTime.UtcNow,
+            null,
+            metadata);
+        var includeOptions = McpServerInstanceIncludeOptions.All;
+
+        var result = InstanceMapper.ToResponse(instance, TimeZoneInfo.Utc, includeOptions);
+
+        result.Tools.Should().HaveCount(1);
+        result.Prompts.Should().HaveCount(1);
+        result.Resources.Should().HaveCount(1);
+    }
+
+    [Fact(DisplayName = "IMP-012: ToResponse without include should not include metadata")]
+    public void IMP012()
+    {
+        var serverName = McpServerName.Create("chronos").Value;
+        var tools = new List<McpTool> { new("tool1", null, null, null) };
+        var metadata = new McpServerMetadata(tools, null, null, DateTime.UtcNow, null);
+        var instance = new McpServerInstanceInfo(
+            McpServerInstanceId.Create(),
+            serverName,
+            DateTime.UtcNow,
+            null,
+            metadata);
+        var includeOptions = McpServerInstanceIncludeOptions.Default;
+
+        var result = InstanceMapper.ToResponse(instance, TimeZoneInfo.Utc, includeOptions);
+
+        result.Tools.Should().BeNull();
+        result.Prompts.Should().BeNull();
+        result.Resources.Should().BeNull();
+    }
+
+    [Fact(DisplayName = "IMP-013: ToResponse with null metadata should return null for all metadata fields")]
+    public void IMP013()
+    {
+        var serverName = McpServerName.Create("chronos").Value;
+        var instance = new McpServerInstanceInfo(
+            McpServerInstanceId.Create(),
+            serverName,
+            DateTime.UtcNow,
+            null,
+            null);
+        var includeOptions = McpServerInstanceIncludeOptions.All;
+
+        var result = InstanceMapper.ToResponse(instance, TimeZoneInfo.Utc, includeOptions);
+
+        result.Tools.Should().BeNull();
+        result.Prompts.Should().BeNull();
+        result.Resources.Should().BeNull();
     }
 }
