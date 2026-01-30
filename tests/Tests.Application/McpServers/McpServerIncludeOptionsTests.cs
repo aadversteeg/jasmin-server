@@ -49,6 +49,10 @@ public class McpServerIncludeOptionsTests
         result.Value.IncludeConfiguration.Should().BeTrue();
         result.Value.IncludeEvents.Should().BeTrue();
         result.Value.IncludeRequests.Should().BeTrue();
+        result.Value.IncludeInstances.Should().BeTrue();
+        result.Value.IncludeTools.Should().BeTrue();
+        result.Value.IncludePrompts.Should().BeTrue();
+        result.Value.IncludeResources.Should().BeTrue();
     }
 
     [Fact(DisplayName = "MIO-005: Create with 'ALL' (uppercase) should set all options to true")]
@@ -60,6 +64,10 @@ public class McpServerIncludeOptionsTests
         result.Value.IncludeConfiguration.Should().BeTrue();
         result.Value.IncludeEvents.Should().BeTrue();
         result.Value.IncludeRequests.Should().BeTrue();
+        result.Value.IncludeInstances.Should().BeTrue();
+        result.Value.IncludeTools.Should().BeTrue();
+        result.Value.IncludePrompts.Should().BeTrue();
+        result.Value.IncludeResources.Should().BeTrue();
     }
 
     [Fact(DisplayName = "MIO-006: Create with 'Events' (mixed case) should set IncludeEvents to true")]
@@ -98,6 +106,10 @@ public class McpServerIncludeOptionsTests
         options.IncludeConfiguration.Should().BeFalse();
         options.IncludeEvents.Should().BeFalse();
         options.IncludeRequests.Should().BeFalse();
+        options.IncludeInstances.Should().BeFalse();
+        options.IncludeTools.Should().BeFalse();
+        options.IncludePrompts.Should().BeFalse();
+        options.IncludeResources.Should().BeFalse();
     }
 
     [Fact(DisplayName = "MIO-010: All property should have all options as true")]
@@ -108,6 +120,10 @@ public class McpServerIncludeOptionsTests
         options.IncludeConfiguration.Should().BeTrue();
         options.IncludeEvents.Should().BeTrue();
         options.IncludeRequests.Should().BeTrue();
+        options.IncludeInstances.Should().BeTrue();
+        options.IncludeTools.Should().BeTrue();
+        options.IncludePrompts.Should().BeTrue();
+        options.IncludeResources.Should().BeTrue();
     }
 
     [Fact(DisplayName = "MIO-011: Create with 'configuration' should set IncludeConfiguration to true")]
@@ -152,5 +168,63 @@ public class McpServerIncludeOptionsTests
         result.Value.IncludeConfiguration.Should().BeTrue();
         result.Value.IncludeEvents.Should().BeTrue();
         result.Value.IncludeRequests.Should().BeTrue();
+    }
+
+    [Fact(DisplayName = "MIO-015: Create with 'instances' should set IncludeInstances to true")]
+    public void MIO015()
+    {
+        var result = McpServerIncludeOptions.Create("instances");
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.IncludeInstances.Should().BeTrue();
+        result.Value.IncludeConfiguration.Should().BeFalse();
+        result.Value.IncludeEvents.Should().BeFalse();
+        result.Value.IncludeRequests.Should().BeFalse();
+    }
+
+    [Fact(DisplayName = "MIO-016: Create with 'tools' should set IncludeTools to true")]
+    public void MIO016()
+    {
+        var result = McpServerIncludeOptions.Create("tools");
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.IncludeTools.Should().BeTrue();
+        result.Value.IncludeConfiguration.Should().BeFalse();
+        result.Value.IncludePrompts.Should().BeFalse();
+        result.Value.IncludeResources.Should().BeFalse();
+    }
+
+    [Fact(DisplayName = "MIO-017: Create with 'prompts' should set IncludePrompts to true")]
+    public void MIO017()
+    {
+        var result = McpServerIncludeOptions.Create("prompts");
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.IncludePrompts.Should().BeTrue();
+        result.Value.IncludeTools.Should().BeFalse();
+        result.Value.IncludeResources.Should().BeFalse();
+    }
+
+    [Fact(DisplayName = "MIO-018: Create with 'resources' should set IncludeResources to true")]
+    public void MIO018()
+    {
+        var result = McpServerIncludeOptions.Create("resources");
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.IncludeResources.Should().BeTrue();
+        result.Value.IncludeTools.Should().BeFalse();
+        result.Value.IncludePrompts.Should().BeFalse();
+    }
+
+    [Fact(DisplayName = "MIO-019: Create with 'tools,prompts,resources' should set all metadata options")]
+    public void MIO019()
+    {
+        var result = McpServerIncludeOptions.Create("tools,prompts,resources");
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.IncludeTools.Should().BeTrue();
+        result.Value.IncludePrompts.Should().BeTrue();
+        result.Value.IncludeResources.Should().BeTrue();
+        result.Value.IncludeConfiguration.Should().BeFalse();
     }
 }

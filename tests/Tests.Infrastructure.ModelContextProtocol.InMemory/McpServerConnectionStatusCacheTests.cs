@@ -256,4 +256,91 @@ public class McpServerConnectionStatusCacheTests
         var events = _cache.GetEvents(id);
         events.Should().HaveCount(100);
     }
+
+    [Fact(DisplayName = "MCSC-017: SetMetadata should cache metadata")]
+    public void MCSC017()
+    {
+        var id = McpServerId.Create();
+        var metadata = new McpServerMetadata(
+            new List<McpTool> { new("test-tool", "Test Tool", "A test tool", "{}") },
+            new List<McpPrompt> { new("test-prompt", "Test Prompt", "A test prompt", null) },
+            new List<McpResource> { new("test-resource", "file://test", "Test Resource", "A test resource", "text/plain") },
+            DateTime.UtcNow,
+            null);
+
+        _cache.SetMetadata(id, metadata);
+
+        var cached = _cache.GetMetadata(id);
+        cached.Should().NotBeNull();
+        cached!.Tools.Should().HaveCount(1);
+        cached.Prompts.Should().HaveCount(1);
+        cached.Resources.Should().HaveCount(1);
+    }
+
+    [Fact(DisplayName = "MCSC-018: GetMetadata should return null for uncached Id")]
+    public void MCSC018()
+    {
+        var id = McpServerId.Create();
+
+        var metadata = _cache.GetMetadata(id);
+
+        metadata.Should().BeNull();
+    }
+
+    [Fact(DisplayName = "MCSC-019: SetMetadata should update existing metadata")]
+    public void MCSC019()
+    {
+        var id = McpServerId.Create();
+        var metadata1 = new McpServerMetadata(
+            new List<McpTool> { new("tool1", "Tool 1", null, null) },
+            null, null, DateTime.UtcNow, null);
+
+        _cache.SetMetadata(id, metadata1);
+
+        var metadata2 = new McpServerMetadata(
+            new List<McpTool> { new("tool2", "Tool 2", null, null), new("tool3", "Tool 3", null, null) },
+            null, null, DateTime.UtcNow, null);
+
+        _cache.SetMetadata(id, metadata2);
+
+        var cached = _cache.GetMetadata(id);
+        cached.Should().NotBeNull();
+        cached!.Tools.Should().HaveCount(2);
+        cached.Tools![0].Name.Should().Be("tool2");
+    }
+
+    [Fact(DisplayName = "MCSC-020: RemoveByName should clear metadata")]
+    public void MCSC020()
+    {
+        var name = McpServerName.Create("test-server").Value;
+        var id = _cache.GetOrCreateId(name);
+        var metadata = new McpServerMetadata(
+            new List<McpTool> { new("test-tool", null, null, null) },
+            null, null, DateTime.UtcNow, null);
+        _cache.SetMetadata(id, metadata);
+
+        _cache.RemoveByName(name);
+
+        var cached = _cache.GetMetadata(id);
+        cached.Should().BeNull();
+    }
+
+    [Fact(DisplayName = "MCSC-021: SetMetadata should handle metadata with errors")]
+    public void MCSC021()
+    {
+        var id = McpServerId.Create();
+        var errors = new List<McpServerMetadataError>
+        {
+            new("Tools", "Failed to retrieve tools"),
+            new("Prompts", "Failed to retrieve prompts")
+        };
+        var metadata = new McpServerMetadata(null, null, null, DateTime.UtcNow, errors);
+
+        _cache.SetMetadata(id, metadata);
+
+        var cached = _cache.GetMetadata(id);
+        cached.Should().NotBeNull();
+        cached!.RetrievalErrors.Should().HaveCount(2);
+        cached.RetrievalErrors![0].Category.Should().Be("Tools");
+    }
 }

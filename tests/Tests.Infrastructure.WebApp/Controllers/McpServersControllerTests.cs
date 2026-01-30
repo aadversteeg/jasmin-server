@@ -7,6 +7,9 @@ using Core.Infrastructure.ModelContextProtocol.InMemory;
 using Core.Infrastructure.WebApp.Controllers;
 using Core.Infrastructure.WebApp.Models.McpServers;
 using Core.Infrastructure.WebApp.Models.McpServers.Instances;
+using Core.Infrastructure.WebApp.Models.McpServers.Prompts;
+using Core.Infrastructure.WebApp.Models.McpServers.Resources;
+using Core.Infrastructure.WebApp.Models.McpServers.Tools;
 using Core.Infrastructure.WebApp.Models.Paging;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
@@ -697,5 +700,237 @@ public class McpServersControllerTests
         response.Should().NotBeNull();
         response!.Instances.Should().BeNull();
         _mockInstanceManager.Verify(x => x.GetRunningInstances(It.IsAny<McpServerName>()), Times.Never);
+    }
+
+    [Fact(DisplayName = "MSC-038: GetTools should return list of tools for existing server")]
+    public void MSC038()
+    {
+        var chronosId = McpServerName.Create("chronos").Value;
+        var server = new McpServerDefinition(chronosId);
+        var tools = new List<McpTool>
+        {
+            new("read_file", "Read File", "Reads a file", null),
+            new("write_file", "Write File", "Writes a file", null)
+        };
+        var metadata = new McpServerMetadata(tools, null, null, DateTime.UtcNow, null);
+        _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
+            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
+        _mockStatusCache.Setup(x => x.GetMetadata(It.IsAny<McpServerId>()))
+            .Returns(metadata);
+
+        var result = _controller.GetTools("chronos");
+
+        result.Should().BeOfType<OkObjectResult>();
+        var okResult = (OkObjectResult)result;
+        var response = okResult.Value as ToolListResponse;
+        response.Should().NotBeNull();
+        response!.Items.Should().HaveCount(2);
+        response.Items[0].Name.Should().Be("read_file");
+        response.Items[1].Name.Should().Be("write_file");
+    }
+
+    [Fact(DisplayName = "MSC-039: GetTools should return NotFound for non-existent server")]
+    public void MSC039()
+    {
+        _mockService.Setup(x => x.GetById(It.IsAny<McpServerName>()))
+            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe<McpServerDefinition>.None));
+
+        var result = _controller.GetTools("non-existent");
+
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact(DisplayName = "MSC-040: GetTools should return empty list when no metadata")]
+    public void MSC040()
+    {
+        var chronosId = McpServerName.Create("chronos").Value;
+        var server = new McpServerDefinition(chronosId);
+        _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
+            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
+        _mockStatusCache.Setup(x => x.GetMetadata(It.IsAny<McpServerId>()))
+            .Returns((McpServerMetadata?)null);
+
+        var result = _controller.GetTools("chronos");
+
+        result.Should().BeOfType<OkObjectResult>();
+        var okResult = (OkObjectResult)result;
+        var response = okResult.Value as ToolListResponse;
+        response.Should().NotBeNull();
+        response!.Items.Should().BeEmpty();
+    }
+
+    [Fact(DisplayName = "MSC-041: GetPrompts should return list of prompts for existing server")]
+    public void MSC041()
+    {
+        var chronosId = McpServerName.Create("chronos").Value;
+        var server = new McpServerDefinition(chronosId);
+        var prompts = new List<McpPrompt>
+        {
+            new("generate", "Generate Text", "Generates text", null),
+            new("summarize", "Summarize", "Summarizes content", null)
+        };
+        var metadata = new McpServerMetadata(null, prompts, null, DateTime.UtcNow, null);
+        _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
+            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
+        _mockStatusCache.Setup(x => x.GetMetadata(It.IsAny<McpServerId>()))
+            .Returns(metadata);
+
+        var result = _controller.GetPrompts("chronos");
+
+        result.Should().BeOfType<OkObjectResult>();
+        var okResult = (OkObjectResult)result;
+        var response = okResult.Value as PromptListResponse;
+        response.Should().NotBeNull();
+        response!.Items.Should().HaveCount(2);
+        response.Items[0].Name.Should().Be("generate");
+        response.Items[1].Name.Should().Be("summarize");
+    }
+
+    [Fact(DisplayName = "MSC-042: GetPrompts should return NotFound for non-existent server")]
+    public void MSC042()
+    {
+        _mockService.Setup(x => x.GetById(It.IsAny<McpServerName>()))
+            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe<McpServerDefinition>.None));
+
+        var result = _controller.GetPrompts("non-existent");
+
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact(DisplayName = "MSC-043: GetResources should return list of resources for existing server")]
+    public void MSC043()
+    {
+        var chronosId = McpServerName.Create("chronos").Value;
+        var server = new McpServerDefinition(chronosId);
+        var resources = new List<McpResource>
+        {
+            new("config", "file:///config.json", "Config", null, "application/json"),
+            new("data", "file:///data.txt", "Data", null, "text/plain")
+        };
+        var metadata = new McpServerMetadata(null, null, resources, DateTime.UtcNow, null);
+        _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
+            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
+        _mockStatusCache.Setup(x => x.GetMetadata(It.IsAny<McpServerId>()))
+            .Returns(metadata);
+
+        var result = _controller.GetResources("chronos");
+
+        result.Should().BeOfType<OkObjectResult>();
+        var okResult = (OkObjectResult)result;
+        var response = okResult.Value as ResourceListResponse;
+        response.Should().NotBeNull();
+        response!.Items.Should().HaveCount(2);
+        response.Items[0].Name.Should().Be("config");
+        response.Items[1].Name.Should().Be("data");
+    }
+
+    [Fact(DisplayName = "MSC-044: GetResources should return NotFound for non-existent server")]
+    public void MSC044()
+    {
+        _mockService.Setup(x => x.GetById(It.IsAny<McpServerName>()))
+            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe<McpServerDefinition>.None));
+
+        var result = _controller.GetResources("non-existent");
+
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact(DisplayName = "MSC-045: GetById with include=tools should return server with tools")]
+    public void MSC045()
+    {
+        var chronosId = McpServerName.Create("chronos").Value;
+        var server = new McpServerDefinition(chronosId);
+        var tools = new List<McpTool> { new("read_file", "Read File", null, null) };
+        var metadata = new McpServerMetadata(tools, null, null, DateTime.UtcNow, null);
+        _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
+            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
+        _mockStatusCache.Setup(x => x.GetMetadata(It.IsAny<McpServerId>()))
+            .Returns(metadata);
+
+        var result = _controller.GetById("chronos", "tools");
+
+        result.Should().BeOfType<OkObjectResult>();
+        var okResult = (OkObjectResult)result;
+        var response = okResult.Value as DetailsResponse;
+        response.Should().NotBeNull();
+        response!.Tools.Should().NotBeNull();
+        response.Tools.Should().HaveCount(1);
+        response.Tools![0].Name.Should().Be("read_file");
+        response.Prompts.Should().BeNull();
+        response.Resources.Should().BeNull();
+    }
+
+    [Fact(DisplayName = "MSC-046: GetById with include=prompts should return server with prompts")]
+    public void MSC046()
+    {
+        var chronosId = McpServerName.Create("chronos").Value;
+        var server = new McpServerDefinition(chronosId);
+        var prompts = new List<McpPrompt> { new("generate", "Generate", null, null) };
+        var metadata = new McpServerMetadata(null, prompts, null, DateTime.UtcNow, null);
+        _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
+            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
+        _mockStatusCache.Setup(x => x.GetMetadata(It.IsAny<McpServerId>()))
+            .Returns(metadata);
+
+        var result = _controller.GetById("chronos", "prompts");
+
+        result.Should().BeOfType<OkObjectResult>();
+        var okResult = (OkObjectResult)result;
+        var response = okResult.Value as DetailsResponse;
+        response.Should().NotBeNull();
+        response!.Prompts.Should().NotBeNull();
+        response.Prompts.Should().HaveCount(1);
+        response.Prompts![0].Name.Should().Be("generate");
+        response.Tools.Should().BeNull();
+        response.Resources.Should().BeNull();
+    }
+
+    [Fact(DisplayName = "MSC-047: GetById with include=resources should return server with resources")]
+    public void MSC047()
+    {
+        var chronosId = McpServerName.Create("chronos").Value;
+        var server = new McpServerDefinition(chronosId);
+        var resources = new List<McpResource> { new("config", "file:///config", null, null, null) };
+        var metadata = new McpServerMetadata(null, null, resources, DateTime.UtcNow, null);
+        _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
+            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
+        _mockStatusCache.Setup(x => x.GetMetadata(It.IsAny<McpServerId>()))
+            .Returns(metadata);
+
+        var result = _controller.GetById("chronos", "resources");
+
+        result.Should().BeOfType<OkObjectResult>();
+        var okResult = (OkObjectResult)result;
+        var response = okResult.Value as DetailsResponse;
+        response.Should().NotBeNull();
+        response!.Resources.Should().NotBeNull();
+        response.Resources.Should().HaveCount(1);
+        response.Resources![0].Name.Should().Be("config");
+        response.Tools.Should().BeNull();
+        response.Prompts.Should().BeNull();
+    }
+
+    [Fact(DisplayName = "MSC-048: GetTools should return BadRequest for invalid timezone")]
+    public void MSC048()
+    {
+        var result = _controller.GetTools("chronos", "Invalid/Timezone");
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact(DisplayName = "MSC-049: GetPrompts should return BadRequest for invalid timezone")]
+    public void MSC049()
+    {
+        var result = _controller.GetPrompts("chronos", "Invalid/Timezone");
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact(DisplayName = "MSC-050: GetResources should return BadRequest for invalid timezone")]
+    public void MSC050()
+    {
+        var result = _controller.GetResources("chronos", "Invalid/Timezone");
+
+        result.Should().BeOfType<BadRequestObjectResult>();
     }
 }

@@ -14,6 +14,7 @@ public class McpServerConnectionStatusCache : IMcpServerConnectionStatusCache
     private readonly ConcurrentDictionary<string, McpServerId> _nameToIdMap = new();
     private readonly ConcurrentDictionary<string, McpServerStatusCacheEntry> _statusCache = new();
     private readonly ConcurrentDictionary<string, List<McpServerEvent>> _eventHistory = new();
+    private readonly ConcurrentDictionary<string, McpServerMetadata> _metadataCache = new();
     private readonly object _eventLock = new();
 
     /// <inheritdoc />
@@ -39,12 +40,13 @@ public class McpServerConnectionStatusCache : IMcpServerConnectionStatusCache
     /// <inheritdoc />
     public void RemoveByName(McpServerName name)
     {
-        // Only remove the status, preserve name mapping and events for audit trail.
+        // Only remove the status and metadata, preserve name mapping and events for audit trail.
         // Events remain queryable and will be associated with any recreated server
         // with the same name.
         if (_nameToIdMap.TryGetValue(name.Value, out var id))
         {
             _statusCache.TryRemove(id.Value, out _);
+            _metadataCache.TryRemove(id.Value, out _);
         }
     }
 
@@ -116,5 +118,17 @@ public class McpServerConnectionStatusCache : IMcpServerConnectionStatusCache
 
             return new PagedResult<McpServerEvent>(items, paging.Page, paging.PageSize, totalItems);
         }
+    }
+
+    /// <inheritdoc />
+    public void SetMetadata(McpServerId id, McpServerMetadata metadata)
+    {
+        _metadataCache[id.Value] = metadata;
+    }
+
+    /// <inheritdoc />
+    public McpServerMetadata? GetMetadata(McpServerId id)
+    {
+        return _metadataCache.TryGetValue(id.Value, out var metadata) ? metadata : null;
     }
 }

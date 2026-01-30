@@ -48,5 +48,20 @@ public enum McpServerEventType
     /// <summary>
     /// Server configuration was deleted.
     /// </summary>
-    ConfigurationDeleted = 8
+    ConfigurationDeleted = 8,
+
+    /// <summary>
+    /// Server metadata retrieval is starting.
+    /// </summary>
+    MetadataRetrieving = 9,
+
+    /// <summary>
+    /// Server metadata was retrieved successfully.
+    /// </summary>
+    MetadataRetrieved = 10,
+
+    /// <summary>
+    /// Server metadata retrieval failed (partially or completely).
+    /// </summary>
+    MetadataRetrievalFailed = 11
 }

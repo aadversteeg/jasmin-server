@@ -4,7 +4,10 @@ using Core.Domain.McpServers;
 using Core.Domain.Models;
 using Core.Domain.Paging;
 using Core.Infrastructure.WebApp.Models.McpServers.Instances;
+using Core.Infrastructure.WebApp.Models.McpServers.Prompts;
 using Core.Infrastructure.WebApp.Models.McpServers.Requests;
+using Core.Infrastructure.WebApp.Models.McpServers.Resources;
+using Core.Infrastructure.WebApp.Models.McpServers.Tools;
 using Core.Infrastructure.WebApp.Models.Paging;
 
 using McpServerEvent = Core.Domain.McpServers.McpServerEvent;
@@ -42,7 +45,11 @@ public static class Mapper
         McpServerDefinition? definition = null,
         IReadOnlyList<McpServerEvent>? events = null,
         IReadOnlyList<McpServerRequest>? requests = null,
-        IReadOnlyList<McpServerInstanceInfo>? instances = null)
+        IReadOnlyList<McpServerInstanceInfo>? instances = null,
+        McpServerMetadata? metadata = null,
+        bool includeTools = false,
+        bool includePrompts = false,
+        bool includeResources = false)
     {
         var updatedOn = FormatTimestamp(statusEntry.UpdatedOnUtc, timeZone);
 
@@ -70,6 +77,24 @@ public static class Mapper
             instanceResponses = instances.Select(i => InstanceMapper.ToResponse(i, timeZone)).ToList().AsReadOnly();
         }
 
+        IReadOnlyList<ToolResponse>? toolResponses = null;
+        if (includeTools && metadata?.Tools != null)
+        {
+            toolResponses = metadata.Tools.Select(ToolMapper.ToResponse).ToList().AsReadOnly();
+        }
+
+        IReadOnlyList<PromptResponse>? promptResponses = null;
+        if (includePrompts && metadata?.Prompts != null)
+        {
+            promptResponses = metadata.Prompts.Select(PromptMapper.ToResponse).ToList().AsReadOnly();
+        }
+
+        IReadOnlyList<ResourceResponse>? resourceResponses = null;
+        if (includeResources && metadata?.Resources != null)
+        {
+            resourceResponses = metadata.Resources.Select(ResourceMapper.ToResponse).ToList().AsReadOnly();
+        }
+
         return new(
             serverName.Value,
             statusEntry.Status.ToString().ToLowerInvariant(),
@@ -77,7 +102,10 @@ public static class Mapper
             configuration,
             eventResponses,
             requestResponses,
-            instanceResponses);
+            instanceResponses,
+            toolResponses,
+            promptResponses,
+            resourceResponses);
     }
 
     public static DetailsResponse ToDetailsResponseAfterCreate(

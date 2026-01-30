@@ -12,6 +12,9 @@ public record McpServerIncludeOptions
     private const string EventsOption = "events";
     private const string RequestsOption = "requests";
     private const string InstancesOption = "instances";
+    private const string ToolsOption = "tools";
+    private const string PromptsOption = "prompts";
+    private const string ResourcesOption = "resources";
     private const string AllOption = "all";
 
     private McpServerIncludeOptions()
@@ -31,7 +34,10 @@ public record McpServerIncludeOptions
         IncludeConfiguration = true,
         IncludeEvents = true,
         IncludeRequests = true,
-        IncludeInstances = true
+        IncludeInstances = true,
+        IncludeTools = true,
+        IncludePrompts = true,
+        IncludeResources = true
     };
 
     /// <summary>
@@ -70,6 +76,15 @@ public record McpServerIncludeOptions
                 case InstancesOption:
                     result = result with { IncludeInstances = true };
                     break;
+                case ToolsOption:
+                    result = result with { IncludeTools = true };
+                    break;
+                case PromptsOption:
+                    result = result with { IncludePrompts = true };
+                    break;
+                case ResourcesOption:
+                    result = result with { IncludeResources = true };
+                    break;
                 default:
                     return Result<McpServerIncludeOptions, Error>.Failure(
                         Errors.InvalidIncludeOption(option));
@@ -98,4 +113,19 @@ public record McpServerIncludeOptions
     /// Gets whether to include instances in the response.
     /// </summary>
     public bool IncludeInstances { get; private init; }
+
+    /// <summary>
+    /// Gets whether to include tools in the response.
+    /// </summary>
+    public bool IncludeTools { get; private init; }
+
+    /// <summary>
+    /// Gets whether to include prompts in the response.
+    /// </summary>
+    public bool IncludePrompts { get; private init; }
+
+    /// <summary>
+    /// Gets whether to include resources in the response.
+    /// </summary>
+    public bool IncludeResources { get; private init; }
 }

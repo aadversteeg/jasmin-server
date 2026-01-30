@@ -35,7 +35,7 @@ public static class Errors
 
     public static Error InvalidIncludeOption(string option) => new(
         ErrorCodes.InvalidIncludeOption,
-        $"Invalid value for include option: '{option}'. Valid options are: configuration, events, requests, all");
+        $"Invalid value for include option: '{option}'. Valid options are: configuration, events, requests, instances, tools, prompts, resources, all");
 
     public static readonly Error ConfigurationRequired = new(
         ErrorCodes.ConfigurationRequired,

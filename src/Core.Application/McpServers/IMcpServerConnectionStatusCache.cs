@@ -83,4 +83,18 @@ public interface IMcpServerConnectionStatusCache
         PagingParameters paging,
         DateRangeFilter? dateFilter = null,
         SortDirection sortDirection = SortDirection.Descending);
+
+    /// <summary>
+    /// Sets the metadata for a server.
+    /// </summary>
+    /// <param name="id">The server identifier.</param>
+    /// <param name="metadata">The metadata to cache.</param>
+    void SetMetadata(McpServerId id, McpServerMetadata metadata);
+
+    /// <summary>
+    /// Gets the cached metadata for a server.
+    /// </summary>
+    /// <param name="id">The server identifier.</param>
+    /// <returns>The cached metadata, or null if not cached.</returns>
+    McpServerMetadata? GetMetadata(McpServerId id);
 }

@@ -118,6 +118,9 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
             _statusCache.SetStatus(serverId, McpServerConnectionStatus.Verified);
             _logger.LogInformation("Started MCP server instance {InstanceId} for {ServerName}", instanceId.Value, serverName.Value);
 
+            // Retrieve and cache metadata
+            await RetrieveAndCacheMetadataAsync(client, serverId, instanceId, requestId, cancellationToken);
+
             return Result<McpServerInstanceId, Error>.Success(instanceId);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -220,6 +223,100 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
     public async ValueTask DisposeAsync()
     {
         await StopAllAsync();
+    }
+
+    private async Task RetrieveAndCacheMetadataAsync(
+        McpClient client,
+        McpServerId serverId,
+        McpServerInstanceId instanceId,
+        McpServerRequestId? requestId,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogDebug("Retrieving metadata for MCP server {ServerId}", serverId.Value);
+        _statusCache.RecordEvent(serverId, McpServerEventType.MetadataRetrieving, null, instanceId, requestId);
+
+        var errors = new List<McpServerMetadataError>();
+        IReadOnlyList<McpTool>? tools = null;
+        IReadOnlyList<McpPrompt>? prompts = null;
+        IReadOnlyList<McpResource>? resources = null;
+
+        // Retrieve tools
+        try
+        {
+            var mcpTools = await client.ListToolsAsync(cancellationToken: cancellationToken);
+            tools = mcpTools.Select(t => new McpTool(
+                t.Name,
+                t.Title,
+                t.Description,
+                t.ProtocolTool.InputSchema.ToString())).ToList().AsReadOnly();
+            _logger.LogDebug("Retrieved {Count} tools from MCP server {ServerId}", tools.Count, serverId.Value);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to retrieve tools from MCP server {ServerId}", serverId.Value);
+            errors.Add(new McpServerMetadataError("Tools", ex.Message));
+        }
+
+        // Retrieve prompts
+        try
+        {
+            var mcpPrompts = await client.ListPromptsAsync(cancellationToken: cancellationToken);
+            prompts = mcpPrompts.Select(p => new McpPrompt(
+                p.Name,
+                p.Title,
+                p.Description,
+                p.ProtocolPrompt.Arguments?.Select(a => new McpPromptArgument(
+                    a.Name,
+                    a.Description,
+                    a.Required ?? false)).ToList().AsReadOnly())).ToList().AsReadOnly();
+            _logger.LogDebug("Retrieved {Count} prompts from MCP server {ServerId}", prompts.Count, serverId.Value);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to retrieve prompts from MCP server {ServerId}", serverId.Value);
+            errors.Add(new McpServerMetadataError("Prompts", ex.Message));
+        }
+
+        // Retrieve resources
+        try
+        {
+            var mcpResources = await client.ListResourcesAsync(cancellationToken: cancellationToken);
+            resources = mcpResources.Select(r => new McpResource(
+                r.Name,
+                r.Uri,
+                r.Title,
+                r.Description,
+                r.MimeType)).ToList().AsReadOnly();
+            _logger.LogDebug("Retrieved {Count} resources from MCP server {ServerId}", resources.Count, serverId.Value);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to retrieve resources from MCP server {ServerId}", serverId.Value);
+            errors.Add(new McpServerMetadataError("Resources", ex.Message));
+        }
+
+        // Create and cache metadata
+        var metadata = new McpServerMetadata(
+            tools,
+            prompts,
+            resources,
+            DateTime.UtcNow,
+            errors.Count > 0 ? errors.AsReadOnly() : null);
+
+        _statusCache.SetMetadata(serverId, metadata);
+
+        // Record completion event
+        if (errors.Count == 0)
+        {
+            _logger.LogDebug("Metadata retrieval completed successfully for MCP server {ServerId}", serverId.Value);
+            _statusCache.RecordEvent(serverId, McpServerEventType.MetadataRetrieved, null, instanceId, requestId);
+        }
+        else
+        {
+            _logger.LogWarning("Metadata retrieval completed with {ErrorCount} errors for MCP server {ServerId}", errors.Count, serverId.Value);
+            var eventErrors = errors.Select(e => new McpServerEventError(e.Category, e.ErrorMessage)).ToList();
+            _statusCache.RecordEvent(serverId, McpServerEventType.MetadataRetrievalFailed, eventErrors, instanceId, requestId);
+        }
     }
 
     private static IReadOnlyList<McpServerEventError> ToEventErrors(Error error)
