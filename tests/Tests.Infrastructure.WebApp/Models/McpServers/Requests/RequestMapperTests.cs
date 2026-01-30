@@ -45,12 +45,19 @@ public class RequestMapperTests
         var requestId = McpServerRequestId.Create();
         var serverName = McpServerName.Create("chronos").Value;
         var request = new McpServerRequest(requestId, serverName, McpServerRequestAction.Start);
-        request.MarkFailed("Connection timeout");
+        var errors = new List<McpServerRequestError>
+        {
+            new("TIMEOUT_ERROR", "Connection timeout")
+        }.AsReadOnly();
+        request.MarkFailed(errors);
 
         var result = RequestMapper.ToResponse(request, TimeZoneInfo.Utc);
 
         result.Status.Should().Be("failed");
-        result.ErrorMessage.Should().Be("Connection timeout");
+        result.Errors.Should().NotBeNull();
+        result.Errors.Should().HaveCount(1);
+        result.Errors![0].Code.Should().Be("TIMEOUT_ERROR");
+        result.Errors[0].Message.Should().Be("Connection timeout");
     }
 
     [Fact(DisplayName = "RMAP-004: ToResponse should map stop request with target")]

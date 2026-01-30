@@ -76,14 +76,14 @@ public class McpServerRequestProcessorService : BackgroundService
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            request.MarkFailed("Request cancelled due to shutdown");
+            request.MarkFailed(ToRequestErrors("REQUEST_CANCELLED", "Request cancelled due to shutdown"));
             _store.Update(request);
             throw;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error processing request {RequestId}", request.Id.Value);
-            request.MarkFailed(ex.Message);
+            request.MarkFailed(ToRequestErrors(ex));
             _store.Update(request);
         }
     }
@@ -103,7 +103,7 @@ public class McpServerRequestProcessorService : BackgroundService
         }
         else
         {
-            request.MarkFailed(result.Error.Message);
+            request.MarkFailed(ToRequestErrors(result.Error));
             _logger.LogWarning("Request {RequestId} failed: {Error}",
                 request.Id.Value, result.Error.Message);
         }
@@ -115,7 +115,7 @@ public class McpServerRequestProcessorService : BackgroundService
     {
         if (request.TargetInstanceId == null)
         {
-            request.MarkFailed("InstanceId is required for stop action");
+            request.MarkFailed(ToRequestErrors("INSTANCE_ID_REQUIRED_FOR_STOP", "InstanceId is required for stop action"));
             _store.Update(request);
             return;
         }
@@ -136,17 +136,32 @@ public class McpServerRequestProcessorService : BackgroundService
             // Record StopFailed event since the instance manager couldn't record it
             // (instance was not found, so it didn't have access to the server ID)
             var serverId = _statusCache.GetOrCreateId(request.ServerName);
-            var errors = new List<McpServerEventError>
+            var eventErrors = new List<McpServerEventError>
             {
                 new(result.Error.Code.Value, result.Error.Message)
             }.AsReadOnly();
-            _statusCache.RecordEvent(serverId, McpServerEventType.StopFailed, errors, request.TargetInstanceId, request.Id);
+            _statusCache.RecordEvent(serverId, McpServerEventType.StopFailed, eventErrors, request.TargetInstanceId, request.Id);
 
-            request.MarkFailed(result.Error.Message);
+            request.MarkFailed(ToRequestErrors(result.Error));
             _logger.LogWarning("Request {RequestId} failed: {Error}",
                 request.Id.Value, result.Error.Message);
         }
 
         _store.Update(request);
+    }
+
+    private static IReadOnlyList<McpServerRequestError> ToRequestErrors(string code, string message)
+    {
+        return [new McpServerRequestError(code, message)];
+    }
+
+    private static IReadOnlyList<McpServerRequestError> ToRequestErrors(Core.Domain.Models.Error error)
+    {
+        return [new McpServerRequestError(error.Code.Value, error.Message)];
+    }
+
+    private static IReadOnlyList<McpServerRequestError> ToRequestErrors(Exception ex)
+    {
+        return [new McpServerRequestError(ex.GetType().Name, ex.Message)];
     }
 }

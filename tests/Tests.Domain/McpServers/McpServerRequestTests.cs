@@ -70,19 +70,25 @@ public class McpServerRequestTests
         request.ResultInstanceId.Should().Be(resultInstanceId);
     }
 
-    [Fact(DisplayName = "REQ-006: MarkFailed should set status, timestamp, and error")]
+    [Fact(DisplayName = "REQ-006: MarkFailed should set status, timestamp, and errors")]
     public void REQ006()
     {
         var requestId = McpServerRequestId.Create();
         var serverName = McpServerName.Create("test-server").Value;
         var request = new McpServerRequest(requestId, serverName, McpServerRequestAction.Start);
-        var errorMessage = "Connection failed";
+        var errors = new List<McpServerRequestError>
+        {
+            new("CONNECTION_ERROR", "Connection failed")
+        }.AsReadOnly();
 
-        request.MarkFailed(errorMessage);
+        request.MarkFailed(errors);
 
         request.Status.Should().Be(McpServerRequestStatus.Failed);
         request.CompletedAtUtc.Should().NotBeNull();
-        request.ErrorMessage.Should().Be(errorMessage);
+        request.Errors.Should().NotBeNull();
+        request.Errors.Should().HaveCount(1);
+        request.Errors![0].Code.Should().Be("CONNECTION_ERROR");
+        request.Errors[0].Message.Should().Be("Connection failed");
     }
 
     [Fact(DisplayName = "REQ-007: Stop action should have TargetInstanceId")]
@@ -108,7 +114,7 @@ public class McpServerRequestTests
 
         request.CompletedAtUtc.Should().BeNull();
         request.ResultInstanceId.Should().BeNull();
-        request.ErrorMessage.Should().BeNull();
+        request.Errors.Should().BeNull();
         request.TargetInstanceId.Should().BeNull();
     }
 }

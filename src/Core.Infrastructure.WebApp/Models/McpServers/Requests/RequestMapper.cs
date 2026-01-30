@@ -13,6 +13,8 @@ public static class RequestMapper
 {
     public static RequestResponse ToResponse(McpServerRequest source, TimeZoneInfo timeZone)
     {
+        var errors = source.Errors?.Select(e => new RequestErrorResponse(e.Code, e.Message)).ToList().AsReadOnly();
+
         return new RequestResponse(
             source.Id.Value,
             source.ServerName.Value,
@@ -22,7 +24,7 @@ public static class RequestMapper
             source.CompletedAtUtc.HasValue ? FormatTimestamp(source.CompletedAtUtc.Value, timeZone) : null,
             source.TargetInstanceId?.Value,
             source.ResultInstanceId?.Value,
-            source.ErrorMessage);
+            errors);
     }
 
     public static Result<McpServerRequest, Error> ToDomain(

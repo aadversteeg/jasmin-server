@@ -12,4 +12,4 @@ public record RequestResponse(
     string? CompletedAt,
     string? TargetInstanceId,
     string? ResultInstanceId,
-    string? ErrorMessage);
+    IReadOnlyList<RequestErrorResponse>? Errors);

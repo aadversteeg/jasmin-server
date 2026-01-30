@@ -23,9 +23,9 @@ public class McpServerRequest
     public McpServerInstanceId? ResultInstanceId { get; private set; }
 
     /// <summary>
-    /// Error message if the request failed.
+    /// Errors if the request failed.
     /// </summary>
-    public string? ErrorMessage { get; private set; }
+    public IReadOnlyList<McpServerRequestError>? Errors { get; private set; }
 
     public McpServerRequest(
         McpServerRequestId id,
@@ -53,10 +53,10 @@ public class McpServerRequest
         ResultInstanceId = resultInstanceId;
     }
 
-    public void MarkFailed(string errorMessage)
+    public void MarkFailed(IReadOnlyList<McpServerRequestError> errors)
     {
         Status = McpServerRequestStatus.Failed;
         CompletedAtUtc = DateTime.UtcNow;
-        ErrorMessage = errorMessage;
+        Errors = errors;
     }
 }
