@@ -44,7 +44,7 @@ public class McpServerConnectionInitializationService : BackgroundService
     {
         try
         {
-            var startResult = await _instanceManager.StartInstanceAsync(serverName, stoppingToken);
+            var startResult = await _instanceManager.StartInstanceAsync(serverName, null, stoppingToken);
 
             if (startResult.IsFailure)
             {
@@ -58,7 +58,7 @@ public class McpServerConnectionInitializationService : BackgroundService
                 serverName.Value, instanceId.Value);
 
             // Stop the instance after verifying connection
-            var stopResult = await _instanceManager.StopInstanceAsync(instanceId, stoppingToken);
+            var stopResult = await _instanceManager.StopInstanceAsync(instanceId, null, stoppingToken);
 
             if (stopResult.IsFailure)
             {

@@ -7,4 +7,5 @@ public record EventResponse(
     string EventType,
     string TimestampUtc,
     string? ErrorMessage,
-    string? InstanceId);
+    string? InstanceId,
+    string? RequestId);

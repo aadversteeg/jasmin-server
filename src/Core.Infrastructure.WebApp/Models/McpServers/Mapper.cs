@@ -76,7 +76,8 @@ public static class Mapper
             source.EventType.ToString(),
             timestamp,
             source.ErrorMessage,
-            source.InstanceId?.Value);
+            source.InstanceId?.Value,
+            source.RequestId?.Value);
     }
 
     public static Result<McpServerDefinition, Error> ToDomain(CreateRequest request) =>

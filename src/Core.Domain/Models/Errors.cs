@@ -36,4 +36,12 @@ public static class Errors
     public static Error InvalidIncludeOption(string option) => new(
         ErrorCodes.InvalidIncludeOption,
         $"Invalid value for include option: '{option}'. Valid options are: events, all");
+
+    public static Error InvalidRequestAction(string action) => new(
+        ErrorCodes.InvalidRequestAction,
+        $"Invalid request action: '{action}'. Valid actions are: start, stop");
+
+    public static readonly Error InstanceIdRequiredForStop = new(
+        ErrorCodes.InstanceIdRequiredForStop,
+        "InstanceId is required for stop action.");
 }

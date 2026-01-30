@@ -32,6 +32,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
     /// <inheritdoc />
     public async Task<Result<McpServerInstanceId, Error>> StartInstanceAsync(
         McpServerName serverName,
+        McpServerRequestId? requestId = null,
         CancellationToken cancellationToken = default)
     {
         var serverId = _statusCache.GetOrCreateId(serverName);
@@ -43,7 +44,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
             var definitionResult = _repository.GetById(serverName);
             if (definitionResult.IsFailure)
             {
-                _statusCache.RecordEvent(serverId, McpServerEventType.StartFailed, definitionResult.Error.Message, instanceId);
+                _statusCache.RecordEvent(serverId, McpServerEventType.StartFailed, definitionResult.Error.Message, instanceId, requestId);
                 _statusCache.SetStatus(serverId, McpServerConnectionStatus.Failed);
                 return Result<McpServerInstanceId, Error>.Failure(definitionResult.Error);
             }
@@ -51,7 +52,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
             if (!definitionResult.Value.HasValue)
             {
                 var error = Errors.McpServerNotFound(serverName.Value);
-                _statusCache.RecordEvent(serverId, McpServerEventType.StartFailed, error.Message, instanceId);
+                _statusCache.RecordEvent(serverId, McpServerEventType.StartFailed, error.Message, instanceId, requestId);
                 _statusCache.SetStatus(serverId, McpServerConnectionStatus.Failed);
                 return Result<McpServerInstanceId, Error>.Failure(error);
             }
@@ -60,7 +61,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
 
             // Record starting event
             _logger.LogDebug("Starting MCP server instance {InstanceId} for {ServerName}", instanceId.Value, serverName.Value);
-            _statusCache.RecordEvent(serverId, McpServerEventType.Starting, null, instanceId);
+            _statusCache.RecordEvent(serverId, McpServerEventType.Starting, null, instanceId, requestId);
 
             // Create transport and connect
             var transportOptions = new StdioClientTransportOptions
@@ -84,7 +85,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to start MCP server instance {InstanceId} for {ServerName}", instanceId.Value, serverName.Value);
-                _statusCache.RecordEvent(serverId, McpServerEventType.StartFailed, ex.Message, instanceId);
+                _statusCache.RecordEvent(serverId, McpServerEventType.StartFailed, ex.Message, instanceId, requestId);
                 _statusCache.SetStatus(serverId, McpServerConnectionStatus.Failed);
                 return Result<McpServerInstanceId, Error>.Failure(new Error(
                     ErrorCodes.ConfigFileReadError,
@@ -102,7 +103,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
             _instances[instanceId.Value] = instance;
 
             // Record started event
-            _statusCache.RecordEvent(serverId, McpServerEventType.Started, null, instanceId);
+            _statusCache.RecordEvent(serverId, McpServerEventType.Started, null, instanceId, requestId);
             _statusCache.SetStatus(serverId, McpServerConnectionStatus.Verified);
             _logger.LogInformation("Started MCP server instance {InstanceId} for {ServerName}", instanceId.Value, serverName.Value);
 
@@ -116,7 +117,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error starting MCP server instance for {ServerName}", serverName.Value);
-            _statusCache.RecordEvent(serverId, McpServerEventType.StartFailed, ex.Message, instanceId);
+            _statusCache.RecordEvent(serverId, McpServerEventType.StartFailed, ex.Message, instanceId, requestId);
             _statusCache.SetStatus(serverId, McpServerConnectionStatus.Failed);
             return Result<McpServerInstanceId, Error>.Failure(new Error(
                 ErrorCodes.ConfigFileReadError,
@@ -127,6 +128,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
     /// <inheritdoc />
     public async Task<Result<Unit, Error>> StopInstanceAsync(
         McpServerInstanceId instanceId,
+        McpServerRequestId? requestId = null,
         CancellationToken cancellationToken = default)
     {
         if (!_instances.TryRemove(instanceId.Value, out var instance))
@@ -139,11 +141,11 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
         try
         {
             _logger.LogDebug("Stopping MCP server instance {InstanceId} for {ServerName}", instanceId.Value, instance.ServerName.Value);
-            _statusCache.RecordEvent(instance.ServerId, McpServerEventType.Stopping, null, instanceId);
+            _statusCache.RecordEvent(instance.ServerId, McpServerEventType.Stopping, null, instanceId, requestId);
 
             await instance.Client.DisposeAsync();
 
-            _statusCache.RecordEvent(instance.ServerId, McpServerEventType.Stopped, null, instanceId);
+            _statusCache.RecordEvent(instance.ServerId, McpServerEventType.Stopped, null, instanceId, requestId);
             _logger.LogInformation("Stopped MCP server instance {InstanceId} for {ServerName}", instanceId.Value, instance.ServerName.Value);
 
             return Result<Unit, Error>.Success(Unit.Value);
@@ -151,7 +153,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error stopping MCP server instance {InstanceId}", instanceId.Value);
-            _statusCache.RecordEvent(instance.ServerId, McpServerEventType.StopFailed, ex.Message, instanceId);
+            _statusCache.RecordEvent(instance.ServerId, McpServerEventType.StopFailed, ex.Message, instanceId, requestId);
             return Result<Unit, Error>.Failure(new Error(
                 ErrorCodes.ConfigFileWriteError,
                 $"Error stopping instance '{instanceId.Value}': {ex.Message}"));
@@ -183,7 +185,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
         _logger.LogInformation("Stopping all MCP server instances ({Count} instances)", _instances.Count);
 
         var tasks = _instances.Keys
-            .Select(id => StopInstanceAsync(McpServerInstanceId.From(id), cancellationToken))
+            .Select(id => StopInstanceAsync(McpServerInstanceId.From(id), null, cancellationToken))
             .ToList();
 
         await Task.WhenAll(tasks);

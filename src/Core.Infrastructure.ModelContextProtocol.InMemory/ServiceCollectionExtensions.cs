@@ -33,6 +33,13 @@ public static class ServiceCollectionExtensions
         // Register the initialization background service
         services.AddHostedService<McpServerConnectionInitializationService>();
 
+        // Register request store and queue (singletons for shared state)
+        services.AddSingleton<IMcpServerRequestStore, McpServerRequestStore>();
+        services.AddSingleton<IMcpServerRequestQueue, McpServerRequestQueue>();
+
+        // Register the request processor background service
+        services.AddHostedService<McpServerRequestProcessorService>();
+
         // Decorate the existing repository with status enrichment
         var descriptor = services.FirstOrDefault(d => d.ServiceType == typeof(IMcpServerRepository));
         if (descriptor != null)

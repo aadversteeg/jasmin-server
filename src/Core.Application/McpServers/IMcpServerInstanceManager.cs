@@ -13,20 +13,24 @@ public interface IMcpServerInstanceManager
     /// Starts a new instance of the specified MCP server.
     /// </summary>
     /// <param name="serverName">The name of the server to start.</param>
+    /// <param name="requestId">Optional request ID for tracking this operation.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A result containing the instance ID if successful, or an error.</returns>
     Task<Result<McpServerInstanceId, Error>> StartInstanceAsync(
         McpServerName serverName,
+        McpServerRequestId? requestId = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Stops a running instance.
     /// </summary>
     /// <param name="instanceId">The ID of the instance to stop.</param>
+    /// <param name="requestId">Optional request ID for tracking this operation.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A result indicating success or failure.</returns>
     Task<Result<Unit, Error>> StopInstanceAsync(
         McpServerInstanceId instanceId,
+        McpServerRequestId? requestId = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>

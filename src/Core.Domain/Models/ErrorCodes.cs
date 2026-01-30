@@ -13,4 +13,6 @@ public static class ErrorCodes
     public static readonly ErrorCode DuplicateMcpServerName = new("DUPLICATE_MCP_SERVER_NAME");
     public static readonly ErrorCode McpServerNotFound = new("MCP_SERVER_NOT_FOUND");
     public static readonly ErrorCode InvalidIncludeOption = new("INVALID_INCLUDE_OPTION");
+    public static readonly ErrorCode InvalidRequestAction = new("INVALID_REQUEST_ACTION");
+    public static readonly ErrorCode InstanceIdRequiredForStop = new("INSTANCE_ID_REQUIRED_FOR_STOP");
 }
