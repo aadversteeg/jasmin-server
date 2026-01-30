@@ -129,8 +129,38 @@ public class McpServerEventTests
         evt1.Should().NotBe(evt2);
     }
 
-    [Fact(DisplayName = "MSE-011: Tool invocation event types should be defined")]
+    [Fact(DisplayName = "MSE-011: Metadata retrieval event types should be defined")]
     public void MSE011()
+    {
+        var eventTypes = Enum.GetValues<McpServerEventType>();
+
+        eventTypes.Should().Contain(McpServerEventType.ToolsRetrieving);
+        eventTypes.Should().Contain(McpServerEventType.ToolsRetrieved);
+        eventTypes.Should().Contain(McpServerEventType.ToolsRetrievalFailed);
+        eventTypes.Should().Contain(McpServerEventType.PromptsRetrieving);
+        eventTypes.Should().Contain(McpServerEventType.PromptsRetrieved);
+        eventTypes.Should().Contain(McpServerEventType.PromptsRetrievalFailed);
+        eventTypes.Should().Contain(McpServerEventType.ResourcesRetrieving);
+        eventTypes.Should().Contain(McpServerEventType.ResourcesRetrieved);
+        eventTypes.Should().Contain(McpServerEventType.ResourcesRetrievalFailed);
+    }
+
+    [Fact(DisplayName = "MSE-012: Metadata retrieval event types should have correct values")]
+    public void MSE012()
+    {
+        ((int)McpServerEventType.ToolsRetrieving).Should().Be(9);
+        ((int)McpServerEventType.ToolsRetrieved).Should().Be(10);
+        ((int)McpServerEventType.ToolsRetrievalFailed).Should().Be(11);
+        ((int)McpServerEventType.PromptsRetrieving).Should().Be(12);
+        ((int)McpServerEventType.PromptsRetrieved).Should().Be(13);
+        ((int)McpServerEventType.PromptsRetrievalFailed).Should().Be(14);
+        ((int)McpServerEventType.ResourcesRetrieving).Should().Be(15);
+        ((int)McpServerEventType.ResourcesRetrieved).Should().Be(16);
+        ((int)McpServerEventType.ResourcesRetrievalFailed).Should().Be(17);
+    }
+
+    [Fact(DisplayName = "MSE-017: Tool invocation event types should be defined")]
+    public void MSE017()
     {
         var eventTypes = Enum.GetValues<McpServerEventType>();
 
@@ -140,13 +170,13 @@ public class McpServerEventTests
         eventTypes.Should().Contain(McpServerEventType.ToolInvocationFailed);
     }
 
-    [Fact(DisplayName = "MSE-012: Tool invocation event types should have correct values")]
-    public void MSE012()
+    [Fact(DisplayName = "MSE-018: Tool invocation event types should have correct values")]
+    public void MSE018()
     {
-        ((int)McpServerEventType.ToolInvocationAccepted).Should().Be(12);
-        ((int)McpServerEventType.ToolInvoking).Should().Be(13);
-        ((int)McpServerEventType.ToolInvoked).Should().Be(14);
-        ((int)McpServerEventType.ToolInvocationFailed).Should().Be(15);
+        ((int)McpServerEventType.ToolInvocationAccepted).Should().Be(18);
+        ((int)McpServerEventType.ToolInvoking).Should().Be(19);
+        ((int)McpServerEventType.ToolInvoked).Should().Be(20);
+        ((int)McpServerEventType.ToolInvocationFailed).Should().Be(21);
     }
 
     [Fact(DisplayName = "MSE-013: Event should store tool invocation data")]

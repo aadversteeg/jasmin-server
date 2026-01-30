@@ -465,4 +465,113 @@ public class McpServerConnectionStatusCacheTests
         events[1].EventType.Should().Be(McpServerEventType.ToolInvoking);
         events[2].EventType.Should().Be(McpServerEventType.ToolInvoked);
     }
+
+    [Fact(DisplayName = "MCSC-027: RecordEvent should store ToolsRetrieving event")]
+    public void MCSC027()
+    {
+        var id = McpServerId.Create();
+        var instanceId = McpServerInstanceId.Create();
+
+        _cache.RecordEvent(id, McpServerEventType.ToolsRetrieving, instanceId: instanceId);
+
+        var events = _cache.GetEvents(id);
+        events.Should().HaveCount(1);
+        events[0].EventType.Should().Be(McpServerEventType.ToolsRetrieving);
+        events[0].InstanceId.Should().Be(instanceId);
+    }
+
+    [Fact(DisplayName = "MCSC-028: RecordEvent should store ToolsRetrieved event")]
+    public void MCSC028()
+    {
+        var id = McpServerId.Create();
+        var instanceId = McpServerInstanceId.Create();
+
+        _cache.RecordEvent(id, McpServerEventType.ToolsRetrieved, instanceId: instanceId);
+
+        var events = _cache.GetEvents(id);
+        events.Should().HaveCount(1);
+        events[0].EventType.Should().Be(McpServerEventType.ToolsRetrieved);
+    }
+
+    [Fact(DisplayName = "MCSC-029: RecordEvent should store ToolsRetrievalFailed event with errors")]
+    public void MCSC029()
+    {
+        var id = McpServerId.Create();
+        var instanceId = McpServerInstanceId.Create();
+        var errors = new List<McpServerEventError>
+        {
+            new("Tools", "Method 'tools/list' is not available")
+        }.AsReadOnly();
+
+        _cache.RecordEvent(id, McpServerEventType.ToolsRetrievalFailed, errors, instanceId: instanceId);
+
+        var events = _cache.GetEvents(id);
+        events.Should().HaveCount(1);
+        events[0].EventType.Should().Be(McpServerEventType.ToolsRetrievalFailed);
+        events[0].Errors.Should().NotBeNull();
+        events[0].Errors.Should().HaveCount(1);
+    }
+
+    [Fact(DisplayName = "MCSC-030: RecordEvent should store PromptsRetrieving and PromptsRetrievalFailed events")]
+    public void MCSC030()
+    {
+        var id = McpServerId.Create();
+        var instanceId = McpServerInstanceId.Create();
+        var errors = new List<McpServerEventError>
+        {
+            new("Prompts", "Method 'prompts/list' is not available")
+        }.AsReadOnly();
+
+        _cache.RecordEvent(id, McpServerEventType.PromptsRetrieving, instanceId: instanceId);
+        _cache.RecordEvent(id, McpServerEventType.PromptsRetrievalFailed, errors, instanceId: instanceId);
+
+        var events = _cache.GetEvents(id);
+        events.Should().HaveCount(2);
+        events[0].EventType.Should().Be(McpServerEventType.PromptsRetrieving);
+        events[1].EventType.Should().Be(McpServerEventType.PromptsRetrievalFailed);
+        events[1].Errors.Should().NotBeNull();
+    }
+
+    [Fact(DisplayName = "MCSC-031: RecordEvent should store ResourcesRetrieving and ResourcesRetrieved events")]
+    public void MCSC031()
+    {
+        var id = McpServerId.Create();
+        var instanceId = McpServerInstanceId.Create();
+
+        _cache.RecordEvent(id, McpServerEventType.ResourcesRetrieving, instanceId: instanceId);
+        _cache.RecordEvent(id, McpServerEventType.ResourcesRetrieved, instanceId: instanceId);
+
+        var events = _cache.GetEvents(id);
+        events.Should().HaveCount(2);
+        events[0].EventType.Should().Be(McpServerEventType.ResourcesRetrieving);
+        events[1].EventType.Should().Be(McpServerEventType.ResourcesRetrieved);
+    }
+
+    [Fact(DisplayName = "MCSC-032: Metadata retrieval events should maintain order")]
+    public void MCSC032()
+    {
+        var id = McpServerId.Create();
+        var instanceId = McpServerInstanceId.Create();
+
+        _cache.RecordEvent(id, McpServerEventType.ToolsRetrieving, instanceId: instanceId);
+        Thread.Sleep(5);
+        _cache.RecordEvent(id, McpServerEventType.ToolsRetrieved, instanceId: instanceId);
+        Thread.Sleep(5);
+        _cache.RecordEvent(id, McpServerEventType.PromptsRetrieving, instanceId: instanceId);
+        Thread.Sleep(5);
+        _cache.RecordEvent(id, McpServerEventType.PromptsRetrieved, instanceId: instanceId);
+        Thread.Sleep(5);
+        _cache.RecordEvent(id, McpServerEventType.ResourcesRetrieving, instanceId: instanceId);
+        Thread.Sleep(5);
+        _cache.RecordEvent(id, McpServerEventType.ResourcesRetrieved, instanceId: instanceId);
+
+        var events = _cache.GetEvents(id);
+        events.Should().HaveCount(6);
+        events[0].EventType.Should().Be(McpServerEventType.ToolsRetrieving);
+        events[1].EventType.Should().Be(McpServerEventType.ToolsRetrieved);
+        events[2].EventType.Should().Be(McpServerEventType.PromptsRetrieving);
+        events[3].EventType.Should().Be(McpServerEventType.PromptsRetrieved);
+        events[4].EventType.Should().Be(McpServerEventType.ResourcesRetrieving);
+        events[5].EventType.Should().Be(McpServerEventType.ResourcesRetrieved);
+    }
 }

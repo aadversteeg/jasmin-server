@@ -51,37 +51,67 @@ public enum McpServerEventType
     ConfigurationDeleted = 8,
 
     /// <summary>
-    /// Server metadata retrieval is starting.
+    /// Tools retrieval is starting.
     /// </summary>
-    MetadataRetrieving = 9,
+    ToolsRetrieving = 9,
 
     /// <summary>
-    /// Server metadata was retrieved successfully.
+    /// Tools were retrieved successfully.
     /// </summary>
-    MetadataRetrieved = 10,
+    ToolsRetrieved = 10,
 
     /// <summary>
-    /// Server metadata retrieval failed (partially or completely).
+    /// Tools retrieval failed.
     /// </summary>
-    MetadataRetrievalFailed = 11,
+    ToolsRetrievalFailed = 11,
+
+    /// <summary>
+    /// Prompts retrieval is starting.
+    /// </summary>
+    PromptsRetrieving = 12,
+
+    /// <summary>
+    /// Prompts were retrieved successfully.
+    /// </summary>
+    PromptsRetrieved = 13,
+
+    /// <summary>
+    /// Prompts retrieval failed.
+    /// </summary>
+    PromptsRetrievalFailed = 14,
+
+    /// <summary>
+    /// Resources retrieval is starting.
+    /// </summary>
+    ResourcesRetrieving = 15,
+
+    /// <summary>
+    /// Resources were retrieved successfully.
+    /// </summary>
+    ResourcesRetrieved = 16,
+
+    /// <summary>
+    /// Resources retrieval failed.
+    /// </summary>
+    ResourcesRetrievalFailed = 17,
 
     /// <summary>
     /// Request to invoke a tool was accepted and queued.
     /// </summary>
-    ToolInvocationAccepted = 12,
+    ToolInvocationAccepted = 18,
 
     /// <summary>
     /// Tool invocation is starting.
     /// </summary>
-    ToolInvoking = 13,
+    ToolInvoking = 19,
 
     /// <summary>
     /// Tool was invoked successfully.
     /// </summary>
-    ToolInvoked = 14,
+    ToolInvoked = 20,
 
     /// <summary>
     /// Tool invocation failed.
     /// </summary>
-    ToolInvocationFailed = 15
+    ToolInvocationFailed = 21
 }
