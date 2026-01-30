@@ -26,7 +26,11 @@ public class McpServerRepositoryWithStatus : IMcpServerRepository
     {
         return _inner.GetAll()
             .OnSuccessMap(servers => servers
-                .Select(s => s.WithStatus(_statusCache.GetStatus(s.Id)))
+                .Select(s =>
+                {
+                    var entry = _statusCache.GetEntry(s.Id);
+                    return s.WithStatus(entry.Status, entry.VerifiedAtUtc);
+                })
                 .ToList() as IReadOnlyList<McpServerInfo>);
     }
 

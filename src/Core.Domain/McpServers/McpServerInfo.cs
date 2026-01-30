@@ -16,22 +16,33 @@ public record McpServerInfo
     public string Command { get; }
 
     /// <summary>
-    /// The connection status of the MCP server.
+    /// The verification status of the MCP server.
     /// </summary>
     public McpServerConnectionStatus Status { get; }
 
-    public McpServerInfo(McpServerId id, string command, McpServerConnectionStatus status = McpServerConnectionStatus.Unknown)
+    /// <summary>
+    /// The UTC timestamp when the status was last verified.
+    /// </summary>
+    public DateTime? VerifiedAtUtc { get; }
+
+    public McpServerInfo(
+        McpServerId id,
+        string command,
+        McpServerConnectionStatus status = McpServerConnectionStatus.Unknown,
+        DateTime? verifiedAtUtc = null)
     {
         Id = id;
         Command = command;
         Status = status;
+        VerifiedAtUtc = verifiedAtUtc;
     }
 
     /// <summary>
-    /// Creates a new McpServerInfo with an updated status.
+    /// Creates a new McpServerInfo with an updated status and timestamp.
     /// </summary>
     /// <param name="status">The new connection status.</param>
-    /// <returns>A new McpServerInfo instance with the updated status.</returns>
-    public McpServerInfo WithStatus(McpServerConnectionStatus status) =>
-        new(Id, Command, status);
+    /// <param name="verifiedAtUtc">The UTC timestamp when verified.</param>
+    /// <returns>A new McpServerInfo instance with the updated status and timestamp.</returns>
+    public McpServerInfo WithStatus(McpServerConnectionStatus status, DateTime? verifiedAtUtc) =>
+        new(Id, Command, status, verifiedAtUtc);
 }
