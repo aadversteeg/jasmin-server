@@ -1,7 +1,9 @@
 using Core.Application.McpServers;
 using Core.Domain.McpServers;
+using Core.Domain.Models;
 using Core.Domain.Paging;
 using Core.Infrastructure.ModelContextProtocol.InMemory;
+using Core.Infrastructure.WebApp.Models;
 using Core.Infrastructure.WebApp.Models.McpServers.Requests;
 using Core.Infrastructure.WebApp.Models.Paging;
 using Microsoft.AspNetCore.Mvc;
@@ -49,14 +51,14 @@ public class McpServerRequestsController : ControllerBase
         var resolvedTimeZone = ResolveTimeZone(timeZone);
         if (resolvedTimeZone == null)
         {
-            return BadRequest(new { error = $"Invalid timezone: {timeZone}" });
+            return BadRequest(ErrorResponse.Single("INVALID_TIMEZONE", $"Invalid timezone: {timeZone}"));
         }
 
         // Validate server name
         var serverNameResult = McpServerName.Create(serverId);
         if (serverNameResult.IsFailure)
         {
-            return BadRequest(new { error = serverNameResult.Error.Message });
+            return BadRequest(ErrorResponse.FromError(serverNameResult.Error));
         }
 
         var serverName = serverNameResult.Value;
@@ -65,19 +67,19 @@ public class McpServerRequestsController : ControllerBase
         var serverResult = _mcpServerService.GetById(serverName);
         if (serverResult.IsFailure)
         {
-            return StatusCode(StatusCodes.Status500InternalServerError, new { error = serverResult.Error.Message });
+            return StatusCode(StatusCodes.Status500InternalServerError, ErrorResponse.FromError(serverResult.Error));
         }
 
         if (!serverResult.Value.HasValue)
         {
-            return NotFound(new { error = $"MCP server '{serverId}' not found" });
+            return NotFound(ErrorResponse.Single(ErrorCodes.McpServerNotFound.Value, $"MCP server '{serverId}' not found"));
         }
 
         // Create domain request
         var domainRequestResult = RequestMapper.ToDomain(serverName, request);
         if (domainRequestResult.IsFailure)
         {
-            return BadRequest(new { error = domainRequestResult.Error.Message });
+            return BadRequest(ErrorResponse.FromError(domainRequestResult.Error));
         }
 
         var domainRequest = domainRequestResult.Value;
@@ -123,19 +125,19 @@ public class McpServerRequestsController : ControllerBase
         var resolvedTimeZone = ResolveTimeZone(timeZone);
         if (resolvedTimeZone == null)
         {
-            return BadRequest(new { error = $"Invalid timezone: {timeZone}" });
+            return BadRequest(ErrorResponse.Single("INVALID_TIMEZONE", $"Invalid timezone: {timeZone}"));
         }
 
         var pagingResult = PagingParameters.Create(page, pageSize);
         if (pagingResult.IsFailure)
         {
-            return BadRequest(new { error = pagingResult.Error.Message });
+            return BadRequest(ErrorResponse.FromError(pagingResult.Error));
         }
 
         var serverNameResult = McpServerName.Create(serverId);
         if (serverNameResult.IsFailure)
         {
-            return BadRequest(new { error = serverNameResult.Error.Message });
+            return BadRequest(ErrorResponse.FromError(serverNameResult.Error));
         }
 
         var serverName = serverNameResult.Value;
@@ -144,12 +146,12 @@ public class McpServerRequestsController : ControllerBase
         var serverResult = _mcpServerService.GetById(serverName);
         if (serverResult.IsFailure)
         {
-            return StatusCode(StatusCodes.Status500InternalServerError, new { error = serverResult.Error.Message });
+            return StatusCode(StatusCodes.Status500InternalServerError, ErrorResponse.FromError(serverResult.Error));
         }
 
         if (!serverResult.Value.HasValue)
         {
-            return NotFound(new { error = $"MCP server '{serverId}' not found" });
+            return NotFound(ErrorResponse.Single(ErrorCodes.McpServerNotFound.Value, $"MCP server '{serverId}' not found"));
         }
 
         var dateFilter = new DateRangeFilter(from, to);
@@ -183,13 +185,13 @@ public class McpServerRequestsController : ControllerBase
         var resolvedTimeZone = ResolveTimeZone(timeZone);
         if (resolvedTimeZone == null)
         {
-            return BadRequest(new { error = $"Invalid timezone: {timeZone}" });
+            return BadRequest(ErrorResponse.Single("INVALID_TIMEZONE", $"Invalid timezone: {timeZone}"));
         }
 
         var serverNameResult = McpServerName.Create(serverId);
         if (serverNameResult.IsFailure)
         {
-            return BadRequest(new { error = serverNameResult.Error.Message });
+            return BadRequest(ErrorResponse.FromError(serverNameResult.Error));
         }
 
         var requestIdObj = McpServerRequestId.From(requestId);
@@ -197,7 +199,7 @@ public class McpServerRequestsController : ControllerBase
 
         if (maybeRequest.HasNoValue)
         {
-            return NotFound(new { error = $"Request '{requestId}' not found" });
+            return NotFound(ErrorResponse.Single("REQUEST_NOT_FOUND", $"Request '{requestId}' not found"));
         }
 
         var request = maybeRequest.Value;
@@ -205,7 +207,7 @@ public class McpServerRequestsController : ControllerBase
         // Verify the request belongs to the specified server
         if (request.ServerName.Value != serverNameResult.Value.Value)
         {
-            return NotFound(new { error = $"Request '{requestId}' not found for server '{serverId}'" });
+            return NotFound(ErrorResponse.Single("REQUEST_NOT_FOUND", $"Request '{requestId}' not found for server '{serverId}'"));
         }
 
         return Ok(RequestMapper.ToResponse(request, resolvedTimeZone));

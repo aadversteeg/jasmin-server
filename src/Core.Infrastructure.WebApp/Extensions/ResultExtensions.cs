@@ -1,5 +1,6 @@
 using Ave.Extensions.Functional;
 using Core.Domain.Models;
+using Core.Infrastructure.WebApp.Models;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Core.Infrastructure.WebApp.Extensions;
@@ -19,7 +20,7 @@ public static class ResultExtensions
     {
         if (source.IsFailure)
         {
-            return new BadRequestObjectResult(new { error = source.Error.Message });
+            return new BadRequestObjectResult(ErrorResponse.FromError(source.Error));
         }
 
         if (source.Value.HasNoValue)
@@ -40,7 +41,7 @@ public static class ResultExtensions
     {
         if (source.IsFailure)
         {
-            return new BadRequestObjectResult(new { error = source.Error.Message });
+            return new BadRequestObjectResult(ErrorResponse.FromError(source.Error));
         }
 
         return new OkObjectResult(source.Value.Select(map).ToList());
@@ -60,9 +61,9 @@ public static class ResultExtensions
         {
             if (source.Error.Code == ErrorCodes.DuplicateMcpServerName)
             {
-                return new ConflictObjectResult(new { error = source.Error.Message });
+                return new ConflictObjectResult(ErrorResponse.FromError(source.Error));
             }
-            return new BadRequestObjectResult(new { error = source.Error.Message });
+            return new BadRequestObjectResult(ErrorResponse.FromError(source.Error));
         }
 
         return new CreatedAtRouteResult(routeName, routeValuesSelector(source.Value), map(source.Value));
@@ -80,9 +81,9 @@ public static class ResultExtensions
         {
             if (source.Error.Code == ErrorCodes.McpServerNotFound)
             {
-                return new NotFoundObjectResult(new { error = source.Error.Message });
+                return new NotFoundObjectResult(ErrorResponse.FromError(source.Error));
             }
-            return new BadRequestObjectResult(new { error = source.Error.Message });
+            return new BadRequestObjectResult(ErrorResponse.FromError(source.Error));
         }
 
         return new OkObjectResult(map(source.Value));
@@ -98,9 +99,9 @@ public static class ResultExtensions
         {
             if (source.Error.Code == ErrorCodes.McpServerNotFound)
             {
-                return new NotFoundObjectResult(new { error = source.Error.Message });
+                return new NotFoundObjectResult(ErrorResponse.FromError(source.Error));
             }
-            return new BadRequestObjectResult(new { error = source.Error.Message });
+            return new BadRequestObjectResult(ErrorResponse.FromError(source.Error));
         }
 
         return new NoContentResult();

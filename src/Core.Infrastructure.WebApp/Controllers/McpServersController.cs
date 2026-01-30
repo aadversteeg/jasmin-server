@@ -1,9 +1,11 @@
 using Ave.Extensions.Functional;
 using Core.Application.McpServers;
 using Core.Domain.McpServers;
+using Core.Domain.Models;
 using Core.Domain.Paging;
 using Core.Infrastructure.ModelContextProtocol.InMemory;
 using Core.Infrastructure.WebApp.Extensions;
+using Core.Infrastructure.WebApp.Models;
 using Core.Infrastructure.WebApp.Models.McpServers;
 using Core.Infrastructure.WebApp.Models.Paging;
 using Microsoft.AspNetCore.Mvc;
@@ -44,7 +46,7 @@ public class McpServersController : ControllerBase
         var resolvedTimeZone = ResolveTimeZone(timeZone);
         if (resolvedTimeZone == null)
         {
-            return BadRequest($"Invalid timezone: {timeZone}");
+            return BadRequest(ErrorResponse.Single("INVALID_TIMEZONE", $"Invalid timezone: {timeZone}"));
         }
 
         return _mcpServerService
@@ -87,13 +89,13 @@ public class McpServersController : ControllerBase
         var resolvedTimeZone = ResolveTimeZone(timeZone);
         if (resolvedTimeZone == null)
         {
-            return BadRequest($"Invalid timezone: {timeZone}");
+            return BadRequest(ErrorResponse.Single("INVALID_TIMEZONE", $"Invalid timezone: {timeZone}"));
         }
 
         var includeOptionsResult = McpServerIncludeOptions.Create(include);
         if (includeOptionsResult.IsFailure)
         {
-            return BadRequest(includeOptionsResult.Error.Message);
+            return BadRequest(ErrorResponse.FromError(includeOptionsResult.Error));
         }
 
         var includeOptions = includeOptionsResult.Value;
@@ -101,14 +103,14 @@ public class McpServersController : ControllerBase
         var serverNameResult = McpServerName.Create(id);
         if (serverNameResult.IsFailure)
         {
-            return BadRequest(serverNameResult.Error.Message);
+            return BadRequest(ErrorResponse.FromError(serverNameResult.Error));
         }
 
         var serverName = serverNameResult.Value;
         var definitionResult = _mcpServerService.GetById(serverName);
         if (definitionResult.IsFailure)
         {
-            return StatusCode(StatusCodes.Status500InternalServerError, definitionResult.Error.Message);
+            return StatusCode(StatusCodes.Status500InternalServerError, ErrorResponse.FromError(definitionResult.Error));
         }
 
         if (!definitionResult.Value.HasValue)
@@ -158,13 +160,13 @@ public class McpServersController : ControllerBase
         var resolvedTimeZone = ResolveTimeZone(timeZone);
         if (resolvedTimeZone == null)
         {
-            return BadRequest($"Invalid timezone: {timeZone}");
+            return BadRequest(ErrorResponse.Single("INVALID_TIMEZONE", $"Invalid timezone: {timeZone}"));
         }
 
         var pagingResult = PagingParameters.Create(page, pageSize);
         if (pagingResult.IsFailure)
         {
-            return BadRequest(pagingResult.Error.Message);
+            return BadRequest(ErrorResponse.FromError(pagingResult.Error));
         }
 
         var dateFilter = new DateRangeFilter(from, to);
