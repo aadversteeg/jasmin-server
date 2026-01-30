@@ -8,7 +8,7 @@ public record McpServerDefinition
     /// <summary>
     /// The unique identifier of the MCP server.
     /// </summary>
-    public McpServerId Id { get; }
+    public McpServerName Id { get; }
 
     /// <summary>
     /// The command to execute (e.g., "npx", "docker", "dotnet").
@@ -26,7 +26,7 @@ public record McpServerDefinition
     public IReadOnlyDictionary<string, string> Env { get; }
 
     public McpServerDefinition(
-        McpServerId id,
+        McpServerName id,
         string command,
         IReadOnlyList<string> args,
         IReadOnlyDictionary<string, string> env)

@@ -28,8 +28,8 @@ public class McpServersControllerTests
     [Fact(DisplayName = "MSC-001: GetAll should return OkResult with server list")]
     public void MSC001()
     {
-        var chronosId = McpServerId.Create("chronos").Value;
-        var githubId = McpServerId.Create("github").Value;
+        var chronosId = McpServerName.Create("chronos").Value;
+        var githubId = McpServerName.Create("github").Value;
         var servers = new List<McpServerInfo>
         {
             new(chronosId, "docker"),
@@ -50,7 +50,7 @@ public class McpServersControllerTests
     [Fact(DisplayName = "MSC-002: GetById should return NotFound when server does not exist")]
     public void MSC002()
     {
-        _mockService.Setup(x => x.GetById(It.IsAny<McpServerId>()))
+        _mockService.Setup(x => x.GetById(It.IsAny<McpServerName>()))
             .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe<McpServerDefinition>.None));
 
         var result = _controller.GetById("non-existent");
@@ -61,13 +61,13 @@ public class McpServersControllerTests
     [Fact(DisplayName = "MSC-003: GetById should return OkResult with server definition when found")]
     public void MSC003()
     {
-        var chronosId = McpServerId.Create("chronos").Value;
+        var chronosId = McpServerName.Create("chronos").Value;
         var server = new McpServerDefinition(
             chronosId,
             "docker",
             new List<string> { "run", "--rm" }.AsReadOnly(),
             new Dictionary<string, string> { ["TZ"] = "UTC" }.AsReadOnly());
-        _mockService.Setup(x => x.GetById(It.Is<McpServerId>(id => id.Value == "chronos")))
+        _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
             .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
 
         var result = _controller.GetById("chronos");
@@ -91,7 +91,7 @@ public class McpServersControllerTests
     [Fact(DisplayName = "MSC-005: Create should return CreatedAtRoute when successful")]
     public void MSC005()
     {
-        var chronosId = McpServerId.Create("new-server").Value;
+        var chronosId = McpServerName.Create("new-server").Value;
         var definition = new McpServerDefinition(
             chronosId,
             "docker",
@@ -114,7 +114,7 @@ public class McpServersControllerTests
     [Fact(DisplayName = "MSC-006: Create should return Conflict when server already exists")]
     public void MSC006()
     {
-        var error = Errors.DuplicateMcpServerId("existing");
+        var error = Errors.DuplicateMcpServerName("existing");
         _mockService.Setup(x => x.Create(It.IsAny<McpServerDefinition>()))
             .Returns(Result<McpServerDefinition, Error>.Failure(error));
         var request = new CreateRequest("existing", "docker", null, null);
@@ -137,7 +137,7 @@ public class McpServersControllerTests
     [Fact(DisplayName = "MSC-008: Update should return OkResult when successful")]
     public void MSC008()
     {
-        var chronosId = McpServerId.Create("chronos").Value;
+        var chronosId = McpServerName.Create("chronos").Value;
         var definition = new McpServerDefinition(
             chronosId,
             "npx",
@@ -182,7 +182,7 @@ public class McpServersControllerTests
     [Fact(DisplayName = "MSC-011: Delete should return NoContent when successful")]
     public void MSC011()
     {
-        _mockService.Setup(x => x.Delete(It.Is<McpServerId>(id => id.Value == "chronos")))
+        _mockService.Setup(x => x.Delete(It.Is<McpServerName>(id => id.Value == "chronos")))
             .Returns(Result<Unit, Error>.Success(Unit.Value));
 
         var result = _controller.Delete("chronos");
@@ -194,7 +194,7 @@ public class McpServersControllerTests
     public void MSC012()
     {
         var error = Errors.McpServerNotFound("non-existent");
-        _mockService.Setup(x => x.Delete(It.IsAny<McpServerId>()))
+        _mockService.Setup(x => x.Delete(It.IsAny<McpServerName>()))
             .Returns(Result<Unit, Error>.Failure(error));
 
         var result = _controller.Delete("non-existent");

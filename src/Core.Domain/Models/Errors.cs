@@ -5,9 +5,9 @@ namespace Core.Domain.Models;
 /// </summary>
 public static class Errors
 {
-    public static readonly Error InvalidMcpServerId = new(
-        ErrorCodes.InvalidMcpServerId,
-        "Invalid value for McpServerId. It cannot be null or empty.");
+    public static readonly Error InvalidMcpServerName = new(
+        ErrorCodes.InvalidMcpServerName,
+        "Invalid value for McpServerName. It cannot be null or empty.");
 
     public static Error ConfigFileNotFound(string path) => new(
         ErrorCodes.ConfigFileNotFound,
@@ -25,9 +25,9 @@ public static class Errors
         ErrorCodes.ConfigFileWriteError,
         $"Error writing configuration file '{path}': {message}");
 
-    public static Error DuplicateMcpServerId(string id) => new(
-        ErrorCodes.DuplicateMcpServerId,
-        $"An MCP server with id '{id}' already exists.");
+    public static Error DuplicateMcpServerName(string name) => new(
+        ErrorCodes.DuplicateMcpServerName,
+        $"An MCP server with name '{name}' already exists.");
 
     public static Error McpServerNotFound(string id) => new(
         ErrorCodes.McpServerNotFound,

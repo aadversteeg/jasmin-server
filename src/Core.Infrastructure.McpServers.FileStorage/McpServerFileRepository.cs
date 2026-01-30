@@ -50,7 +50,7 @@ public class McpServerFileRepository : IMcpServerRepository
     }
 
     /// <inheritdoc />
-    public Result<Maybe<McpServerDefinition>, Error> GetById(McpServerId id)
+    public Result<Maybe<McpServerDefinition>, Error> GetById(McpServerName id)
     {
         _lock.EnterReadLock();
         try
@@ -89,7 +89,7 @@ public class McpServerFileRepository : IMcpServerRepository
             if (config.McpServers.ContainsKey(definition.Id.Value))
             {
                 return Result<McpServerDefinition, Error>.Failure(
-                    Errors.DuplicateMcpServerId(definition.Id.Value));
+                    Errors.DuplicateMcpServerName(definition.Id.Value));
             }
 
             config.McpServers[definition.Id.Value] = CreateConfigEntry(definition);
@@ -145,7 +145,7 @@ public class McpServerFileRepository : IMcpServerRepository
     }
 
     /// <inheritdoc />
-    public Result<Unit, Error> Delete(McpServerId id)
+    public Result<Unit, Error> Delete(McpServerName id)
     {
         _lock.EnterWriteLock();
         try
@@ -228,7 +228,7 @@ public class McpServerFileRepository : IMcpServerRepository
         }
     }
 
-    private static McpServerDefinition CreateDefinition(McpServerId id, McpServerConfigEntry entry)
+    private static McpServerDefinition CreateDefinition(McpServerName id, McpServerConfigEntry entry)
     {
         return new McpServerDefinition(
             id,
@@ -249,7 +249,7 @@ public class McpServerFileRepository : IMcpServerRepository
 
     private static Result<McpServerInfo, Error> CreateServerInfo(string name, McpServerConfigEntry entry)
     {
-        return McpServerId.Create(name)
+        return McpServerName.Create(name)
             .OnSuccessMap(id => new McpServerInfo(id, entry.Command));
     }
 

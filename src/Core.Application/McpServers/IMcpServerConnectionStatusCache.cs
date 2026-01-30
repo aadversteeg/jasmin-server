@@ -19,18 +19,18 @@ public interface IMcpServerConnectionStatusCache
     /// </summary>
     /// <param name="id">The server identifier.</param>
     /// <returns>The cached entry with status and timestamp, or Unknown status with null timestamp if not cached.</returns>
-    McpServerStatusCacheEntry GetEntry(McpServerId id);
+    McpServerStatusCacheEntry GetEntry(McpServerName id);
 
     /// <summary>
     /// Sets the connection status for a server with current UTC timestamp.
     /// </summary>
     /// <param name="id">The server identifier.</param>
     /// <param name="status">The connection status to cache.</param>
-    void SetStatus(McpServerId id, McpServerConnectionStatus status);
+    void SetStatus(McpServerName id, McpServerConnectionStatus status);
 
     /// <summary>
     /// Removes the cached status for a server.
     /// </summary>
     /// <param name="id">The server identifier.</param>
-    void RemoveStatus(McpServerId id);
+    void RemoveStatus(McpServerName id);
 }

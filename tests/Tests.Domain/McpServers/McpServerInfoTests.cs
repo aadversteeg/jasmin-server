@@ -9,7 +9,7 @@ public class McpServerInfoTests
     [Fact(DisplayName = "MSI-001: Constructor should set all properties")]
     public void MSI001()
     {
-        var id = McpServerId.Create("test-server").Value;
+        var id = McpServerName.Create("test-server").Value;
 
         var info = new McpServerInfo(id, "docker");
 
@@ -20,7 +20,7 @@ public class McpServerInfoTests
     [Fact(DisplayName = "MSI-002: Record equality should work correctly")]
     public void MSI002()
     {
-        var id = McpServerId.Create("server").Value;
+        var id = McpServerName.Create("server").Value;
 
         var info1 = new McpServerInfo(id, "npx");
         var info2 = new McpServerInfo(id, "npx");

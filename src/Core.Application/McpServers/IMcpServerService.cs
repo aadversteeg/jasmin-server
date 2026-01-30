@@ -20,7 +20,7 @@ public interface IMcpServerService
     /// </summary>
     /// <param name="id">The identifier of the MCP server.</param>
     /// <returns>A result containing Maybe with the server definition if found.</returns>
-    Result<Maybe<McpServerDefinition>, Error> GetById(McpServerId id);
+    Result<Maybe<McpServerDefinition>, Error> GetById(McpServerName id);
 
     /// <summary>
     /// Creates a new MCP server configuration.
@@ -41,5 +41,5 @@ public interface IMcpServerService
     /// </summary>
     /// <param name="id">The identifier of the MCP server to delete.</param>
     /// <returns>A result indicating success or failure.</returns>
-    Result<Unit, Error> Delete(McpServerId id);
+    Result<Unit, Error> Delete(McpServerName id);
 }

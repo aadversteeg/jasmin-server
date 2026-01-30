@@ -12,7 +12,7 @@ public class McpServerConnectionStatusCache : IMcpServerConnectionStatusCache
     private readonly ConcurrentDictionary<string, McpServerStatusCacheEntry> _cache = new();
 
     /// <inheritdoc />
-    public McpServerStatusCacheEntry GetEntry(McpServerId id)
+    public McpServerStatusCacheEntry GetEntry(McpServerName id)
     {
         return _cache.TryGetValue(id.Value, out var entry)
             ? entry
@@ -20,13 +20,13 @@ public class McpServerConnectionStatusCache : IMcpServerConnectionStatusCache
     }
 
     /// <inheritdoc />
-    public void SetStatus(McpServerId id, McpServerConnectionStatus status)
+    public void SetStatus(McpServerName id, McpServerConnectionStatus status)
     {
         _cache[id.Value] = new McpServerStatusCacheEntry(status, DateTime.UtcNow);
     }
 
     /// <inheritdoc />
-    public void RemoveStatus(McpServerId id)
+    public void RemoveStatus(McpServerName id)
     {
         _cache.TryRemove(id.Value, out _);
     }

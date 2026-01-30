@@ -78,7 +78,7 @@ public class McpServersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public IActionResult GetById(string id)
     {
-        return McpServerId.Create(id)
+        return McpServerName.Create(id)
             .OnSuccessBind(_mcpServerService.GetById)
             .ToActionResult(Mapper.ToDetailsResponse);
     }
@@ -114,7 +114,7 @@ public class McpServersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public IActionResult Update(string id, [FromBody] UpdateRequest request)
     {
-        return McpServerId.Create(id)
+        return McpServerName.Create(id)
             .OnSuccessBind(serverId => Mapper.ToDomain(serverId, request))
             .OnSuccessBind(_mcpServerService.Update)
             .ToOkResult(Mapper.ToDetailsResponse);
@@ -131,7 +131,7 @@ public class McpServersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public IActionResult Delete(string id)
     {
-        return McpServerId.Create(id)
+        return McpServerName.Create(id)
             .OnSuccessBind(_mcpServerService.Delete)
             .ToNoContentResult();
     }

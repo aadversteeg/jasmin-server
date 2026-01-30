@@ -40,14 +40,14 @@ public static class Mapper
         new(source.Id.Value, source.Command, source.Args, source.Env);
 
     public static Result<McpServerDefinition, Error> ToDomain(CreateRequest request) =>
-        McpServerId.Create(request.Name)
+        McpServerName.Create(request.Name)
             .OnSuccessMap(id => new McpServerDefinition(
                 id,
                 request.Command,
                 (request.Args ?? []).AsReadOnly(),
                 (request.Env ?? new Dictionary<string, string>()).AsReadOnly()));
 
-    public static Result<McpServerDefinition, Error> ToDomain(McpServerId id, UpdateRequest request) =>
+    public static Result<McpServerDefinition, Error> ToDomain(McpServerName id, UpdateRequest request) =>
         Result<McpServerDefinition, Error>.Success(new McpServerDefinition(
             id,
             request.Command,

@@ -9,7 +9,7 @@ public class McpServerDefinitionTests
     [Fact(DisplayName = "MSD-001: Constructor should set all properties")]
     public void MSD001()
     {
-        var id = McpServerId.Create("test-server").Value;
+        var id = McpServerName.Create("test-server").Value;
         var args = new List<string> { "-y", "test-package" }.AsReadOnly();
         var env = new Dictionary<string, string> { ["KEY"] = "value" }.AsReadOnly();
 
@@ -24,7 +24,7 @@ public class McpServerDefinitionTests
     [Fact(DisplayName = "MSD-002: Record equality should work correctly")]
     public void MSD002()
     {
-        var id = McpServerId.Create("server").Value;
+        var id = McpServerName.Create("server").Value;
         var args = new List<string>().AsReadOnly();
         var env = new Dictionary<string, string>().AsReadOnly();
 

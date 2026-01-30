@@ -22,7 +22,7 @@ public class McpServerServiceTests
     [Fact(DisplayName = "MSS-001: GetAll should delegate to repository")]
     public void MSS001()
     {
-        var chronosId = McpServerId.Create("chronos").Value;
+        var chronosId = McpServerName.Create("chronos").Value;
         var servers = new List<McpServerInfo> { new(chronosId, "docker") };
         _mockRepository.Setup(x => x.GetAll())
             .Returns(Result<IReadOnlyList<McpServerInfo>, Error>.Success(servers));
@@ -50,13 +50,13 @@ public class McpServerServiceTests
     [Fact(DisplayName = "MSS-003: GetById should delegate to repository")]
     public void MSS003()
     {
-        var chronosId = McpServerId.Create("chronos").Value;
+        var chronosId = McpServerName.Create("chronos").Value;
         var server = new McpServerDefinition(
             chronosId,
             "docker",
             new List<string> { "run", "--rm" }.AsReadOnly(),
             new Dictionary<string, string> { ["TZ"] = "UTC" }.AsReadOnly());
-        _mockRepository.Setup(x => x.GetById(It.Is<McpServerId>(id => id.Value == "chronos")))
+        _mockRepository.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
             .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
 
         var result = _service.GetById(chronosId);
@@ -69,8 +69,8 @@ public class McpServerServiceTests
     [Fact(DisplayName = "MSS-004: GetById should return None when repository returns None")]
     public void MSS004()
     {
-        var id = McpServerId.Create("non-existent").Value;
-        _mockRepository.Setup(x => x.GetById(It.IsAny<McpServerId>()))
+        var id = McpServerName.Create("non-existent").Value;
+        _mockRepository.Setup(x => x.GetById(It.IsAny<McpServerName>()))
             .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe<McpServerDefinition>.None));
 
         var result = _service.GetById(id);
@@ -82,7 +82,7 @@ public class McpServerServiceTests
     [Fact(DisplayName = "MSS-005: Create should delegate to repository")]
     public void MSS005()
     {
-        var chronosId = McpServerId.Create("chronos").Value;
+        var chronosId = McpServerName.Create("chronos").Value;
         var definition = new McpServerDefinition(
             chronosId,
             "docker",
@@ -101,24 +101,24 @@ public class McpServerServiceTests
     [Fact(DisplayName = "MSS-006: Create should return error when repository fails")]
     public void MSS006()
     {
-        var chronosId = McpServerId.Create("chronos").Value;
+        var chronosId = McpServerName.Create("chronos").Value;
         var definition = new McpServerDefinition(
             chronosId, "docker", Array.Empty<string>().ToList().AsReadOnly(),
             new Dictionary<string, string>().AsReadOnly());
-        var error = Errors.DuplicateMcpServerId("chronos");
+        var error = Errors.DuplicateMcpServerName("chronos");
         _mockRepository.Setup(x => x.Create(It.IsAny<McpServerDefinition>()))
             .Returns(Result<McpServerDefinition, Error>.Failure(error));
 
         var result = _service.Create(definition);
 
         result.IsSuccess.Should().BeFalse();
-        result.Error.Code.Should().Be(ErrorCodes.DuplicateMcpServerId);
+        result.Error.Code.Should().Be(ErrorCodes.DuplicateMcpServerName);
     }
 
     [Fact(DisplayName = "MSS-007: Update should delegate to repository")]
     public void MSS007()
     {
-        var chronosId = McpServerId.Create("chronos").Value;
+        var chronosId = McpServerName.Create("chronos").Value;
         var definition = new McpServerDefinition(
             chronosId,
             "npx",
@@ -137,7 +137,7 @@ public class McpServerServiceTests
     [Fact(DisplayName = "MSS-008: Update should return error when server not found")]
     public void MSS008()
     {
-        var id = McpServerId.Create("non-existent").Value;
+        var id = McpServerName.Create("non-existent").Value;
         var definition = new McpServerDefinition(
             id, "docker", Array.Empty<string>().ToList().AsReadOnly(),
             new Dictionary<string, string>().AsReadOnly());
@@ -154,8 +154,8 @@ public class McpServerServiceTests
     [Fact(DisplayName = "MSS-009: Delete should delegate to repository")]
     public void MSS009()
     {
-        var id = McpServerId.Create("chronos").Value;
-        _mockRepository.Setup(x => x.Delete(It.Is<McpServerId>(i => i.Value == "chronos")))
+        var id = McpServerName.Create("chronos").Value;
+        _mockRepository.Setup(x => x.Delete(It.Is<McpServerName>(i => i.Value == "chronos")))
             .Returns(Result<Unit, Error>.Success(Unit.Value));
 
         var result = _service.Delete(id);
@@ -167,9 +167,9 @@ public class McpServerServiceTests
     [Fact(DisplayName = "MSS-010: Delete should return error when server not found")]
     public void MSS010()
     {
-        var id = McpServerId.Create("non-existent").Value;
+        var id = McpServerName.Create("non-existent").Value;
         var error = Errors.McpServerNotFound("non-existent");
-        _mockRepository.Setup(x => x.Delete(It.IsAny<McpServerId>()))
+        _mockRepository.Setup(x => x.Delete(It.IsAny<McpServerName>()))
             .Returns(Result<Unit, Error>.Failure(error));
 
         var result = _service.Delete(id);

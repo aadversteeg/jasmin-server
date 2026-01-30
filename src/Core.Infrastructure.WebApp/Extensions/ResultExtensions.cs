@@ -58,7 +58,7 @@ public static class ResultExtensions
     {
         if (source.IsFailure)
         {
-            if (source.Error.Code == ErrorCodes.DuplicateMcpServerId)
+            if (source.Error.Code == ErrorCodes.DuplicateMcpServerName)
             {
                 return new ConflictObjectResult(new { error = source.Error.Message });
             }

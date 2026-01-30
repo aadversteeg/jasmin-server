@@ -35,7 +35,7 @@ public class McpServerRepositoryWithStatus : IMcpServerRepository
     }
 
     /// <inheritdoc />
-    public Result<Maybe<McpServerDefinition>, Error> GetById(McpServerId id) =>
+    public Result<Maybe<McpServerDefinition>, Error> GetById(McpServerName id) =>
         _inner.GetById(id);
 
     /// <inheritdoc />
@@ -54,7 +54,7 @@ public class McpServerRepositoryWithStatus : IMcpServerRepository
         _inner.Update(definition);
 
     /// <inheritdoc />
-    public Result<Unit, Error> Delete(McpServerId id)
+    public Result<Unit, Error> Delete(McpServerName id)
     {
         var result = _inner.Delete(id);
         if (result.IsSuccess)

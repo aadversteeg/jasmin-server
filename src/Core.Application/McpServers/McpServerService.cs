@@ -23,7 +23,7 @@ public class McpServerService : IMcpServerService
     }
 
     /// <inheritdoc />
-    public Result<Maybe<McpServerDefinition>, Error> GetById(McpServerId id)
+    public Result<Maybe<McpServerDefinition>, Error> GetById(McpServerName id)
     {
         return _repository.GetById(id);
     }
@@ -41,7 +41,7 @@ public class McpServerService : IMcpServerService
     }
 
     /// <inheritdoc />
-    public Result<Unit, Error> Delete(McpServerId id)
+    public Result<Unit, Error> Delete(McpServerName id)
     {
         return _repository.Delete(id);
     }

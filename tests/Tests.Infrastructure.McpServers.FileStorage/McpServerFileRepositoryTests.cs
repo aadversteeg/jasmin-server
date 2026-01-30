@@ -89,7 +89,7 @@ public class McpServerFileRepositoryTests : IDisposable
     {
         var configPath = CreateConfigFile("""{"mcpServers": {}}""");
         var repository = new McpServerFileRepository(configPath);
-        var id = McpServerId.Create("non-existent").Value;
+        var id = McpServerName.Create("non-existent").Value;
 
         var result = repository.GetById(id);
 
@@ -112,7 +112,7 @@ public class McpServerFileRepositoryTests : IDisposable
         }
         """);
         var repository = new McpServerFileRepository(configPath);
-        var id = McpServerId.Create("chronos").Value;
+        var id = McpServerName.Create("chronos").Value;
 
         var result = repository.GetById(id);
 
@@ -135,7 +135,7 @@ public class McpServerFileRepositoryTests : IDisposable
         }
         """);
         var repository = new McpServerFileRepository(configPath);
-        var id = McpServerId.Create("simple").Value;
+        var id = McpServerName.Create("simple").Value;
 
         var result = repository.GetById(id);
 
@@ -173,7 +173,7 @@ public class McpServerFileRepositoryTests : IDisposable
     {
         var configPath = CreateConfigFile("""{"mcpServers": {}}""");
         var repository = new McpServerFileRepository(configPath);
-        var id = McpServerId.Create("new-server").Value;
+        var id = McpServerName.Create("new-server").Value;
         var definition = new McpServerDefinition(
             id,
             "docker",
@@ -203,7 +203,7 @@ public class McpServerFileRepositoryTests : IDisposable
         }
         """);
         var repository = new McpServerFileRepository(configPath);
-        var id = McpServerId.Create("existing").Value;
+        var id = McpServerName.Create("existing").Value;
         var definition = new McpServerDefinition(
             id, "docker", Array.Empty<string>().ToList().AsReadOnly(),
             new Dictionary<string, string>().AsReadOnly());
@@ -211,7 +211,7 @@ public class McpServerFileRepositoryTests : IDisposable
         var result = repository.Create(definition);
 
         result.IsSuccess.Should().BeFalse();
-        result.Error.Code.Should().Be(ErrorCodes.DuplicateMcpServerId);
+        result.Error.Code.Should().Be(ErrorCodes.DuplicateMcpServerName);
     }
 
     [Fact(DisplayName = "MFR-011: Update should modify existing server in config file")]
@@ -225,7 +225,7 @@ public class McpServerFileRepositoryTests : IDisposable
         }
         """);
         var repository = new McpServerFileRepository(configPath);
-        var id = McpServerId.Create("chronos").Value;
+        var id = McpServerName.Create("chronos").Value;
         var definition = new McpServerDefinition(
             id,
             "npx",
@@ -249,7 +249,7 @@ public class McpServerFileRepositoryTests : IDisposable
     {
         var configPath = CreateConfigFile("""{"mcpServers": {}}""");
         var repository = new McpServerFileRepository(configPath);
-        var id = McpServerId.Create("non-existent").Value;
+        var id = McpServerName.Create("non-existent").Value;
         var definition = new McpServerDefinition(
             id, "docker", Array.Empty<string>().ToList().AsReadOnly(),
             new Dictionary<string, string>().AsReadOnly());
@@ -272,7 +272,7 @@ public class McpServerFileRepositoryTests : IDisposable
         }
         """);
         var repository = new McpServerFileRepository(configPath);
-        var id = McpServerId.Create("to-delete").Value;
+        var id = McpServerName.Create("to-delete").Value;
 
         var result = repository.Delete(id);
 
@@ -284,7 +284,7 @@ public class McpServerFileRepositoryTests : IDisposable
         getResult.Value.HasValue.Should().BeFalse();
 
         // Verify other server still exists
-        var keepId = McpServerId.Create("to-keep").Value;
+        var keepId = McpServerName.Create("to-keep").Value;
         var keepResult = repository.GetById(keepId);
         keepResult.Value.HasValue.Should().BeTrue();
     }
@@ -294,7 +294,7 @@ public class McpServerFileRepositoryTests : IDisposable
     {
         var configPath = CreateConfigFile("""{"mcpServers": {}}""");
         var repository = new McpServerFileRepository(configPath);
-        var id = McpServerId.Create("non-existent").Value;
+        var id = McpServerName.Create("non-existent").Value;
 
         var result = repository.Delete(id);
 
@@ -307,7 +307,7 @@ public class McpServerFileRepositoryTests : IDisposable
     {
         var configPath = CreateConfigFile("""{"mcpServers": {}}""");
         var repository = new McpServerFileRepository(configPath);
-        var id = McpServerId.Create("test-server").Value;
+        var id = McpServerName.Create("test-server").Value;
         var definition = new McpServerDefinition(
             id,
             "docker",

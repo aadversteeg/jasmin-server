@@ -44,7 +44,7 @@ public class McpServerConnectionInitializationService : BackgroundService
         _logger.LogInformation("MCP server connection initialization completed");
     }
 
-    private async Task InitializeServerAsync(McpServerId serverId, CancellationToken stoppingToken)
+    private async Task InitializeServerAsync(McpServerName serverId, CancellationToken stoppingToken)
     {
         try
         {

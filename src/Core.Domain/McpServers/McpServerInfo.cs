@@ -8,7 +8,7 @@ public record McpServerInfo
     /// <summary>
     /// The unique identifier of the MCP server.
     /// </summary>
-    public McpServerId Id { get; }
+    public McpServerName Id { get; }
 
     /// <summary>
     /// The command to execute (e.g., "npx", "docker", "dotnet").
@@ -26,7 +26,7 @@ public record McpServerInfo
     public DateTime? UpdatedOnUtc { get; }
 
     public McpServerInfo(
-        McpServerId id,
+        McpServerName id,
         string command,
         McpServerConnectionStatus status = McpServerConnectionStatus.Unknown,
         DateTime? updatedOnUtc = null)
