@@ -55,7 +55,7 @@ public class McpServerService : IMcpServerService
                 _statusCache.RecordEvent(
                     serverId,
                     McpServerEventType.ConfigurationCreated,
-                    newConfiguration: newConfig);
+                    configuration: newConfig);
             }
         }
         return result;
@@ -90,7 +90,7 @@ public class McpServerService : IMcpServerService
                 serverId,
                 eventType,
                 oldConfiguration: oldConfig,
-                newConfiguration: newConfig);
+                configuration: newConfig);
         }
         return result;
     }

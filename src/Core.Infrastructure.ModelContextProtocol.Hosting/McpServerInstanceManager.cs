@@ -68,9 +68,10 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
                 return Result<McpServerInstanceId, Error>.Failure(error);
             }
 
-            // Record starting event
+            // Record starting event with configuration
             _logger.LogDebug("Starting MCP server instance {InstanceId} for {ServerName}", instanceId.Value, serverName.Value);
-            _statusCache.RecordEvent(serverId, McpServerEventType.Starting, null, instanceId, requestId);
+            var startConfig = McpServerEventConfiguration.FromDefinition(definition);
+            _statusCache.RecordEvent(serverId, McpServerEventType.Starting, null, instanceId, requestId, configuration: startConfig);
 
             // Create transport and connect
             var transportOptions = new StdioClientTransportOptions

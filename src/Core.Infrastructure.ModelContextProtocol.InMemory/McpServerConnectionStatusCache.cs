@@ -56,9 +56,9 @@ public class McpServerConnectionStatusCache : IMcpServerConnectionStatusCache
         McpServerInstanceId? instanceId = null,
         McpServerRequestId? requestId = null,
         McpServerEventConfiguration? oldConfiguration = null,
-        McpServerEventConfiguration? newConfiguration = null)
+        McpServerEventConfiguration? configuration = null)
     {
-        var evt = new McpServerEvent(eventType, DateTime.UtcNow, errors, instanceId, requestId, oldConfiguration, newConfiguration);
+        var evt = new McpServerEvent(eventType, DateTime.UtcNow, errors, instanceId, requestId, oldConfiguration, configuration);
         _eventHistory.AddOrUpdate(
             id.Value,
             _ => new List<McpServerEvent> { evt },

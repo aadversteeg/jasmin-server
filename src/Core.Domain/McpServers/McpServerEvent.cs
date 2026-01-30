@@ -9,7 +9,7 @@ namespace Core.Domain.McpServers;
 /// <param name="InstanceId">Optional instance ID for instance-specific events.</param>
 /// <param name="RequestId">Optional request ID for request-initiated events.</param>
 /// <param name="OldConfiguration">Previous configuration for update/delete events.</param>
-/// <param name="NewConfiguration">New configuration for create/update events.</param>
+/// <param name="Configuration">Configuration for create/update/start events.</param>
 public record McpServerEvent(
     McpServerEventType EventType,
     DateTime TimestampUtc,
@@ -17,4 +17,4 @@ public record McpServerEvent(
     McpServerInstanceId? InstanceId = null,
     McpServerRequestId? RequestId = null,
     McpServerEventConfiguration? OldConfiguration = null,
-    McpServerEventConfiguration? NewConfiguration = null);
+    McpServerEventConfiguration? Configuration = null);

@@ -88,7 +88,7 @@ public static class Mapper
         var timestamp = FormatTimestamp(source.TimestampUtc, timeZone)!;
         var errors = source.Errors?.Select(e => new EventErrorResponse(e.Code, e.Message)).ToList().AsReadOnly();
         var oldConfig = ToEventConfigurationResponse(source.OldConfiguration);
-        var newConfig = ToEventConfigurationResponse(source.NewConfiguration);
+        var config = ToEventConfigurationResponse(source.Configuration);
 
         return new(
             source.EventType.ToString(),
@@ -97,7 +97,7 @@ public static class Mapper
             source.InstanceId?.Value,
             source.RequestId?.Value,
             oldConfig,
-            newConfig);
+            config);
     }
 
     private static EventConfigurationResponse? ToEventConfigurationResponse(

@@ -10,4 +10,4 @@ public record EventResponse(
     string? InstanceId,
     string? RequestId,
     EventConfigurationResponse? OldConfiguration = null,
-    EventConfigurationResponse? NewConfiguration = null);
+    EventConfigurationResponse? Configuration = null);
