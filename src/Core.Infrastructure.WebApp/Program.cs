@@ -1,4 +1,5 @@
 using Core.Application;
+using Core.Infrastructure.McpServers.FileStorage;
 using Microsoft.OpenApi.Models;
 
 namespace Core.Infrastructure.WebApp;
@@ -9,7 +10,11 @@ public class Program
     {
         var builder = WebApplication.CreateBuilder(args);
 
-        builder.Services.AddApplicationServices(builder.Configuration);
+        var configFilePath = builder.Configuration["McpServerRepository:ConfigFilePath"]
+            ?? "~/.mcp-servers/config.json";
+
+        builder.Services.AddMcpServerFileStorage(configFilePath);
+        builder.Services.AddApplicationServices();
 
         builder.Services
             .AddControllers()
