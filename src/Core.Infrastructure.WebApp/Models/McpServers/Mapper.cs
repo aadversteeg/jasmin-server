@@ -10,7 +10,7 @@ namespace Core.Infrastructure.WebApp.Models.McpServers;
 public static class Mapper
 {
     public static ListResponse ToListResponse(McpServerInfo source) =>
-        new(source.Id.Value, source.Command);
+        new(source.Id.Value, source.Command, source.Status.ToString().ToLowerInvariant());
 
     public static DetailsResponse ToDetailsResponse(McpServerDefinition source) =>
         new(source.Id.Value, source.Command, source.Args, source.Env);

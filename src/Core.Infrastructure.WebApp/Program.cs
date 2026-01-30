@@ -1,5 +1,7 @@
 using Core.Application;
 using Core.Infrastructure.McpServers.FileStorage;
+using Core.Infrastructure.ModelContextProtocol.Hosting;
+using Core.Infrastructure.ModelContextProtocol.InMemory;
 using Microsoft.OpenApi.Models;
 
 namespace Core.Infrastructure.WebApp;
@@ -14,6 +16,8 @@ public class Program
             ?? "~/.mcp-servers/config.json";
 
         builder.Services.AddMcpServerFileStorage(configFilePath);
+        builder.Services.AddMcpServerHosting();
+        builder.Services.AddMcpServerConnectionStatusCaching();
         builder.Services.AddApplicationServices();
 
         builder.Services
