@@ -20,13 +20,27 @@ namespace Tests.Infrastructure.WebApp.Controllers;
 public class McpServersControllerTests
 {
     private readonly Mock<IMcpServerService> _mockService;
+    private readonly Mock<IMcpServerConnectionStatusCache> _mockStatusCache;
+    private readonly Mock<IMcpServerRequestStore> _mockRequestStore;
     private readonly McpServersController _controller;
 
     public McpServersControllerTests()
     {
         _mockService = new Mock<IMcpServerService>();
+        _mockStatusCache = new Mock<IMcpServerConnectionStatusCache>();
+        _mockRequestStore = new Mock<IMcpServerRequestStore>();
         var statusOptions = Options.Create(new McpServerStatusOptions { DefaultTimeZone = "UTC" });
-        _controller = new McpServersController(_mockService.Object, statusOptions);
+        _controller = new McpServersController(
+            _mockService.Object,
+            _mockStatusCache.Object,
+            _mockRequestStore.Object,
+            statusOptions);
+
+        // Default status cache behavior
+        _mockStatusCache.Setup(x => x.GetOrCreateId(It.IsAny<McpServerName>()))
+            .Returns((McpServerName name) => McpServerId.Create());
+        _mockStatusCache.Setup(x => x.GetEntry(It.IsAny<McpServerId>()))
+            .Returns(new McpServerStatusCacheEntry(McpServerConnectionStatus.Unknown, null));
     }
 
     [Fact(DisplayName = "MSC-001: GetAll should return OkResult with server list")]
@@ -62,7 +76,7 @@ public class McpServersControllerTests
         result.Should().BeOfType<NotFoundResult>();
     }
 
-    [Fact(DisplayName = "MSC-003: GetById should return OkResult with server definition when found")]
+    [Fact(DisplayName = "MSC-003: GetById should return OkResult with server details when found")]
     public void MSC003()
     {
         var chronosId = McpServerName.Create("chronos").Value;
@@ -73,6 +87,8 @@ public class McpServersControllerTests
             new Dictionary<string, string> { ["TZ"] = "UTC" }.AsReadOnly());
         _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
             .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
+        _mockStatusCache.Setup(x => x.GetEntry(It.IsAny<McpServerId>()))
+            .Returns(new McpServerStatusCacheEntry(McpServerConnectionStatus.Verified, DateTime.UtcNow));
 
         var result = _controller.GetById("chronos");
 
@@ -81,7 +97,8 @@ public class McpServersControllerTests
         var response = okResult.Value as DetailsResponse;
         response.Should().NotBeNull();
         response!.Name.Should().Be("chronos");
-        response.Command.Should().Be("docker");
+        response.Status.Should().Be("verified");
+        response.Configuration.Should().BeNull(); // Not included by default
     }
 
     [Fact(DisplayName = "MSC-004: GetById should return BadRequest for empty id")]
@@ -103,7 +120,7 @@ public class McpServersControllerTests
             new Dictionary<string, string>().AsReadOnly());
         _mockService.Setup(x => x.Create(It.IsAny<McpServerDefinition>()))
             .Returns(Result<McpServerDefinition, Error>.Success(definition));
-        var request = new CreateRequest("new-server", "docker", ["run"], null);
+        var request = new CreateRequest("new-server", new ConfigurationRequest("docker", ["run"], null));
 
         var result = _controller.Create(request);
 
@@ -113,6 +130,8 @@ public class McpServersControllerTests
         var response = createdResult.Value as DetailsResponse;
         response.Should().NotBeNull();
         response!.Name.Should().Be("new-server");
+        response.Configuration.Should().NotBeNull();
+        response.Configuration!.Command.Should().Be("docker");
     }
 
     [Fact(DisplayName = "MSC-006: Create should return Conflict when server already exists")]
@@ -121,7 +140,7 @@ public class McpServersControllerTests
         var error = Errors.DuplicateMcpServerName("existing");
         _mockService.Setup(x => x.Create(It.IsAny<McpServerDefinition>()))
             .Returns(Result<McpServerDefinition, Error>.Failure(error));
-        var request = new CreateRequest("existing", "docker", null, null);
+        var request = new CreateRequest("existing", new ConfigurationRequest("docker", null, null));
 
         var result = _controller.Create(request);
 
@@ -131,14 +150,14 @@ public class McpServersControllerTests
     [Fact(DisplayName = "MSC-007: Create should return BadRequest for empty name")]
     public void MSC007()
     {
-        var request = new CreateRequest("", "docker", null, null);
+        var request = new CreateRequest("", new ConfigurationRequest("docker", null, null));
 
         var result = _controller.Create(request);
 
         result.Should().BeOfType<BadRequestObjectResult>();
     }
 
-    [Fact(DisplayName = "MSC-008: Update should return OkResult when successful")]
+    [Fact(DisplayName = "MSC-008: UpdateConfiguration should return OkResult when successful")]
     public void MSC008()
     {
         var chronosId = McpServerName.Create("chronos").Value;
@@ -149,36 +168,36 @@ public class McpServersControllerTests
             new Dictionary<string, string>().AsReadOnly());
         _mockService.Setup(x => x.Update(It.IsAny<McpServerDefinition>()))
             .Returns(Result<McpServerDefinition, Error>.Success(definition));
-        var request = new UpdateRequest("npx", ["-y", "package"], null);
+        var request = new ConfigurationRequest("npx", ["-y", "package"], null);
 
-        var result = _controller.Update("chronos", request);
+        var result = _controller.UpdateConfiguration("chronos", request);
 
         result.Should().BeOfType<OkObjectResult>();
         var okResult = (OkObjectResult)result;
-        var response = okResult.Value as DetailsResponse;
+        var response = okResult.Value as ConfigurationResponse;
         response.Should().NotBeNull();
         response!.Command.Should().Be("npx");
     }
 
-    [Fact(DisplayName = "MSC-009: Update should return NotFound when server does not exist")]
+    [Fact(DisplayName = "MSC-009: UpdateConfiguration should return NotFound when server does not exist")]
     public void MSC009()
     {
         var error = Errors.McpServerNotFound("non-existent");
         _mockService.Setup(x => x.Update(It.IsAny<McpServerDefinition>()))
             .Returns(Result<McpServerDefinition, Error>.Failure(error));
-        var request = new UpdateRequest("docker", null, null);
+        var request = new ConfigurationRequest("docker", null, null);
 
-        var result = _controller.Update("non-existent", request);
+        var result = _controller.UpdateConfiguration("non-existent", request);
 
         result.Should().BeOfType<NotFoundObjectResult>();
     }
 
-    [Fact(DisplayName = "MSC-010: Update should return BadRequest for empty id")]
+    [Fact(DisplayName = "MSC-010: UpdateConfiguration should return BadRequest for empty id")]
     public void MSC010()
     {
-        var request = new UpdateRequest("docker", null, null);
+        var request = new ConfigurationRequest("docker", null, null);
 
-        var result = _controller.Update("", request);
+        var result = _controller.UpdateConfiguration("", request);
 
         result.Should().BeOfType<BadRequestObjectResult>();
     }
@@ -246,7 +265,7 @@ public class McpServersControllerTests
         response.Events[1].EventType.Should().Be("Started");
     }
 
-    [Fact(DisplayName = "MSC-015: GetById without include should not return events")]
+    [Fact(DisplayName = "MSC-015: GetById without include should not return events or configuration")]
     public void MSC015()
     {
         var chronosId = McpServerName.Create("chronos").Value;
@@ -265,6 +284,7 @@ public class McpServersControllerTests
         var response = okResult.Value as DetailsResponse;
         response.Should().NotBeNull();
         response!.Events.Should().BeNull();
+        response.Configuration.Should().BeNull();
     }
 
     [Fact(DisplayName = "MSC-016: GetById with invalid include should return BadRequest")]
@@ -330,6 +350,14 @@ public class McpServersControllerTests
         result.Should().BeOfType<BadRequestObjectResult>();
     }
 
+    [Fact(DisplayName = "MSC-020: GetById with invalid timezone should return BadRequest")]
+    public void MSC020()
+    {
+        var result = _controller.GetById("chronos", null, "Invalid/Timezone");
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
     [Fact(DisplayName = "MSC-021: GetEvents should return BadRequest for invalid page")]
     public void MSC021()
     {
@@ -346,11 +374,118 @@ public class McpServersControllerTests
         result.Should().BeOfType<BadRequestObjectResult>();
     }
 
-    [Fact(DisplayName = "MSC-020: GetById with invalid timezone should return BadRequest")]
-    public void MSC020()
+    [Fact(DisplayName = "MSC-023: GetById with include=configuration should return server with configuration")]
+    public void MSC023()
     {
-        var result = _controller.GetById("chronos", null, "Invalid/Timezone");
+        var chronosId = McpServerName.Create("chronos").Value;
+        var server = new McpServerDefinition(
+            chronosId,
+            "docker",
+            new List<string> { "run", "--rm" }.AsReadOnly(),
+            new Dictionary<string, string> { ["TZ"] = "UTC" }.AsReadOnly());
+        _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
+            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
 
-        result.Should().BeOfType<BadRequestObjectResult>();
+        var result = _controller.GetById("chronos", "configuration");
+
+        result.Should().BeOfType<OkObjectResult>();
+        var okResult = (OkObjectResult)result;
+        var response = okResult.Value as DetailsResponse;
+        response.Should().NotBeNull();
+        response!.Configuration.Should().NotBeNull();
+        response.Configuration!.Command.Should().Be("docker");
+        response.Configuration.Args.Should().BeEquivalentTo(new[] { "run", "--rm" });
+        response.Configuration.Env.Should().ContainKey("TZ");
+    }
+
+    [Fact(DisplayName = "MSC-024: GetById with include=all should return all sub-resources")]
+    public void MSC024()
+    {
+        var chronosId = McpServerName.Create("chronos").Value;
+        var server = new McpServerDefinition(
+            chronosId,
+            "docker",
+            new List<string> { "run" }.AsReadOnly(),
+            new Dictionary<string, string>().AsReadOnly());
+        var events = new List<McpServerEvent>
+        {
+            new(McpServerEventType.Starting, new DateTime(2024, 1, 15, 10, 0, 0, DateTimeKind.Utc))
+        };
+        var requests = new List<McpServerRequest>
+        {
+            new(McpServerRequestId.Create(), chronosId, McpServerRequestAction.Start)
+        };
+        _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
+            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
+        _mockService.Setup(x => x.GetEvents(It.Is<McpServerName>(id => id.Value == "chronos")))
+            .Returns(Result<IReadOnlyList<McpServerEvent>, Error>.Success(events));
+        _mockRequestStore.Setup(x => x.GetByServerName(It.Is<McpServerName>(id => id.Value == "chronos")))
+            .Returns(requests);
+
+        var result = _controller.GetById("chronos", "all");
+
+        result.Should().BeOfType<OkObjectResult>();
+        var okResult = (OkObjectResult)result;
+        var response = okResult.Value as DetailsResponse;
+        response.Should().NotBeNull();
+        response!.Configuration.Should().NotBeNull();
+        response.Events.Should().NotBeNull();
+        response.Events.Should().HaveCount(1);
+        response.Requests.Should().NotBeNull();
+        response.Requests.Should().HaveCount(1);
+    }
+
+    [Fact(DisplayName = "MSC-025: GetConfiguration should return configuration for existing server")]
+    public void MSC025()
+    {
+        var chronosId = McpServerName.Create("chronos").Value;
+        var server = new McpServerDefinition(
+            chronosId,
+            "docker",
+            new List<string> { "run" }.AsReadOnly(),
+            new Dictionary<string, string> { ["TZ"] = "UTC" }.AsReadOnly());
+        _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
+            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
+
+        var result = _controller.GetConfiguration("chronos");
+
+        result.Should().BeOfType<OkObjectResult>();
+        var okResult = (OkObjectResult)result;
+        var response = okResult.Value as ConfigurationResponse;
+        response.Should().NotBeNull();
+        response!.Command.Should().Be("docker");
+        response.Args.Should().BeEquivalentTo(new[] { "run" });
+        response.Env.Should().ContainKey("TZ");
+    }
+
+    [Fact(DisplayName = "MSC-026: GetConfiguration should return NotFound for non-existent server")]
+    public void MSC026()
+    {
+        _mockService.Setup(x => x.GetById(It.IsAny<McpServerName>()))
+            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe<McpServerDefinition>.None));
+
+        var result = _controller.GetConfiguration("non-existent");
+
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact(DisplayName = "MSC-027: Create without configuration should succeed")]
+    public void MSC027()
+    {
+        var serverName = McpServerName.Create("new-server").Value;
+        var definition = new McpServerDefinition(serverName);
+        _mockService.Setup(x => x.Create(It.Is<McpServerDefinition>(d => d.Id.Value == "new-server" && !d.HasConfiguration)))
+            .Returns(Result<McpServerDefinition, Error>.Success(definition));
+
+        var request = new CreateRequest("new-server", null);
+
+        var result = _controller.Create(request);
+
+        result.Should().BeOfType<CreatedAtRouteResult>();
+        var createdResult = (CreatedAtRouteResult)result;
+        var response = createdResult.Value as DetailsResponse;
+        response.Should().NotBeNull();
+        response!.Name.Should().Be("new-server");
+        response.Configuration.Should().BeNull();
     }
 }

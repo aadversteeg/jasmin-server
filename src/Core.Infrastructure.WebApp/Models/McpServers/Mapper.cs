@@ -1,7 +1,9 @@
 using Ave.Extensions.Functional;
+using Core.Application.McpServers;
 using Core.Domain.McpServers;
 using Core.Domain.Models;
 using Core.Domain.Paging;
+using Core.Infrastructure.WebApp.Models.McpServers.Requests;
 using Core.Infrastructure.WebApp.Models.Paging;
 
 using McpServerEvent = Core.Domain.McpServers.McpServerEvent;
@@ -15,84 +17,119 @@ public static class Mapper
 {
     public static ListResponse ToListResponse(McpServerInfo source, TimeZoneInfo timeZone)
     {
-        string? updatedOn = null;
-        if (source.UpdatedOnUtc.HasValue)
-        {
-            var utcDateTime = DateTime.SpecifyKind(source.UpdatedOnUtc.Value, DateTimeKind.Utc);
-
-            if (timeZone == TimeZoneInfo.Utc)
-            {
-                updatedOn = utcDateTime.ToString("yyyy-MM-ddTHH:mm:ss.fffffffZ");
-            }
-            else
-            {
-                var convertedDateTime = TimeZoneInfo.ConvertTimeFromUtc(utcDateTime, timeZone);
-                var offset = timeZone.GetUtcOffset(convertedDateTime);
-                var dateTimeOffset = new DateTimeOffset(convertedDateTime, offset);
-                updatedOn = dateTimeOffset.ToString("yyyy-MM-ddTHH:mm:ss.fffffffzzz");
-            }
-        }
-
+        var updatedOn = FormatTimestamp(source.UpdatedOnUtc, timeZone);
         return new(
             source.Id.Value,
-            source.Command,
             source.Status.ToString().ToLowerInvariant(),
             updatedOn);
     }
 
-    public static DetailsResponse ToDetailsResponse(McpServerDefinition source) =>
-        new(source.Id.Value, source.Command, source.Args, source.Env);
+    public static ConfigurationResponse? ToConfigurationResponse(McpServerDefinition source)
+    {
+        if (!source.HasConfiguration)
+        {
+            return null;
+        }
+
+        return new ConfigurationResponse(source.Command!, source.Args!, source.Env!);
+    }
 
     public static DetailsResponse ToDetailsResponse(
-        McpServerDefinition source,
-        IReadOnlyList<McpServerEvent>? events,
-        TimeZoneInfo timeZone)
+        McpServerName serverName,
+        McpServerStatusCacheEntry statusEntry,
+        TimeZoneInfo timeZone,
+        McpServerDefinition? definition = null,
+        IReadOnlyList<McpServerEvent>? events = null,
+        IReadOnlyList<McpServerRequest>? requests = null)
     {
+        var updatedOn = FormatTimestamp(statusEntry.UpdatedOnUtc, timeZone);
+
+        ConfigurationResponse? configuration = null;
+        if (definition != null && definition.HasConfiguration)
+        {
+            configuration = ToConfigurationResponse(definition);
+        }
+
         IReadOnlyList<EventResponse>? eventResponses = null;
         if (events != null)
         {
             eventResponses = events.Select(e => ToEventResponse(e, timeZone)).ToList().AsReadOnly();
         }
 
-        return new(source.Id.Value, source.Command, source.Args, source.Env, eventResponses);
+        IReadOnlyList<RequestResponse>? requestResponses = null;
+        if (requests != null)
+        {
+            requestResponses = requests.Select(r => RequestMapper.ToResponse(r, timeZone)).ToList().AsReadOnly();
+        }
+
+        return new(
+            serverName.Value,
+            statusEntry.Status.ToString().ToLowerInvariant(),
+            updatedOn,
+            configuration,
+            eventResponses,
+            requestResponses);
+    }
+
+    public static DetailsResponse ToDetailsResponseAfterCreate(
+        McpServerDefinition definition,
+        TimeZoneInfo timeZone)
+    {
+        var configuration = definition.HasConfiguration ? ToConfigurationResponse(definition) : null;
+        return new(
+            definition.Id.Value,
+            McpServerConnectionStatus.Unknown.ToString().ToLowerInvariant(),
+            null,
+            configuration);
     }
 
     public static EventResponse ToEventResponse(McpServerEvent source, TimeZoneInfo timeZone)
     {
-        var utcDateTime = DateTime.SpecifyKind(source.TimestampUtc, DateTimeKind.Utc);
-        string timestamp;
-
-        if (timeZone == TimeZoneInfo.Utc)
-        {
-            timestamp = utcDateTime.ToString("yyyy-MM-ddTHH:mm:ss.fffffffZ");
-        }
-        else
-        {
-            var convertedDateTime = TimeZoneInfo.ConvertTimeFromUtc(utcDateTime, timeZone);
-            var offset = timeZone.GetUtcOffset(convertedDateTime);
-            var dateTimeOffset = new DateTimeOffset(convertedDateTime, offset);
-            timestamp = dateTimeOffset.ToString("yyyy-MM-ddTHH:mm:ss.fffffffzzz");
-        }
-
+        var timestamp = FormatTimestamp(source.TimestampUtc, timeZone)!;
         var errors = source.Errors?.Select(e => new EventErrorResponse(e.Code, e.Message)).ToList().AsReadOnly();
+        var oldConfig = ToEventConfigurationResponse(source.OldConfiguration);
+        var newConfig = ToEventConfigurationResponse(source.NewConfiguration);
 
         return new(
             source.EventType.ToString(),
             timestamp,
             errors,
             source.InstanceId?.Value,
-            source.RequestId?.Value);
+            source.RequestId?.Value,
+            oldConfig,
+            newConfig);
     }
 
-    public static Result<McpServerDefinition, Error> ToDomain(CreateRequest request) =>
-        McpServerName.Create(request.Name)
-            .OnSuccessMap(id => new McpServerDefinition(
-                id,
-                request.Command,
-                (request.Args ?? []).AsReadOnly(),
-                (request.Env ?? new Dictionary<string, string>()).AsReadOnly()));
+    private static EventConfigurationResponse? ToEventConfigurationResponse(
+        Core.Domain.McpServers.McpServerEventConfiguration? source)
+    {
+        if (source == null)
+        {
+            return null;
+        }
 
-    public static Result<McpServerDefinition, Error> ToDomain(McpServerName id, UpdateRequest request) =>
+        return new EventConfigurationResponse(source.Command, source.Args, source.Env);
+    }
+
+    public static Result<McpServerDefinition, Error> ToDomain(CreateRequest request)
+    {
+        return McpServerName.Create(request.Name)
+            .OnSuccessMap(id =>
+            {
+                if (request.Configuration == null)
+                {
+                    return new McpServerDefinition(id);
+                }
+
+                return new McpServerDefinition(
+                    id,
+                    request.Configuration.Command,
+                    (request.Configuration.Args ?? []).AsReadOnly(),
+                    (request.Configuration.Env ?? new Dictionary<string, string>()).AsReadOnly());
+            });
+    }
+
+    public static Result<McpServerDefinition, Error> ToDomain(McpServerName id, ConfigurationRequest request) =>
         Result<McpServerDefinition, Error>.Success(new McpServerDefinition(
             id,
             request.Command,
@@ -110,5 +147,25 @@ public static class Mapper
             source.PageSize,
             source.TotalItems,
             source.TotalPages);
+    }
+
+    private static string? FormatTimestamp(DateTime? utcTimestamp, TimeZoneInfo timeZone)
+    {
+        if (!utcTimestamp.HasValue)
+        {
+            return null;
+        }
+
+        var utcDateTime = DateTime.SpecifyKind(utcTimestamp.Value, DateTimeKind.Utc);
+
+        if (timeZone == TimeZoneInfo.Utc)
+        {
+            return utcDateTime.ToString("yyyy-MM-ddTHH:mm:ss.fffffffZ");
+        }
+
+        var convertedDateTime = TimeZoneInfo.ConvertTimeFromUtc(utcDateTime, timeZone);
+        var offset = timeZone.GetUtcOffset(convertedDateTime);
+        var dateTimeOffset = new DateTimeOffset(convertedDateTime, offset);
+        return dateTimeOffset.ToString("yyyy-MM-ddTHH:mm:ss.fffffffzzz");
     }
 }

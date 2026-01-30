@@ -23,13 +23,19 @@ namespace Core.Infrastructure.WebApp.Controllers;
 public class McpServersController : ControllerBase
 {
     private readonly IMcpServerService _mcpServerService;
+    private readonly IMcpServerConnectionStatusCache _statusCache;
+    private readonly IMcpServerRequestStore _requestStore;
     private readonly McpServerStatusOptions _statusOptions;
 
     public McpServersController(
         IMcpServerService mcpServerService,
+        IMcpServerConnectionStatusCache statusCache,
+        IMcpServerRequestStore requestStore,
         IOptions<McpServerStatusOptions> statusOptions)
     {
         _mcpServerService = mcpServerService;
+        _statusCache = statusCache;
+        _requestStore = requestStore;
         _statusOptions = statusOptions.Value;
     }
 
@@ -54,32 +60,13 @@ public class McpServersController : ControllerBase
             .ToActionResult(info => Mapper.ToListResponse(info, resolvedTimeZone));
     }
 
-    private TimeZoneInfo ResolveTimeZone(string? requestedTimeZone)
-    {
-        var timeZoneId = requestedTimeZone ?? _statusOptions.DefaultTimeZone;
-
-        if (string.IsNullOrEmpty(timeZoneId))
-        {
-            return TimeZoneInfo.Utc;
-        }
-
-        try
-        {
-            return TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
-        }
-        catch (TimeZoneNotFoundException)
-        {
-            return null!;
-        }
-    }
-
     /// <summary>
-    /// Gets the full configuration for a specific MCP server.
+    /// Gets details for a specific MCP server.
     /// </summary>
     /// <param name="id">The identifier of the MCP server.</param>
-    /// <param name="include">Optional comma-separated list of additional data to include (e.g., "events" or "all").</param>
+    /// <param name="include">Optional comma-separated list of additional data to include (e.g., "configuration", "events", "requests", or "all").</param>
     /// <param name="timeZone">Optional timezone for timestamps. Defaults to configured timezone or UTC.</param>
-    /// <returns>The server definition if found.</returns>
+    /// <returns>The server details if found.</returns>
     [HttpGet("{id}", Name = "GetMcpServerById")]
     [ProducesResponseType(typeof(DetailsResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -107,6 +94,69 @@ public class McpServersController : ControllerBase
         }
 
         var serverName = serverNameResult.Value;
+
+        // Check if server exists
+        var definitionResult = _mcpServerService.GetById(serverName);
+        if (definitionResult.IsFailure)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, ErrorResponse.FromError(definitionResult.Error));
+        }
+
+        if (!definitionResult.Value.HasValue)
+        {
+            return NotFound();
+        }
+
+        // Get status info
+        var serverId = _statusCache.GetOrCreateId(serverName);
+        var statusEntry = _statusCache.GetEntry(serverId);
+
+        // Get optional configuration
+        McpServerDefinition? definition = null;
+        if (includeOptions.IncludeConfiguration)
+        {
+            definition = definitionResult.Value.Value;
+        }
+
+        // Get optional events
+        IReadOnlyList<McpServerEvent>? events = null;
+        if (includeOptions.IncludeEvents)
+        {
+            var eventsResult = _mcpServerService.GetEvents(serverName);
+            if (eventsResult.IsSuccess)
+            {
+                events = eventsResult.Value;
+            }
+        }
+
+        // Get optional requests
+        IReadOnlyList<McpServerRequest>? requests = null;
+        if (includeOptions.IncludeRequests)
+        {
+            requests = _requestStore.GetByServerName(serverName);
+        }
+
+        return Ok(Mapper.ToDetailsResponse(serverName, statusEntry, resolvedTimeZone, definition, events, requests));
+    }
+
+    /// <summary>
+    /// Gets the configuration for a specific MCP server.
+    /// </summary>
+    /// <param name="id">The identifier of the MCP server.</param>
+    /// <returns>The server configuration if found.</returns>
+    [HttpGet("{id}/configuration", Name = "GetMcpServerConfiguration")]
+    [ProducesResponseType(typeof(ConfigurationResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public IActionResult GetConfiguration(string id)
+    {
+        var serverNameResult = McpServerName.Create(id);
+        if (serverNameResult.IsFailure)
+        {
+            return BadRequest(ErrorResponse.FromError(serverNameResult.Error));
+        }
+
+        var serverName = serverNameResult.Value;
         var definitionResult = _mcpServerService.GetById(serverName);
         if (definitionResult.IsFailure)
         {
@@ -119,18 +169,48 @@ public class McpServersController : ControllerBase
         }
 
         var definition = definitionResult.Value.Value;
-        IReadOnlyList<McpServerEvent>? events = null;
-
-        if (includeOptions.IncludeEvents)
+        if (!definition.HasConfiguration)
         {
-            var eventsResult = _mcpServerService.GetEvents(serverName);
-            if (eventsResult.IsSuccess)
-            {
-                events = eventsResult.Value;
-            }
+            return NotFound();
         }
 
-        return Ok(Mapper.ToDetailsResponse(definition, events, resolvedTimeZone));
+        return Ok(Mapper.ToConfigurationResponse(definition));
+    }
+
+    /// <summary>
+    /// Updates the configuration for a specific MCP server.
+    /// </summary>
+    /// <param name="id">The identifier of the MCP server.</param>
+    /// <param name="request">The new configuration.</param>
+    /// <returns>The updated configuration.</returns>
+    [HttpPut("{id}/configuration")]
+    [ProducesResponseType(typeof(ConfigurationResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public IActionResult UpdateConfiguration(string id, [FromBody] ConfigurationRequest request)
+    {
+        return McpServerName.Create(id)
+            .OnSuccessBind(serverId => Mapper.ToDomain(serverId, request))
+            .OnSuccessBind(_mcpServerService.Update)
+            .ToOkResult(Mapper.ToConfigurationResponse);
+    }
+
+    /// <summary>
+    /// Deletes the configuration for a specific MCP server.
+    /// The server entry remains but cannot be started without configuration.
+    /// </summary>
+    /// <param name="id">The identifier of the MCP server.</param>
+    /// <returns>No content if successful.</returns>
+    [HttpDelete("{id}/configuration")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public IActionResult DeleteConfiguration(string id)
+    {
+        return McpServerName.Create(id)
+            .OnSuccessBind(_mcpServerService.DeleteConfiguration)
+            .OnSuccessMap(_ => Unit.Value)
+            .ToNoContentResult();
     }
 
     /// <summary>
@@ -196,44 +276,29 @@ public class McpServersController : ControllerBase
     }
 
     /// <summary>
-    /// Creates a new MCP server configuration.
+    /// Creates a new MCP server.
     /// </summary>
-    /// <param name="request">The server configuration to create.</param>
-    /// <returns>The created server definition.</returns>
+    /// <param name="request">The server details to create.</param>
+    /// <param name="timeZone">Optional timezone for timestamps. Defaults to configured timezone or UTC.</param>
+    /// <returns>The created server details.</returns>
     [HttpPost]
     [ProducesResponseType(typeof(DetailsResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public IActionResult Create([FromBody] CreateRequest request)
+    public IActionResult Create([FromBody] CreateRequest request, [FromQuery] string? timeZone = null)
     {
+        var resolvedTimeZone = ResolveTimeZone(timeZone) ?? TimeZoneInfo.Utc;
+
         return Mapper.ToDomain(request)
             .OnSuccessBind(_mcpServerService.Create)
             .ToCreatedResult(
                 "GetMcpServerById",
                 def => new { id = def.Id.Value },
-                Mapper.ToDetailsResponse);
+                def => Mapper.ToDetailsResponseAfterCreate(def, resolvedTimeZone));
     }
 
     /// <summary>
-    /// Updates an existing MCP server configuration.
-    /// </summary>
-    /// <param name="id">The identifier of the MCP server to update.</param>
-    /// <param name="request">The updated server configuration.</param>
-    /// <returns>The updated server definition.</returns>
-    [HttpPut("{id}")]
-    [ProducesResponseType(typeof(DetailsResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public IActionResult Update(string id, [FromBody] UpdateRequest request)
-    {
-        return McpServerName.Create(id)
-            .OnSuccessBind(serverId => Mapper.ToDomain(serverId, request))
-            .OnSuccessBind(_mcpServerService.Update)
-            .ToOkResult(Mapper.ToDetailsResponse);
-    }
-
-    /// <summary>
-    /// Deletes an MCP server configuration.
+    /// Deletes an MCP server.
     /// </summary>
     /// <param name="id">The identifier of the MCP server to delete.</param>
     /// <returns>No content if successful.</returns>
@@ -246,5 +311,24 @@ public class McpServersController : ControllerBase
         return McpServerName.Create(id)
             .OnSuccessBind(_mcpServerService.Delete)
             .ToNoContentResult();
+    }
+
+    private TimeZoneInfo? ResolveTimeZone(string? requestedTimeZone)
+    {
+        var timeZoneId = requestedTimeZone ?? _statusOptions.DefaultTimeZone;
+
+        if (string.IsNullOrEmpty(timeZoneId))
+        {
+            return TimeZoneInfo.Utc;
+        }
+
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return null;
+        }
     }
 }

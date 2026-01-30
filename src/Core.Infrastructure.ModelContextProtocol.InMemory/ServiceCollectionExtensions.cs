@@ -30,6 +30,9 @@ public static class ServiceCollectionExtensions
         // Register the status cache as singleton (shared state)
         services.AddSingleton<IMcpServerConnectionStatusCache, McpServerConnectionStatusCache>();
 
+        // Register the global event store as singleton (shared state)
+        services.AddSingleton<IGlobalEventStore, GlobalEventStore>();
+
         // Register the initialization background service
         services.AddHostedService<McpServerConnectionInitializationService>();
 

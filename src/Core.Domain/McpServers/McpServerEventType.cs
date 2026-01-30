@@ -33,5 +33,20 @@ public enum McpServerEventType
     /// <summary>
     /// Server failed to stop.
     /// </summary>
-    StopFailed = 5
+    StopFailed = 5,
+
+    /// <summary>
+    /// Server configuration was created.
+    /// </summary>
+    ConfigurationCreated = 6,
+
+    /// <summary>
+    /// Server configuration was updated.
+    /// </summary>
+    ConfigurationUpdated = 7,
+
+    /// <summary>
+    /// Server configuration was deleted.
+    /// </summary>
+    ConfigurationDeleted = 8
 }

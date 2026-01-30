@@ -18,4 +18,6 @@ public static class ErrorCodes
     public static readonly ErrorCode InstanceIdRequiredForStop = new("INSTANCE_ID_REQUIRED_FOR_STOP");
     public static readonly ErrorCode InvalidPage = new("INVALID_PAGE");
     public static readonly ErrorCode InvalidPageSize = new("INVALID_PAGE_SIZE");
+    public static readonly ErrorCode ConfigurationRequired = new("CONFIGURATION_REQUIRED");
+    public static readonly ErrorCode ConfigurationMissing = new("CONFIGURATION_MISSING");
 }

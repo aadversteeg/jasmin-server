@@ -42,4 +42,11 @@ public interface IMcpServerRepository
     /// <param name="id">The identifier of the MCP server to delete.</param>
     /// <returns>A result indicating success or failure.</returns>
     Result<Unit, Error> Delete(McpServerName id);
+
+    /// <summary>
+    /// Deletes only the configuration of an MCP server, leaving the server entry.
+    /// </summary>
+    /// <param name="id">The identifier of the MCP server.</param>
+    /// <returns>A result containing the updated server definition without configuration.</returns>
+    Result<McpServerDefinition, Error> DeleteConfiguration(McpServerName id);
 }

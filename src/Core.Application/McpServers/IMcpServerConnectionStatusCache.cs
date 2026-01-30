@@ -52,7 +52,16 @@ public interface IMcpServerConnectionStatusCache
     /// <param name="errors">Optional list of errors for failure events.</param>
     /// <param name="instanceId">Optional instance identifier for instance-specific events.</param>
     /// <param name="requestId">Optional request identifier for request-initiated events.</param>
-    void RecordEvent(McpServerId id, McpServerEventType eventType, IReadOnlyList<McpServerEventError>? errors = null, McpServerInstanceId? instanceId = null, McpServerRequestId? requestId = null);
+    /// <param name="oldConfiguration">Previous configuration for update/delete events.</param>
+    /// <param name="newConfiguration">New configuration for create/update events.</param>
+    void RecordEvent(
+        McpServerId id,
+        McpServerEventType eventType,
+        IReadOnlyList<McpServerEventError>? errors = null,
+        McpServerInstanceId? instanceId = null,
+        McpServerRequestId? requestId = null,
+        McpServerEventConfiguration? oldConfiguration = null,
+        McpServerEventConfiguration? newConfiguration = null);
 
     /// <summary>
     /// Gets all events for the specified server, ordered by timestamp.

@@ -8,4 +8,6 @@ public record EventResponse(
     string TimestampUtc,
     IReadOnlyList<EventErrorResponse>? Errors,
     string? InstanceId,
-    string? RequestId);
+    string? RequestId,
+    EventConfigurationResponse? OldConfiguration = null,
+    EventConfigurationResponse? NewConfiguration = null);

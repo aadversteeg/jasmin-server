@@ -1,3 +1,4 @@
+using Core.Application.McpServers;
 using Core.Domain.McpServers;
 using Core.Domain.Paging;
 using Core.Infrastructure.WebApp.Models.McpServers;
@@ -96,8 +97,9 @@ public class MapperTests
             new(McpServerEventType.Starting, new DateTime(2024, 1, 15, 10, 0, 0, DateTimeKind.Utc)),
             new(McpServerEventType.Started, new DateTime(2024, 1, 15, 10, 0, 1, DateTimeKind.Utc))
         };
+        var statusEntry = new McpServerStatusCacheEntry(McpServerConnectionStatus.Verified, DateTime.UtcNow);
 
-        var result = Mapper.ToDetailsResponse(definition, events, TimeZoneInfo.Utc);
+        var result = Mapper.ToDetailsResponse(serverName, statusEntry, TimeZoneInfo.Utc, definition, events);
 
         result.Events.Should().NotBeNull();
         result.Events.Should().HaveCount(2);
@@ -109,18 +111,14 @@ public class MapperTests
     public void MAP007()
     {
         var serverName = McpServerName.Create("chronos").Value;
-        var definition = new McpServerDefinition(
-            serverName,
-            "docker",
-            new List<string>().AsReadOnly(),
-            new Dictionary<string, string>().AsReadOnly());
+        var statusEntry = new McpServerStatusCacheEntry(McpServerConnectionStatus.Unknown, null);
 
-        var result = Mapper.ToDetailsResponse(definition, null, TimeZoneInfo.Utc);
+        var result = Mapper.ToDetailsResponse(serverName, statusEntry, TimeZoneInfo.Utc, events: null);
 
         result.Events.Should().BeNull();
     }
 
-    [Fact(DisplayName = "MAP-008: ToDetailsResponse with events should map server details correctly")]
+    [Fact(DisplayName = "MAP-008: ToDetailsResponse should map configuration correctly")]
     public void MAP008()
     {
         var serverName = McpServerName.Create("github").Value;
@@ -129,14 +127,15 @@ public class MapperTests
             "npx",
             new List<string> { "-y", "@modelcontextprotocol/server-github" }.AsReadOnly(),
             new Dictionary<string, string> { ["GITHUB_TOKEN"] = "secret" }.AsReadOnly());
-        var events = new List<McpServerEvent>();
+        var statusEntry = new McpServerStatusCacheEntry(McpServerConnectionStatus.Verified, DateTime.UtcNow);
 
-        var result = Mapper.ToDetailsResponse(definition, events, TimeZoneInfo.Utc);
+        var result = Mapper.ToDetailsResponse(serverName, statusEntry, TimeZoneInfo.Utc, definition);
 
         result.Name.Should().Be("github");
-        result.Command.Should().Be("npx");
-        result.Args.Should().HaveCount(2);
-        result.Env.Should().ContainKey("GITHUB_TOKEN");
+        result.Configuration.Should().NotBeNull();
+        result.Configuration!.Command.Should().Be("npx");
+        result.Configuration.Args.Should().HaveCount(2);
+        result.Configuration.Env.Should().ContainKey("GITHUB_TOKEN");
     }
 
     [Fact(DisplayName = "MAP-009: ToListResponse should map server info correctly")]
@@ -152,7 +151,6 @@ public class MapperTests
         var result = Mapper.ToListResponse(info, TimeZoneInfo.Utc);
 
         result.Name.Should().Be("chronos");
-        result.Command.Should().Be("docker");
         result.Status.Should().Be("verified");
         result.UpdatedOn.Should().StartWith("2024-01-15T10:30:00");
     }
@@ -267,5 +265,109 @@ public class MapperTests
         result.Items.Should().BeEmpty();
         result.TotalItems.Should().Be(0);
         result.TotalPages.Should().Be(0);
+    }
+
+    [Fact(DisplayName = "MAP-018: ToConfigurationResponse should map definition to configuration")]
+    public void MAP018()
+    {
+        var serverName = McpServerName.Create("chronos").Value;
+        var definition = new McpServerDefinition(
+            serverName,
+            "docker",
+            new List<string> { "run", "--rm" }.AsReadOnly(),
+            new Dictionary<string, string> { ["TZ"] = "UTC" }.AsReadOnly());
+
+        var result = Mapper.ToConfigurationResponse(definition);
+
+        result.Command.Should().Be("docker");
+        result.Args.Should().BeEquivalentTo(new[] { "run", "--rm" });
+        result.Env.Should().ContainKey("TZ");
+    }
+
+    [Fact(DisplayName = "MAP-019: ToDetailsResponse should include status and updatedOn")]
+    public void MAP019()
+    {
+        var serverName = McpServerName.Create("chronos").Value;
+        var updatedOn = new DateTime(2024, 1, 15, 10, 30, 0, DateTimeKind.Utc);
+        var statusEntry = new McpServerStatusCacheEntry(McpServerConnectionStatus.Verified, updatedOn);
+
+        var result = Mapper.ToDetailsResponse(serverName, statusEntry, TimeZoneInfo.Utc);
+
+        result.Name.Should().Be("chronos");
+        result.Status.Should().Be("verified");
+        result.UpdatedOn.Should().StartWith("2024-01-15T10:30:00");
+    }
+
+    [Fact(DisplayName = "MAP-020: ToDetailsResponse without definition should have null configuration")]
+    public void MAP020()
+    {
+        var serverName = McpServerName.Create("chronos").Value;
+        var statusEntry = new McpServerStatusCacheEntry(McpServerConnectionStatus.Unknown, null);
+
+        var result = Mapper.ToDetailsResponse(serverName, statusEntry, TimeZoneInfo.Utc);
+
+        result.Configuration.Should().BeNull();
+    }
+
+    [Fact(DisplayName = "MAP-021: ToDetailsResponseAfterCreate should return details with configuration")]
+    public void MAP021()
+    {
+        var serverName = McpServerName.Create("new-server").Value;
+        var definition = new McpServerDefinition(
+            serverName,
+            "docker",
+            new List<string> { "run" }.AsReadOnly(),
+            new Dictionary<string, string>().AsReadOnly());
+
+        var result = Mapper.ToDetailsResponseAfterCreate(definition, TimeZoneInfo.Utc);
+
+        result.Name.Should().Be("new-server");
+        result.Status.Should().Be("unknown");
+        result.Configuration.Should().NotBeNull();
+        result.Configuration!.Command.Should().Be("docker");
+    }
+
+    [Fact(DisplayName = "MAP-022: ToDomain should create definition from CreateRequest")]
+    public void MAP022()
+    {
+        var request = new CreateRequest("new-server", new ConfigurationRequest("docker", ["run", "--rm"], new Dictionary<string, string> { ["TZ"] = "UTC" }));
+
+        var result = Mapper.ToDomain(request);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Id.Value.Should().Be("new-server");
+        result.Value.Command.Should().Be("docker");
+        result.Value.Args.Should().BeEquivalentTo(new[] { "run", "--rm" });
+        result.Value.Env.Should().ContainKey("TZ");
+    }
+
+    [Fact(DisplayName = "MAP-023: ToDomain should create definition without configuration when null")]
+    public void MAP023()
+    {
+        var request = new CreateRequest("new-server", null);
+
+        var result = Mapper.ToDomain(request);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Id.Value.Should().Be("new-server");
+        result.Value.HasConfiguration.Should().BeFalse();
+        result.Value.Command.Should().BeNull();
+        result.Value.Args.Should().BeNull();
+        result.Value.Env.Should().BeNull();
+    }
+
+    [Fact(DisplayName = "MAP-024: ToDomain should create definition from ConfigurationRequest")]
+    public void MAP024()
+    {
+        var serverName = McpServerName.Create("chronos").Value;
+        var request = new ConfigurationRequest("npx", ["-y", "package"], new Dictionary<string, string> { ["API_KEY"] = "xxx" });
+
+        var result = Mapper.ToDomain(serverName, request);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Id.Should().Be(serverName);
+        result.Value.Command.Should().Be("npx");
+        result.Value.Args.Should().BeEquivalentTo(new[] { "-y", "package" });
+        result.Value.Env.Should().ContainKey("API_KEY");
     }
 }

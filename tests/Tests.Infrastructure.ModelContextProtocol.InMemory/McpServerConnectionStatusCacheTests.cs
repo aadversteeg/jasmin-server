@@ -85,7 +85,7 @@ public class McpServerConnectionStatusCacheTests
         entry.Status.Should().Be(McpServerConnectionStatus.Failed);
     }
 
-    [Fact(DisplayName = "MCSC-007: RemoveByName should remove both mapping and status")]
+    [Fact(DisplayName = "MCSC-007: RemoveByName should clear status but preserve mapping for audit trail")]
     public void MCSC007()
     {
         var name = McpServerName.Create("chronos").Value;
@@ -94,12 +94,12 @@ public class McpServerConnectionStatusCacheTests
 
         _cache.RemoveByName(name);
 
-        // After removal, GetOrCreateId should create a new Id
-        var newId = _cache.GetOrCreateId(name);
-        newId.Should().NotBe(id);
+        // After removal, GetOrCreateId should return the same Id (mapping preserved)
+        var sameId = _cache.GetOrCreateId(name);
+        sameId.Should().Be(id);
 
-        // Status should be Unknown for the new Id
-        var entry = _cache.GetEntry(newId);
+        // Status should be Unknown (cleared)
+        var entry = _cache.GetEntry(sameId);
         entry.Status.Should().Be(McpServerConnectionStatus.Unknown);
     }
 
@@ -223,7 +223,7 @@ public class McpServerConnectionStatusCacheTests
         }
     }
 
-    [Fact(DisplayName = "MCSC-015: RemoveByName should also clear events")]
+    [Fact(DisplayName = "MCSC-015: RemoveByName should preserve events for audit trail")]
     public void MCSC015()
     {
         var name = McpServerName.Create("test-server").Value;
@@ -233,9 +233,11 @@ public class McpServerConnectionStatusCacheTests
 
         _cache.RemoveByName(name);
 
-        // After removal, events should be gone for old id
+        // After removal, events should still be available for audit trail
         var events = _cache.GetEvents(id);
-        events.Should().BeEmpty();
+        events.Should().HaveCount(2);
+        events[0].EventType.Should().Be(McpServerEventType.Starting);
+        events[1].EventType.Should().Be(McpServerEventType.Started);
     }
 
     [Fact(DisplayName = "MCSC-016: Cache should be thread-safe for concurrent RecordEvent")]

@@ -59,6 +59,15 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
 
             var definition = definitionResult.Value.Value;
 
+            // Check if server has configuration
+            if (!definition.HasConfiguration)
+            {
+                var error = Errors.ConfigurationMissing(serverName.Value);
+                _statusCache.RecordEvent(serverId, McpServerEventType.StartFailed, ToEventErrors(error), instanceId, requestId);
+                _statusCache.SetStatus(serverId, McpServerConnectionStatus.Failed);
+                return Result<McpServerInstanceId, Error>.Failure(error);
+            }
+
             // Record starting event
             _logger.LogDebug("Starting MCP server instance {InstanceId} for {ServerName}", instanceId.Value, serverName.Value);
             _statusCache.RecordEvent(serverId, McpServerEventType.Starting, null, instanceId, requestId);
@@ -66,10 +75,10 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
             // Create transport and connect
             var transportOptions = new StdioClientTransportOptions
             {
-                Command = definition.Command,
-                Arguments = [.. definition.Args],
+                Command = definition.Command!,
+                Arguments = [.. definition.Args!],
                 Name = definition.Id.Value,
-                EnvironmentVariables = definition.Env.ToDictionary(kvp => kvp.Key, kvp => (string?)kvp.Value)
+                EnvironmentVariables = definition.Env!.ToDictionary(kvp => kvp.Key, kvp => (string?)kvp.Value)
             };
 
             var transport = new StdioClientTransport(transportOptions);

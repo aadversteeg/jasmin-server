@@ -39,17 +39,26 @@ public class McpServerConnectionStatusCache : IMcpServerConnectionStatusCache
     /// <inheritdoc />
     public void RemoveByName(McpServerName name)
     {
-        if (_nameToIdMap.TryRemove(name.Value, out var id))
+        // Only remove the status, preserve name mapping and events for audit trail.
+        // Events remain queryable and will be associated with any recreated server
+        // with the same name.
+        if (_nameToIdMap.TryGetValue(name.Value, out var id))
         {
             _statusCache.TryRemove(id.Value, out _);
-            _eventHistory.TryRemove(id.Value, out _);
         }
     }
 
     /// <inheritdoc />
-    public void RecordEvent(McpServerId id, McpServerEventType eventType, IReadOnlyList<McpServerEventError>? errors = null, McpServerInstanceId? instanceId = null, McpServerRequestId? requestId = null)
+    public void RecordEvent(
+        McpServerId id,
+        McpServerEventType eventType,
+        IReadOnlyList<McpServerEventError>? errors = null,
+        McpServerInstanceId? instanceId = null,
+        McpServerRequestId? requestId = null,
+        McpServerEventConfiguration? oldConfiguration = null,
+        McpServerEventConfiguration? newConfiguration = null)
     {
-        var evt = new McpServerEvent(eventType, DateTime.UtcNow, errors, instanceId, requestId);
+        var evt = new McpServerEvent(eventType, DateTime.UtcNow, errors, instanceId, requestId, oldConfiguration, newConfiguration);
         _eventHistory.AddOrUpdate(
             id.Value,
             _ => new List<McpServerEvent> { evt },

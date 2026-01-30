@@ -177,6 +177,45 @@ public class McpServerFileRepository : IMcpServerRepository
         }
     }
 
+    /// <inheritdoc />
+    public Result<McpServerDefinition, Error> DeleteConfiguration(McpServerName id)
+    {
+        _lock.EnterWriteLock();
+        try
+        {
+            var configResult = ReadConfigFileInternal();
+            if (configResult.IsFailure)
+            {
+                return Result<McpServerDefinition, Error>.Failure(configResult.Error);
+            }
+
+            var config = configResult.Value;
+
+            if (!config.McpServers.TryGetValue(id.Value, out var entry))
+            {
+                return Result<McpServerDefinition, Error>.Failure(
+                    Errors.McpServerNotFound(id.Value));
+            }
+
+            // Clear the configuration but keep the server entry
+            entry.Command = null;
+            entry.Args = null;
+            entry.Env = null;
+
+            var writeResult = WriteConfigFileInternal(config);
+            if (writeResult.IsFailure)
+            {
+                return Result<McpServerDefinition, Error>.Failure(writeResult.Error);
+            }
+
+            return Result<McpServerDefinition, Error>.Success(new McpServerDefinition(id));
+        }
+        finally
+        {
+            _lock.ExitWriteLock();
+        }
+    }
+
     private Result<McpServerConfigFile, Error> ReadConfigFileInternal()
     {
         var expandedPath = ExpandPath(_configFilePath);
@@ -230,20 +269,30 @@ public class McpServerFileRepository : IMcpServerRepository
 
     private static McpServerDefinition CreateDefinition(McpServerName id, McpServerConfigEntry entry)
     {
+        if (!entry.HasConfiguration)
+        {
+            return new McpServerDefinition(id);
+        }
+
         return new McpServerDefinition(
             id,
-            entry.Command,
+            entry.Command!,
             (entry.Args ?? []).AsReadOnly(),
             (entry.Env ?? new Dictionary<string, string>()).AsReadOnly());
     }
 
     private static McpServerConfigEntry CreateConfigEntry(McpServerDefinition definition)
     {
+        if (!definition.HasConfiguration)
+        {
+            return new McpServerConfigEntry();
+        }
+
         return new McpServerConfigEntry
         {
             Command = definition.Command,
-            Args = definition.Args.ToList(),
-            Env = definition.Env.ToDictionary(kvp => kvp.Key, kvp => kvp.Value)
+            Args = definition.Args?.ToList(),
+            Env = definition.Env?.ToDictionary(kvp => kvp.Key, kvp => kvp.Value)
         };
     }
 

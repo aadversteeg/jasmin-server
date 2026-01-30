@@ -1,11 +1,14 @@
+using Core.Infrastructure.WebApp.Models.McpServers.Requests;
+
 namespace Core.Infrastructure.WebApp.Models.McpServers;
 
 /// <summary>
-/// Response model for complete MCP server configuration.
+/// Response model for MCP server details.
 /// </summary>
 public record DetailsResponse(
     string Name,
-    string Command,
-    IReadOnlyList<string> Args,
-    IReadOnlyDictionary<string, string> Env,
-    IReadOnlyList<EventResponse>? Events = null);
+    string Status,
+    string? UpdatedOn,
+    ConfigurationResponse? Configuration = null,
+    IReadOnlyList<EventResponse>? Events = null,
+    IReadOnlyList<RequestResponse>? Requests = null);

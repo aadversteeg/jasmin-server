@@ -65,4 +65,8 @@ public class McpServerRepositoryWithStatus : IMcpServerRepository
         }
         return result;
     }
+
+    /// <inheritdoc />
+    public Result<McpServerDefinition, Error> DeleteConfiguration(McpServerName id) =>
+        _inner.DeleteConfiguration(id);
 }

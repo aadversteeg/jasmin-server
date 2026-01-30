@@ -12,8 +12,9 @@ public record McpServerInfo
 
     /// <summary>
     /// The command to execute (e.g., "npx", "docker", "dotnet").
+    /// Null if the server has no configuration.
     /// </summary>
-    public string Command { get; }
+    public string? Command { get; }
 
     /// <summary>
     /// The verification status of the MCP server.
@@ -25,9 +26,14 @@ public record McpServerInfo
     /// </summary>
     public DateTime? UpdatedOnUtc { get; }
 
+    /// <summary>
+    /// Indicates whether the server has a configuration.
+    /// </summary>
+    public bool HasConfiguration => Command != null;
+
     public McpServerInfo(
         McpServerName id,
-        string command,
+        string? command = null,
         McpServerConnectionStatus status = McpServerConnectionStatus.Unknown,
         DateTime? updatedOnUtc = null)
     {

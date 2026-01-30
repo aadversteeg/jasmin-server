@@ -8,7 +8,9 @@ namespace Core.Application.McpServers;
 /// </summary>
 public record McpServerIncludeOptions
 {
+    private const string ConfigurationOption = "configuration";
     private const string EventsOption = "events";
+    private const string RequestsOption = "requests";
     private const string AllOption = "all";
 
     private McpServerIncludeOptions()
@@ -23,7 +25,12 @@ public record McpServerIncludeOptions
     /// <summary>
     /// Gets options with all additional data included.
     /// </summary>
-    public static McpServerIncludeOptions All => new() { IncludeEvents = true };
+    public static McpServerIncludeOptions All => new()
+    {
+        IncludeConfiguration = true,
+        IncludeEvents = true,
+        IncludeRequests = true
+    };
 
     /// <summary>
     /// Creates include options from a query parameter string.
@@ -49,8 +56,14 @@ public record McpServerIncludeOptions
         {
             switch (option)
             {
+                case ConfigurationOption:
+                    result = result with { IncludeConfiguration = true };
+                    break;
                 case EventsOption:
                     result = result with { IncludeEvents = true };
+                    break;
+                case RequestsOption:
+                    result = result with { IncludeRequests = true };
                     break;
                 default:
                     return Result<McpServerIncludeOptions, Error>.Failure(
@@ -62,7 +75,17 @@ public record McpServerIncludeOptions
     }
 
     /// <summary>
+    /// Gets whether to include configuration in the response.
+    /// </summary>
+    public bool IncludeConfiguration { get; private init; }
+
+    /// <summary>
     /// Gets whether to include events in the response.
     /// </summary>
     public bool IncludeEvents { get; private init; }
+
+    /// <summary>
+    /// Gets whether to include requests in the response.
+    /// </summary>
+    public bool IncludeRequests { get; private init; }
 }

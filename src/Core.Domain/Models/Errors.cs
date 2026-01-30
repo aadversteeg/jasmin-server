@@ -35,7 +35,11 @@ public static class Errors
 
     public static Error InvalidIncludeOption(string option) => new(
         ErrorCodes.InvalidIncludeOption,
-        $"Invalid value for include option: '{option}'. Valid options are: events, all");
+        $"Invalid value for include option: '{option}'. Valid options are: configuration, events, requests, all");
+
+    public static readonly Error ConfigurationRequired = new(
+        ErrorCodes.ConfigurationRequired,
+        "Configuration is required when creating a server.");
 
     public static Error InvalidRequestAction(string action) => new(
         ErrorCodes.InvalidRequestAction,
@@ -52,4 +56,8 @@ public static class Errors
     public static Error InvalidPageSize() => new(
         ErrorCodes.InvalidPageSize,
         "PageSize must be between 1 and 100.");
+
+    public static Error ConfigurationMissing(string serverName) => new(
+        ErrorCodes.ConfigurationMissing,
+        $"Cannot start MCP server '{serverName}' because it has no configuration. Add configuration first using PUT /v1/mcp-servers/{serverName}/configuration.");
 }
