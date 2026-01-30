@@ -9,8 +9,32 @@ namespace Core.Infrastructure.WebApp.Models.McpServers;
 /// </summary>
 public static class Mapper
 {
-    public static ListResponse ToListResponse(McpServerInfo source) =>
-        new(source.Id.Value, source.Command, source.Status.ToString().ToLowerInvariant(), source.VerifiedAtUtc);
+    public static ListResponse ToListResponse(McpServerInfo source, TimeZoneInfo timeZone)
+    {
+        string? updatedOn = null;
+        if (source.UpdatedOnUtc.HasValue)
+        {
+            var utcDateTime = DateTime.SpecifyKind(source.UpdatedOnUtc.Value, DateTimeKind.Utc);
+
+            if (timeZone == TimeZoneInfo.Utc)
+            {
+                updatedOn = utcDateTime.ToString("yyyy-MM-ddTHH:mm:ss.fffffffZ");
+            }
+            else
+            {
+                var convertedDateTime = TimeZoneInfo.ConvertTimeFromUtc(utcDateTime, timeZone);
+                var offset = timeZone.GetUtcOffset(convertedDateTime);
+                var dateTimeOffset = new DateTimeOffset(convertedDateTime, offset);
+                updatedOn = dateTimeOffset.ToString("yyyy-MM-ddTHH:mm:ss.fffffffzzz");
+            }
+        }
+
+        return new(
+            source.Id.Value,
+            source.Command,
+            source.Status.ToString().ToLowerInvariant(),
+            updatedOn);
+    }
 
     public static DetailsResponse ToDetailsResponse(McpServerDefinition source) =>
         new(source.Id.Value, source.Command, source.Args, source.Env);

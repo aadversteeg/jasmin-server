@@ -1,9 +1,11 @@
 using Ave.Extensions.Functional;
 using Core.Application.McpServers;
 using Core.Domain.McpServers;
+using Core.Infrastructure.ModelContextProtocol.InMemory;
 using Core.Infrastructure.WebApp.Extensions;
 using Core.Infrastructure.WebApp.Models.McpServers;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace Core.Infrastructure.WebApp.Controllers;
 
@@ -15,23 +17,54 @@ namespace Core.Infrastructure.WebApp.Controllers;
 public class McpServersController : ControllerBase
 {
     private readonly IMcpServerService _mcpServerService;
+    private readonly McpServerStatusOptions _statusOptions;
 
-    public McpServersController(IMcpServerService mcpServerService)
+    public McpServersController(
+        IMcpServerService mcpServerService,
+        IOptions<McpServerStatusOptions> statusOptions)
     {
         _mcpServerService = mcpServerService;
+        _statusOptions = statusOptions.Value;
     }
 
     /// <summary>
     /// Gets a list of all configured MCP servers.
     /// </summary>
+    /// <param name="timeZone">Optional timezone for the updatedOn timestamp. Defaults to configured timezone or UTC.</param>
     /// <returns>A list of MCP server summary information.</returns>
     [HttpGet]
     [ProducesResponseType(typeof(IReadOnlyList<ListResponse>), StatusCodes.Status200OK)]
-    public IActionResult GetAll()
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public IActionResult GetAll([FromQuery] string? timeZone = null)
     {
+        var resolvedTimeZone = ResolveTimeZone(timeZone);
+        if (resolvedTimeZone == null)
+        {
+            return BadRequest($"Invalid timezone: {timeZone}");
+        }
+
         return _mcpServerService
             .GetAll()
-            .ToActionResult(Mapper.ToListResponse);
+            .ToActionResult(info => Mapper.ToListResponse(info, resolvedTimeZone));
+    }
+
+    private TimeZoneInfo ResolveTimeZone(string? requestedTimeZone)
+    {
+        var timeZoneId = requestedTimeZone ?? _statusOptions.DefaultTimeZone;
+
+        if (string.IsNullOrEmpty(timeZoneId))
+        {
+            return TimeZoneInfo.Utc;
+        }
+
+        try
+        {
+            return TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+        }
+        catch (TimeZoneNotFoundException)
+        {
+            return null!;
+        }
     }
 
     /// <summary>

@@ -1,4 +1,5 @@
 using Core.Application.McpServers;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -17,9 +18,15 @@ public static class ServiceCollectionExtensions
     /// It decorates the existing IMcpServerRepository with status enrichment.
     /// </remarks>
     /// <param name="services">The service collection.</param>
+    /// <param name="configuration">The configuration.</param>
     /// <returns>The service collection for chaining.</returns>
-    public static IServiceCollection AddMcpServerConnectionStatusCaching(this IServiceCollection services)
+    public static IServiceCollection AddMcpServerConnectionStatusCaching(
+        this IServiceCollection services,
+        IConfiguration configuration)
     {
+        // Configure options
+        services.Configure<McpServerStatusOptions>(
+            configuration.GetSection(McpServerStatusOptions.SectionName));
         // Register the status cache as singleton (shared state)
         services.AddSingleton<IMcpServerConnectionStatusCache, McpServerConnectionStatusCache>();
 

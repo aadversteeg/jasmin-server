@@ -2,10 +2,12 @@ using Ave.Extensions.Functional;
 using Core.Application.McpServers;
 using Core.Domain.McpServers;
 using Core.Domain.Models;
+using Core.Infrastructure.ModelContextProtocol.InMemory;
 using Core.Infrastructure.WebApp.Controllers;
 using Core.Infrastructure.WebApp.Models.McpServers;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using Moq;
 using Xunit;
 
@@ -19,7 +21,8 @@ public class McpServersControllerTests
     public McpServersControllerTests()
     {
         _mockService = new Mock<IMcpServerService>();
-        _controller = new McpServersController(_mockService.Object);
+        var statusOptions = Options.Create(new McpServerStatusOptions { DefaultTimeZone = "UTC" });
+        _controller = new McpServersController(_mockService.Object, statusOptions);
     }
 
     [Fact(DisplayName = "MSC-001: GetAll should return OkResult with server list")]

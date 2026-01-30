@@ -21,28 +21,28 @@ public record McpServerInfo
     public McpServerConnectionStatus Status { get; }
 
     /// <summary>
-    /// The UTC timestamp when the status was last verified.
+    /// The UTC timestamp when the status was last updated.
     /// </summary>
-    public DateTime? VerifiedAtUtc { get; }
+    public DateTime? UpdatedOnUtc { get; }
 
     public McpServerInfo(
         McpServerId id,
         string command,
         McpServerConnectionStatus status = McpServerConnectionStatus.Unknown,
-        DateTime? verifiedAtUtc = null)
+        DateTime? updatedOnUtc = null)
     {
         Id = id;
         Command = command;
         Status = status;
-        VerifiedAtUtc = verifiedAtUtc;
+        UpdatedOnUtc = updatedOnUtc;
     }
 
     /// <summary>
     /// Creates a new McpServerInfo with an updated status and timestamp.
     /// </summary>
     /// <param name="status">The new connection status.</param>
-    /// <param name="verifiedAtUtc">The UTC timestamp when verified.</param>
+    /// <param name="updatedOnUtc">The UTC timestamp when updated.</param>
     /// <returns>A new McpServerInfo instance with the updated status and timestamp.</returns>
-    public McpServerInfo WithStatus(McpServerConnectionStatus status, DateTime? verifiedAtUtc) =>
-        new(Id, Command, status, verifiedAtUtc);
+    public McpServerInfo WithStatus(McpServerConnectionStatus status, DateTime? updatedOnUtc) =>
+        new(Id, Command, status, updatedOnUtc);
 }

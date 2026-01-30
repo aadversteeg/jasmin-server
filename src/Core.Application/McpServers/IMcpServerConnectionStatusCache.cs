@@ -6,8 +6,8 @@ namespace Core.Application.McpServers;
 /// Represents a cached status entry with timestamp.
 /// </summary>
 /// <param name="Status">The connection status.</param>
-/// <param name="VerifiedAtUtc">The UTC timestamp when the status was last verified.</param>
-public record McpServerStatusCacheEntry(McpServerConnectionStatus Status, DateTime? VerifiedAtUtc);
+/// <param name="UpdatedOnUtc">The UTC timestamp when the status was last updated.</param>
+public record McpServerStatusCacheEntry(McpServerConnectionStatus Status, DateTime? UpdatedOnUtc);
 
 /// <summary>
 /// Cache for MCP server connection status.

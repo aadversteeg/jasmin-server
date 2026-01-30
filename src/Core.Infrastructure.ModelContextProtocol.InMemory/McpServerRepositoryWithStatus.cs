@@ -29,7 +29,7 @@ public class McpServerRepositoryWithStatus : IMcpServerRepository
                 .Select(s =>
                 {
                     var entry = _statusCache.GetEntry(s.Id);
-                    return s.WithStatus(entry.Status, entry.VerifiedAtUtc);
+                    return s.WithStatus(entry.Status, entry.UpdatedOnUtc);
                 })
                 .ToList() as IReadOnlyList<McpServerInfo>);
     }
