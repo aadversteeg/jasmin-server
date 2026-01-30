@@ -32,8 +32,8 @@ public class MapperTests
 
         var result = Mapper.ToEventResponse(evt, TimeZoneInfo.Utc);
 
-        result.TimestampUtc.Should().EndWith("Z");
-        result.TimestampUtc.Should().StartWith("2024-01-15T10:30:00");
+        result.CreatedAt.Should().EndWith("Z");
+        result.CreatedAt.Should().StartWith("2024-01-15T10:30:00");
     }
 
     [Fact(DisplayName = "MAP-003: ToEventResponse should convert to specified timezone")]
@@ -47,8 +47,8 @@ public class MapperTests
         var result = Mapper.ToEventResponse(evt, amsterdamTz);
 
         // In January, Amsterdam is UTC+1
-        result.TimestampUtc.Should().StartWith("2024-01-15T11:30:00");
-        result.TimestampUtc.Should().EndWith("+01:00");
+        result.CreatedAt.Should().StartWith("2024-01-15T11:30:00");
+        result.CreatedAt.Should().EndWith("+01:00");
     }
 
     [Fact(DisplayName = "MAP-004: ToEventResponse should include errors when present")]
@@ -152,10 +152,10 @@ public class MapperTests
 
         result.Name.Should().Be("chronos");
         result.Status.Should().Be("verified");
-        result.UpdatedOn.Should().StartWith("2024-01-15T10:30:00");
+        result.UpdatedAt.Should().StartWith("2024-01-15T10:30:00");
     }
 
-    [Fact(DisplayName = "MAP-010: ToListResponse should handle null UpdatedOnUtc")]
+    [Fact(DisplayName = "MAP-010: ToListResponse should handle null UpdatedAtUtc")]
     public void MAP010()
     {
         var serverName = McpServerName.Create("chronos").Value;
@@ -163,7 +163,7 @@ public class MapperTests
 
         var result = Mapper.ToListResponse(info, TimeZoneInfo.Utc);
 
-        result.UpdatedOn.Should().BeNull();
+        result.UpdatedAt.Should().BeNull();
     }
 
     [Fact(DisplayName = "MAP-011: ToEventResponse should include instance ID when present")]
@@ -252,7 +252,7 @@ public class MapperTests
         var result = Mapper.ToPagedResponse(pagedResult, TimeZoneInfo.Utc);
 
         result.Items[0].EventType.Should().Be("Starting");
-        result.Items[0].TimestampUtc.Should().StartWith("2024-01-15T10:00:00");
+        result.Items[0].CreatedAt.Should().StartWith("2024-01-15T10:00:00");
     }
 
     [Fact(DisplayName = "MAP-017: ToPagedResponse should handle empty paged result")]
@@ -295,7 +295,7 @@ public class MapperTests
 
         result.Name.Should().Be("chronos");
         result.Status.Should().Be("verified");
-        result.UpdatedOn.Should().StartWith("2024-01-15T10:30:00");
+        result.UpdatedAt.Should().StartWith("2024-01-15T10:30:00");
     }
 
     [Fact(DisplayName = "MAP-020: ToDetailsResponse without definition should have null configuration")]

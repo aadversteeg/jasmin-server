@@ -6,6 +6,7 @@ using Core.Domain.Paging;
 using Core.Infrastructure.ModelContextProtocol.InMemory;
 using Core.Infrastructure.WebApp.Controllers;
 using Core.Infrastructure.WebApp.Models.McpServers;
+using Core.Infrastructure.WebApp.Models.McpServers.Instances;
 using Core.Infrastructure.WebApp.Models.Paging;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
@@ -22,6 +23,7 @@ public class McpServersControllerTests
     private readonly Mock<IMcpServerService> _mockService;
     private readonly Mock<IMcpServerConnectionStatusCache> _mockStatusCache;
     private readonly Mock<IMcpServerRequestStore> _mockRequestStore;
+    private readonly Mock<IMcpServerInstanceManager> _mockInstanceManager;
     private readonly McpServersController _controller;
 
     public McpServersControllerTests()
@@ -29,11 +31,13 @@ public class McpServersControllerTests
         _mockService = new Mock<IMcpServerService>();
         _mockStatusCache = new Mock<IMcpServerConnectionStatusCache>();
         _mockRequestStore = new Mock<IMcpServerRequestStore>();
+        _mockInstanceManager = new Mock<IMcpServerInstanceManager>();
         var statusOptions = Options.Create(new McpServerStatusOptions { DefaultTimeZone = "UTC" });
         _controller = new McpServersController(
             _mockService.Object,
             _mockStatusCache.Object,
             _mockRequestStore.Object,
+            _mockInstanceManager.Object,
             statusOptions);
 
         // Default status cache behavior
@@ -415,12 +419,18 @@ public class McpServersControllerTests
         {
             new(McpServerRequestId.Create(), chronosId, McpServerRequestAction.Start)
         };
+        var instances = new List<McpServerInstanceInfo>
+        {
+            new(McpServerInstanceId.Create(), chronosId, DateTime.UtcNow, null)
+        };
         _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
             .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
         _mockService.Setup(x => x.GetEvents(It.Is<McpServerName>(id => id.Value == "chronos")))
             .Returns(Result<IReadOnlyList<McpServerEvent>, Error>.Success(events));
         _mockRequestStore.Setup(x => x.GetByServerName(It.Is<McpServerName>(id => id.Value == "chronos")))
             .Returns(requests);
+        _mockInstanceManager.Setup(x => x.GetRunningInstances(It.Is<McpServerName>(id => id.Value == "chronos")))
+            .Returns(instances);
 
         var result = _controller.GetById("chronos", "all");
 
@@ -433,6 +443,8 @@ public class McpServersControllerTests
         response.Events.Should().HaveCount(1);
         response.Requests.Should().NotBeNull();
         response.Requests.Should().HaveCount(1);
+        response.Instances.Should().NotBeNull();
+        response.Instances.Should().HaveCount(1);
     }
 
     [Fact(DisplayName = "MSC-025: GetConfiguration should return configuration for existing server")]
@@ -487,5 +499,203 @@ public class McpServersControllerTests
         response.Should().NotBeNull();
         response!.Name.Should().Be("new-server");
         response.Configuration.Should().BeNull();
+    }
+
+    [Fact(DisplayName = "MSC-028: GetInstances should return list of instances for existing server")]
+    public void MSC028()
+    {
+        var chronosId = McpServerName.Create("chronos").Value;
+        var server = new McpServerDefinition(
+            chronosId,
+            "docker",
+            new List<string> { "run" }.AsReadOnly(),
+            new Dictionary<string, string>().AsReadOnly());
+        var config = new McpServerEventConfiguration(
+            "docker",
+            new List<string> { "run" }.AsReadOnly(),
+            new Dictionary<string, string>().AsReadOnly());
+        var instances = new List<McpServerInstanceInfo>
+        {
+            new(McpServerInstanceId.Create(), chronosId, new DateTime(2024, 1, 15, 10, 0, 0, DateTimeKind.Utc), config),
+            new(McpServerInstanceId.Create(), chronosId, new DateTime(2024, 1, 15, 11, 0, 0, DateTimeKind.Utc), config)
+        };
+        _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
+            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
+        _mockInstanceManager.Setup(x => x.GetRunningInstances(It.Is<McpServerName>(id => id.Value == "chronos")))
+            .Returns(instances);
+
+        var result = _controller.GetInstances("chronos");
+
+        result.Should().BeOfType<OkObjectResult>();
+        var okResult = (OkObjectResult)result;
+        var response = okResult.Value as InstanceListResponse;
+        response.Should().NotBeNull();
+        response!.Items.Should().HaveCount(2);
+        response.Items[0].ServerName.Should().Be("chronos");
+        response.Items[0].Configuration.Should().NotBeNull();
+        response.Items[0].Configuration!.Command.Should().Be("docker");
+    }
+
+    [Fact(DisplayName = "MSC-029: GetInstances should return NotFound for non-existent server")]
+    public void MSC029()
+    {
+        _mockService.Setup(x => x.GetById(It.IsAny<McpServerName>()))
+            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe<McpServerDefinition>.None));
+
+        var result = _controller.GetInstances("non-existent");
+
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact(DisplayName = "MSC-030: GetInstances should return BadRequest for invalid timezone")]
+    public void MSC030()
+    {
+        var result = _controller.GetInstances("chronos", "Invalid/Timezone");
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact(DisplayName = "MSC-031: GetInstances should return empty list when no instances running")]
+    public void MSC031()
+    {
+        var chronosId = McpServerName.Create("chronos").Value;
+        var server = new McpServerDefinition(chronosId);
+        _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
+            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
+        _mockInstanceManager.Setup(x => x.GetRunningInstances(It.Is<McpServerName>(id => id.Value == "chronos")))
+            .Returns(new List<McpServerInstanceInfo>());
+
+        var result = _controller.GetInstances("chronos");
+
+        result.Should().BeOfType<OkObjectResult>();
+        var okResult = (OkObjectResult)result;
+        var response = okResult.Value as InstanceListResponse;
+        response.Should().NotBeNull();
+        response!.Items.Should().BeEmpty();
+    }
+
+    [Fact(DisplayName = "MSC-032: GetInstance should return instance details for existing instance")]
+    public void MSC032()
+    {
+        var chronosId = McpServerName.Create("chronos").Value;
+        var server = new McpServerDefinition(chronosId);
+        var instanceId = McpServerInstanceId.Create();
+        var config = new McpServerEventConfiguration(
+            "docker",
+            new List<string> { "run" }.AsReadOnly(),
+            new Dictionary<string, string> { ["TZ"] = "UTC" }.AsReadOnly());
+        var instance = new McpServerInstanceInfo(
+            instanceId,
+            chronosId,
+            new DateTime(2024, 1, 15, 10, 0, 0, DateTimeKind.Utc),
+            config);
+        _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
+            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
+        _mockInstanceManager.Setup(x => x.GetInstance(
+                It.Is<McpServerName>(id => id.Value == "chronos"),
+                It.Is<McpServerInstanceId>(id => id.Value == instanceId.Value)))
+            .Returns(instance);
+
+        var result = _controller.GetInstance("chronos", instanceId.Value);
+
+        result.Should().BeOfType<OkObjectResult>();
+        var okResult = (OkObjectResult)result;
+        var response = okResult.Value as InstanceResponse;
+        response.Should().NotBeNull();
+        response!.InstanceId.Should().Be(instanceId.Value);
+        response.ServerName.Should().Be("chronos");
+        response.Configuration.Should().NotBeNull();
+        response.Configuration!.Command.Should().Be("docker");
+        response.Configuration.Env.Should().ContainKey("TZ");
+    }
+
+    [Fact(DisplayName = "MSC-033: GetInstance should return NotFound for non-existent server")]
+    public void MSC033()
+    {
+        _mockService.Setup(x => x.GetById(It.IsAny<McpServerName>()))
+            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe<McpServerDefinition>.None));
+
+        var result = _controller.GetInstance("non-existent", Guid.NewGuid().ToString());
+
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact(DisplayName = "MSC-034: GetInstance should return NotFound for non-existent instance")]
+    public void MSC034()
+    {
+        var chronosId = McpServerName.Create("chronos").Value;
+        var server = new McpServerDefinition(chronosId);
+        _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
+            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
+        _mockInstanceManager.Setup(x => x.GetInstance(
+                It.IsAny<McpServerName>(),
+                It.IsAny<McpServerInstanceId>()))
+            .Returns((McpServerInstanceInfo?)null);
+
+        var result = _controller.GetInstance("chronos", Guid.NewGuid().ToString());
+
+        result.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Fact(DisplayName = "MSC-035: GetInstance should return BadRequest for invalid timezone")]
+    public void MSC035()
+    {
+        var result = _controller.GetInstance("chronos", Guid.NewGuid().ToString(), "Invalid/Timezone");
+
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact(DisplayName = "MSC-036: GetById with include=instances should return server with instances")]
+    public void MSC036()
+    {
+        var chronosId = McpServerName.Create("chronos").Value;
+        var server = new McpServerDefinition(
+            chronosId,
+            "docker",
+            new List<string> { "run" }.AsReadOnly(),
+            new Dictionary<string, string>().AsReadOnly());
+        var config = new McpServerEventConfiguration(
+            "docker",
+            new List<string> { "run" }.AsReadOnly(),
+            new Dictionary<string, string>().AsReadOnly());
+        var instances = new List<McpServerInstanceInfo>
+        {
+            new(McpServerInstanceId.Create(), chronosId, DateTime.UtcNow, config)
+        };
+        _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
+            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
+        _mockInstanceManager.Setup(x => x.GetRunningInstances(It.Is<McpServerName>(id => id.Value == "chronos")))
+            .Returns(instances);
+
+        var result = _controller.GetById("chronos", "instances");
+
+        result.Should().BeOfType<OkObjectResult>();
+        var okResult = (OkObjectResult)result;
+        var response = okResult.Value as DetailsResponse;
+        response.Should().NotBeNull();
+        response!.Name.Should().Be("chronos");
+        response.Instances.Should().NotBeNull();
+        response.Instances.Should().HaveCount(1);
+        response.Instances![0].Configuration.Should().NotBeNull();
+        response.Configuration.Should().BeNull(); // Not included
+        response.Events.Should().BeNull(); // Not included
+    }
+
+    [Fact(DisplayName = "MSC-037: GetById without include should not return instances")]
+    public void MSC037()
+    {
+        var chronosId = McpServerName.Create("chronos").Value;
+        var server = new McpServerDefinition(chronosId);
+        _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
+            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
+
+        var result = _controller.GetById("chronos");
+
+        result.Should().BeOfType<OkObjectResult>();
+        var okResult = (OkObjectResult)result;
+        var response = okResult.Value as DetailsResponse;
+        response.Should().NotBeNull();
+        response!.Instances.Should().BeNull();
+        _mockInstanceManager.Verify(x => x.GetRunningInstances(It.IsAny<McpServerName>()), Times.Never);
     }
 }

@@ -6,4 +6,4 @@ namespace Core.Infrastructure.WebApp.Models.Events;
 public record GlobalEventResponse(
     string EventType,
     string ServerName,
-    string Timestamp);
+    string CreatedAt);

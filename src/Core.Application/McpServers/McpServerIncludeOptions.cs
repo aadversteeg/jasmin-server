@@ -11,6 +11,7 @@ public record McpServerIncludeOptions
     private const string ConfigurationOption = "configuration";
     private const string EventsOption = "events";
     private const string RequestsOption = "requests";
+    private const string InstancesOption = "instances";
     private const string AllOption = "all";
 
     private McpServerIncludeOptions()
@@ -29,7 +30,8 @@ public record McpServerIncludeOptions
     {
         IncludeConfiguration = true,
         IncludeEvents = true,
-        IncludeRequests = true
+        IncludeRequests = true,
+        IncludeInstances = true
     };
 
     /// <summary>
@@ -65,6 +67,9 @@ public record McpServerIncludeOptions
                 case RequestsOption:
                     result = result with { IncludeRequests = true };
                     break;
+                case InstancesOption:
+                    result = result with { IncludeInstances = true };
+                    break;
                 default:
                     return Result<McpServerIncludeOptions, Error>.Failure(
                         Errors.InvalidIncludeOption(option));
@@ -88,4 +93,9 @@ public record McpServerIncludeOptions
     /// Gets whether to include requests in the response.
     /// </summary>
     public bool IncludeRequests { get; private init; }
+
+    /// <summary>
+    /// Gets whether to include instances in the response.
+    /// </summary>
+    public bool IncludeInstances { get; private init; }
 }

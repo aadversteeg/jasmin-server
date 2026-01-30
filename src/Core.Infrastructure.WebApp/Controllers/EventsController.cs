@@ -16,6 +16,7 @@ namespace Core.Infrastructure.WebApp.Controllers;
 /// </summary>
 [ApiController]
 [Route("v1/events")]
+[Tags("McpServers")]
 public class EventsController : ControllerBase
 {
     private readonly IMcpServerService _mcpServerService;

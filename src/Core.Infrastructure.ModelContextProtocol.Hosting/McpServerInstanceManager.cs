@@ -108,7 +108,8 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
                 serverName,
                 serverId,
                 client,
-                DateTime.UtcNow);
+                DateTime.UtcNow,
+                startConfig);
 
             _instances[instanceId.Value] = instance;
 
@@ -175,16 +176,28 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
     {
         return _instances.Values
             .Where(i => i.ServerName.Value == serverName.Value)
-            .Select(i => new McpServerInstanceInfo(i.InstanceId, i.ServerName, i.StartedAtUtc))
+            .Select(i => new McpServerInstanceInfo(i.InstanceId, i.ServerName, i.StartedAtUtc, i.Configuration))
             .ToList()
             .AsReadOnly();
+    }
+
+    /// <inheritdoc />
+    public McpServerInstanceInfo? GetInstance(McpServerName serverName, McpServerInstanceId instanceId)
+    {
+        if (_instances.TryGetValue(instanceId.Value, out var instance) &&
+            instance.ServerName.Value == serverName.Value)
+        {
+            return new McpServerInstanceInfo(instance.InstanceId, instance.ServerName, instance.StartedAtUtc, instance.Configuration);
+        }
+
+        return null;
     }
 
     /// <inheritdoc />
     public IReadOnlyList<McpServerInstanceInfo> GetAllRunningInstances()
     {
         return _instances.Values
-            .Select(i => new McpServerInstanceInfo(i.InstanceId, i.ServerName, i.StartedAtUtc))
+            .Select(i => new McpServerInstanceInfo(i.InstanceId, i.ServerName, i.StartedAtUtc, i.Configuration))
             .ToList()
             .AsReadOnly();
     }
@@ -229,19 +242,22 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
         public McpServerId ServerId { get; }
         public McpClient Client { get; }
         public DateTime StartedAtUtc { get; }
+        public McpServerEventConfiguration? Configuration { get; }
 
         public ManagedMcpServerInstance(
             McpServerInstanceId instanceId,
             McpServerName serverName,
             McpServerId serverId,
             McpClient client,
-            DateTime startedAtUtc)
+            DateTime startedAtUtc,
+            McpServerEventConfiguration? configuration)
         {
             InstanceId = instanceId;
             ServerName = serverName;
             ServerId = serverId;
             Client = client;
             StartedAtUtc = startedAtUtc;
+            Configuration = configuration;
         }
     }
 }

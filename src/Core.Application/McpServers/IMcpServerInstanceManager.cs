@@ -41,6 +41,14 @@ public interface IMcpServerInstanceManager
     IReadOnlyList<McpServerInstanceInfo> GetRunningInstances(McpServerName serverName);
 
     /// <summary>
+    /// Gets a specific running instance.
+    /// </summary>
+    /// <param name="serverName">The name of the server.</param>
+    /// <param name="instanceId">The ID of the instance.</param>
+    /// <returns>The instance info if found, null otherwise.</returns>
+    McpServerInstanceInfo? GetInstance(McpServerName serverName, McpServerInstanceId instanceId);
+
+    /// <summary>
     /// Gets all running instances across all servers.
     /// </summary>
     /// <returns>A list of all running instances.</returns>

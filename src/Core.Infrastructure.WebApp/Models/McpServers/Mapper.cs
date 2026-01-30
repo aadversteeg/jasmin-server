@@ -3,6 +3,7 @@ using Core.Application.McpServers;
 using Core.Domain.McpServers;
 using Core.Domain.Models;
 using Core.Domain.Paging;
+using Core.Infrastructure.WebApp.Models.McpServers.Instances;
 using Core.Infrastructure.WebApp.Models.McpServers.Requests;
 using Core.Infrastructure.WebApp.Models.Paging;
 
@@ -40,7 +41,8 @@ public static class Mapper
         TimeZoneInfo timeZone,
         McpServerDefinition? definition = null,
         IReadOnlyList<McpServerEvent>? events = null,
-        IReadOnlyList<McpServerRequest>? requests = null)
+        IReadOnlyList<McpServerRequest>? requests = null,
+        IReadOnlyList<McpServerInstanceInfo>? instances = null)
     {
         var updatedOn = FormatTimestamp(statusEntry.UpdatedOnUtc, timeZone);
 
@@ -62,13 +64,20 @@ public static class Mapper
             requestResponses = requests.Select(r => RequestMapper.ToResponse(r, timeZone)).ToList().AsReadOnly();
         }
 
+        IReadOnlyList<InstanceResponse>? instanceResponses = null;
+        if (instances != null)
+        {
+            instanceResponses = instances.Select(i => InstanceMapper.ToResponse(i, timeZone)).ToList().AsReadOnly();
+        }
+
         return new(
             serverName.Value,
             statusEntry.Status.ToString().ToLowerInvariant(),
             updatedOn,
             configuration,
             eventResponses,
-            requestResponses);
+            requestResponses,
+            instanceResponses);
     }
 
     public static DetailsResponse ToDetailsResponseAfterCreate(

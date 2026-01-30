@@ -16,6 +16,7 @@ namespace Core.Infrastructure.WebApp.Controllers;
 /// </summary>
 [ApiController]
 [Route("v1/mcp-servers/{serverId}/requests")]
+[Tags("McpServers")]
 public class McpServerRequestsController : ControllerBase
 {
     private readonly IMcpServerService _mcpServerService;
