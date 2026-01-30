@@ -1,29 +1,25 @@
 using Core.Application.McpServers;
-using Core.Domain.McpServers;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace Core.Infrastructure.ModelContextProtocol.InMemory;
 
 /// <summary>
-/// Background service that initializes MCP server connection status on startup.
+/// Background service that initializes MCP server instances on startup.
 /// </summary>
 public class McpServerConnectionInitializationService : BackgroundService
 {
     private readonly IMcpServerRepository _repository;
-    private readonly IMcpServerClient _client;
-    private readonly IMcpServerConnectionStatusCache _statusCache;
+    private readonly IMcpServerInstanceManager _instanceManager;
     private readonly ILogger<McpServerConnectionInitializationService> _logger;
 
     public McpServerConnectionInitializationService(
         IMcpServerRepository repository,
-        IMcpServerClient client,
-        IMcpServerConnectionStatusCache statusCache,
+        IMcpServerInstanceManager instanceManager,
         ILogger<McpServerConnectionInitializationService> logger)
     {
         _repository = repository;
-        _client = client;
-        _statusCache = statusCache;
+        _instanceManager = instanceManager;
         _logger = logger;
     }
 
@@ -44,52 +40,34 @@ public class McpServerConnectionInitializationService : BackgroundService
         _logger.LogInformation("MCP server connection initialization completed");
     }
 
-    private async Task InitializeServerAsync(McpServerName serverName, CancellationToken stoppingToken)
+    private async Task InitializeServerAsync(Core.Domain.McpServers.McpServerName serverName, CancellationToken stoppingToken)
     {
-        var serverId = _statusCache.GetOrCreateId(serverName);
-
         try
         {
-            var definitionResult = _repository.GetById(serverName);
-            if (definitionResult.IsFailure || !definitionResult.Value.HasValue)
+            var startResult = await _instanceManager.StartInstanceAsync(serverName, stoppingToken);
+
+            if (startResult.IsFailure)
             {
-                _logger.LogWarning("Could not retrieve definition for server {ServerName}", serverName.Value);
-                _statusCache.RecordEvent(serverId, McpServerEventType.StartFailed, "Server definition not found");
-                _statusCache.SetStatus(serverId, McpServerConnectionStatus.Failed);
+                _logger.LogWarning("Failed to start MCP server {ServerName}: {Error}",
+                    serverName.Value, startResult.Error.Message);
                 return;
             }
 
-            var definition = definitionResult.Value.Value;
+            var instanceId = startResult.Value;
+            _logger.LogInformation("Successfully started MCP server {ServerName} with instance {InstanceId}",
+                serverName.Value, instanceId.Value);
 
-            // Record starting event
-            _statusCache.RecordEvent(serverId, McpServerEventType.Starting);
+            // Stop the instance after verifying connection
+            var stopResult = await _instanceManager.StopInstanceAsync(instanceId, stoppingToken);
 
-            bool success;
-            string? errorMessage = null;
-            try
+            if (stopResult.IsFailure)
             {
-                success = await _client.TestConnectionAsync(definition, stoppingToken);
-            }
-            catch (Exception ex)
-            {
-                success = false;
-                errorMessage = ex.Message;
-            }
-
-            if (success)
-            {
-                // Record started then stopping then stopped (since TestConnectionAsync starts and stops)
-                _statusCache.RecordEvent(serverId, McpServerEventType.Started);
-                _statusCache.RecordEvent(serverId, McpServerEventType.Stopping);
-                _statusCache.RecordEvent(serverId, McpServerEventType.Stopped);
-                _statusCache.SetStatus(serverId, McpServerConnectionStatus.Verified);
-                _logger.LogInformation("Successfully connected to MCP server {ServerName}", serverName.Value);
+                _logger.LogWarning("Failed to stop MCP server {ServerName} instance {InstanceId}: {Error}",
+                    serverName.Value, instanceId.Value, stopResult.Error.Message);
             }
             else
             {
-                _statusCache.RecordEvent(serverId, McpServerEventType.StartFailed, errorMessage);
-                _statusCache.SetStatus(serverId, McpServerConnectionStatus.Failed);
-                _logger.LogWarning("Failed to connect to MCP server {ServerName}", serverName.Value);
+                _logger.LogInformation("Successfully verified MCP server {ServerName}", serverName.Value);
             }
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -98,8 +76,6 @@ public class McpServerConnectionInitializationService : BackgroundService
         }
         catch (Exception ex)
         {
-            _statusCache.RecordEvent(serverId, McpServerEventType.StartFailed, ex.Message);
-            _statusCache.SetStatus(serverId, McpServerConnectionStatus.Failed);
             _logger.LogError(ex, "Error initializing connection for server {ServerName}", serverName.Value);
         }
     }

@@ -159,4 +159,31 @@ public class MapperTests
 
         result.UpdatedOn.Should().BeNull();
     }
+
+    [Fact(DisplayName = "MAP-011: ToEventResponse should include instance ID when present")]
+    public void MAP011()
+    {
+        var instanceId = McpServerInstanceId.Create();
+        var evt = new McpServerEvent(
+            McpServerEventType.Starting,
+            new DateTime(2024, 1, 15, 10, 30, 0, DateTimeKind.Utc),
+            null,
+            instanceId);
+
+        var result = Mapper.ToEventResponse(evt, TimeZoneInfo.Utc);
+
+        result.InstanceId.Should().Be(instanceId.Value);
+    }
+
+    [Fact(DisplayName = "MAP-012: ToEventResponse should have null instance ID when not present")]
+    public void MAP012()
+    {
+        var evt = new McpServerEvent(
+            McpServerEventType.Started,
+            new DateTime(2024, 1, 15, 10, 30, 0, DateTimeKind.Utc));
+
+        var result = Mapper.ToEventResponse(evt, TimeZoneInfo.Utc);
+
+        result.InstanceId.Should().BeNull();
+    }
 }

@@ -15,7 +15,7 @@ public static class ServiceCollectionExtensions
     /// <returns>The service collection for chaining.</returns>
     public static IServiceCollection AddMcpServerHosting(this IServiceCollection services)
     {
-        services.AddSingleton<IMcpServerClient, McpServerClient>();
+        services.AddSingleton<IMcpServerInstanceManager, McpServerInstanceManager>();
         return services;
     }
 }

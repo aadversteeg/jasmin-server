@@ -49,7 +49,8 @@ public interface IMcpServerConnectionStatusCache
     /// <param name="id">The server identifier.</param>
     /// <param name="eventType">The type of event.</param>
     /// <param name="errorMessage">Optional error message for failure events.</param>
-    void RecordEvent(McpServerId id, McpServerEventType eventType, string? errorMessage = null);
+    /// <param name="instanceId">Optional instance identifier for instance-specific events.</param>
+    void RecordEvent(McpServerId id, McpServerEventType eventType, string? errorMessage = null, McpServerInstanceId? instanceId = null);
 
     /// <summary>
     /// Gets all events for the specified server, ordered by timestamp.

@@ -6,7 +6,9 @@ namespace Core.Domain.McpServers;
 /// <param name="EventType">The type of event.</param>
 /// <param name="TimestampUtc">The UTC timestamp when the event occurred.</param>
 /// <param name="ErrorMessage">Optional error message for failure events.</param>
+/// <param name="InstanceId">Optional instance ID for instance-specific events.</param>
 public record McpServerEvent(
     McpServerEventType EventType,
     DateTime TimestampUtc,
-    string? ErrorMessage = null);
+    string? ErrorMessage = null,
+    McpServerInstanceId? InstanceId = null);

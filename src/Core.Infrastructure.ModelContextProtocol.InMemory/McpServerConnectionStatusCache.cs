@@ -46,9 +46,9 @@ public class McpServerConnectionStatusCache : IMcpServerConnectionStatusCache
     }
 
     /// <inheritdoc />
-    public void RecordEvent(McpServerId id, McpServerEventType eventType, string? errorMessage = null)
+    public void RecordEvent(McpServerId id, McpServerEventType eventType, string? errorMessage = null, McpServerInstanceId? instanceId = null)
     {
-        var evt = new McpServerEvent(eventType, DateTime.UtcNow, errorMessage);
+        var evt = new McpServerEvent(eventType, DateTime.UtcNow, errorMessage, instanceId);
         _eventHistory.AddOrUpdate(
             id.Value,
             _ => new List<McpServerEvent> { evt },

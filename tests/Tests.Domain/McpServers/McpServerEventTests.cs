@@ -53,4 +53,38 @@ public class McpServerEventTests
 
         evt1.Should().Be(evt2);
     }
+
+    [Fact(DisplayName = "MSE-005: Event should store instance ID")]
+    public void MSE005()
+    {
+        var timestamp = DateTime.UtcNow;
+        var instanceId = McpServerInstanceId.Create();
+
+        var evt = new McpServerEvent(McpServerEventType.Starting, timestamp, null, instanceId);
+
+        evt.InstanceId.Should().Be(instanceId);
+    }
+
+    [Fact(DisplayName = "MSE-006: Event without instance ID should have null InstanceId")]
+    public void MSE006()
+    {
+        var timestamp = DateTime.UtcNow;
+
+        var evt = new McpServerEvent(McpServerEventType.Starting, timestamp);
+
+        evt.InstanceId.Should().BeNull();
+    }
+
+    [Fact(DisplayName = "MSE-007: Events with different instance IDs should not be equal")]
+    public void MSE007()
+    {
+        var timestamp = new DateTime(2024, 1, 15, 10, 30, 0, DateTimeKind.Utc);
+        var instanceId1 = McpServerInstanceId.Create();
+        var instanceId2 = McpServerInstanceId.Create();
+
+        var evt1 = new McpServerEvent(McpServerEventType.Started, timestamp, null, instanceId1);
+        var evt2 = new McpServerEvent(McpServerEventType.Started, timestamp, null, instanceId2);
+
+        evt1.Should().NotBe(evt2);
+    }
 }
