@@ -15,13 +15,14 @@ public class EventStoreTests
         _store = new EventStore();
     }
 
-    [Fact(DisplayName = "EST-001: RecordEvent should store event with timestamp")]
+    [Fact(DisplayName = "EST-001: Store should store event with timestamp")]
     public void EST001()
     {
         var serverName = McpServerName.Create("chronos").Value;
         var beforeRecord = DateTime.UtcNow;
+        var @event = new McpServerEvent(serverName, McpServerEventType.ServerCreated, DateTime.UtcNow);
 
-        _store.RecordEvent(serverName, McpServerEventType.ServerCreated);
+        _store.Store(@event);
 
         var paging = PagingParameters.Create(1, 10).Value;
         var result = _store.GetEvents(paging);
@@ -47,9 +48,9 @@ public class EventStoreTests
     {
         var chronos = McpServerName.Create("chronos").Value;
         var github = McpServerName.Create("github").Value;
-        _store.RecordEvent(chronos, McpServerEventType.ServerCreated);
-        _store.RecordEvent(github, McpServerEventType.ServerCreated);
-        _store.RecordEvent(chronos, McpServerEventType.ServerDeleted);
+        _store.Store(new McpServerEvent(chronos, McpServerEventType.ServerCreated, DateTime.UtcNow));
+        _store.Store(new McpServerEvent(github, McpServerEventType.ServerCreated, DateTime.UtcNow));
+        _store.Store(new McpServerEvent(chronos, McpServerEventType.ServerDeleted, DateTime.UtcNow));
 
         var paging = PagingParameters.Create(1, 10).Value;
         var result = _store.GetEvents(paging, serverNameFilter: chronos);
@@ -63,11 +64,11 @@ public class EventStoreTests
     public void EST004()
     {
         var serverName = McpServerName.Create("chronos").Value;
-        _store.RecordEvent(serverName, McpServerEventType.ServerCreated);
+        _store.Store(new McpServerEvent(serverName, McpServerEventType.ServerCreated, DateTime.UtcNow));
         Thread.Sleep(50);
         var afterFirstEvent = DateTime.UtcNow;
         Thread.Sleep(50);
-        _store.RecordEvent(serverName, McpServerEventType.ServerDeleted);
+        _store.Store(new McpServerEvent(serverName, McpServerEventType.ServerDeleted, DateTime.UtcNow));
 
         var paging = PagingParameters.Create(1, 10).Value;
         var dateFilter = new DateRangeFilter(afterFirstEvent, null);
@@ -81,9 +82,9 @@ public class EventStoreTests
     public void EST005()
     {
         var serverName = McpServerName.Create("chronos").Value;
-        _store.RecordEvent(serverName, McpServerEventType.ServerCreated);
+        _store.Store(new McpServerEvent(serverName, McpServerEventType.ServerCreated, DateTime.UtcNow));
         Thread.Sleep(10);
-        _store.RecordEvent(serverName, McpServerEventType.ServerDeleted);
+        _store.Store(new McpServerEvent(serverName, McpServerEventType.ServerDeleted, DateTime.UtcNow));
 
         var paging = PagingParameters.Create(1, 10).Value;
         var result = _store.GetEvents(paging, sortDirection: SortDirection.Ascending);
@@ -97,9 +98,9 @@ public class EventStoreTests
     public void EST006()
     {
         var serverName = McpServerName.Create("chronos").Value;
-        _store.RecordEvent(serverName, McpServerEventType.ServerCreated);
+        _store.Store(new McpServerEvent(serverName, McpServerEventType.ServerCreated, DateTime.UtcNow));
         Thread.Sleep(10);
-        _store.RecordEvent(serverName, McpServerEventType.ServerDeleted);
+        _store.Store(new McpServerEvent(serverName, McpServerEventType.ServerDeleted, DateTime.UtcNow));
 
         var paging = PagingParameters.Create(1, 10).Value;
         var result = _store.GetEvents(paging);
@@ -115,9 +116,9 @@ public class EventStoreTests
         var server1 = McpServerName.Create("server1").Value;
         var server2 = McpServerName.Create("server2").Value;
         var server3 = McpServerName.Create("server3").Value;
-        _store.RecordEvent(server1, McpServerEventType.ServerCreated);
-        _store.RecordEvent(server2, McpServerEventType.ServerCreated);
-        _store.RecordEvent(server3, McpServerEventType.ServerCreated);
+        _store.Store(new McpServerEvent(server1, McpServerEventType.ServerCreated, DateTime.UtcNow));
+        _store.Store(new McpServerEvent(server2, McpServerEventType.ServerCreated, DateTime.UtcNow));
+        _store.Store(new McpServerEvent(server3, McpServerEventType.ServerCreated, DateTime.UtcNow));
 
         var pagingPage1 = PagingParameters.Create(1, 2).Value;
         var pagingPage2 = PagingParameters.Create(2, 2).Value;
@@ -135,7 +136,7 @@ public class EventStoreTests
         resultPage2.Page.Should().Be(2);
     }
 
-    [Fact(DisplayName = "EST-008: Store should be thread-safe for concurrent RecordEvent")]
+    [Fact(DisplayName = "EST-008: Store should be thread-safe for concurrent Store")]
     public void EST008()
     {
         var serverName = McpServerName.Create("concurrent-server").Value;
@@ -143,7 +144,7 @@ public class EventStoreTests
         var action = () => Parallel.For(0, 100, i =>
         {
             var eventType = i % 2 == 0 ? McpServerEventType.ServerCreated : McpServerEventType.ServerDeleted;
-            _store.RecordEvent(serverName, eventType);
+            _store.Store(new McpServerEvent(serverName, eventType, DateTime.UtcNow));
         });
 
         action.Should().NotThrow();
@@ -159,7 +160,7 @@ public class EventStoreTests
         var serverName = McpServerName.Create("test-server").Value;
         for (int i = 0; i < 50; i++)
         {
-            _store.RecordEvent(serverName, McpServerEventType.ServerCreated);
+            _store.Store(new McpServerEvent(serverName, McpServerEventType.ServerCreated, DateTime.UtcNow));
         }
 
         var action = () => Parallel.For(0, 100, _ =>
@@ -179,9 +180,9 @@ public class EventStoreTests
         var instanceId1 = McpServerInstanceId.Create();
         var instanceId2 = McpServerInstanceId.Create();
 
-        _store.RecordEvent(serverName, McpServerEventType.Started, instanceId: instanceId1);
-        _store.RecordEvent(serverName, McpServerEventType.Started, instanceId: instanceId2);
-        _store.RecordEvent(serverName, McpServerEventType.Stopped, instanceId: instanceId1);
+        _store.Store(new McpServerEvent(serverName, McpServerEventType.Started, DateTime.UtcNow, null, instanceId1));
+        _store.Store(new McpServerEvent(serverName, McpServerEventType.Started, DateTime.UtcNow, null, instanceId2));
+        _store.Store(new McpServerEvent(serverName, McpServerEventType.Stopped, DateTime.UtcNow, null, instanceId1));
 
         var paging = PagingParameters.Create(1, 10).Value;
         var result = _store.GetEvents(paging, instanceIdFilter: instanceId1);
@@ -197,9 +198,9 @@ public class EventStoreTests
         var requestId1 = McpServerRequestId.Create();
         var requestId2 = McpServerRequestId.Create();
 
-        _store.RecordEvent(serverName, McpServerEventType.ToolInvoking, requestId: requestId1);
-        _store.RecordEvent(serverName, McpServerEventType.ToolInvoking, requestId: requestId2);
-        _store.RecordEvent(serverName, McpServerEventType.ToolInvoked, requestId: requestId1);
+        _store.Store(new McpServerEvent(serverName, McpServerEventType.ToolInvoking, DateTime.UtcNow, null, null, requestId1));
+        _store.Store(new McpServerEvent(serverName, McpServerEventType.ToolInvoking, DateTime.UtcNow, null, null, requestId2));
+        _store.Store(new McpServerEvent(serverName, McpServerEventType.ToolInvoked, DateTime.UtcNow, null, null, requestId1));
 
         var paging = PagingParameters.Create(1, 10).Value;
         var result = _store.GetEvents(paging, requestIdFilter: requestId1);
@@ -215,10 +216,10 @@ public class EventStoreTests
         var github = McpServerName.Create("github").Value;
         var instanceId = McpServerInstanceId.Create();
 
-        _store.RecordEvent(chronos, McpServerEventType.Started, instanceId: instanceId);
-        _store.RecordEvent(chronos, McpServerEventType.Stopped, instanceId: instanceId);
-        _store.RecordEvent(github, McpServerEventType.Started, instanceId: instanceId);
-        _store.RecordEvent(chronos, McpServerEventType.Started);
+        _store.Store(new McpServerEvent(chronos, McpServerEventType.Started, DateTime.UtcNow, null, instanceId));
+        _store.Store(new McpServerEvent(chronos, McpServerEventType.Stopped, DateTime.UtcNow, null, instanceId));
+        _store.Store(new McpServerEvent(github, McpServerEventType.Started, DateTime.UtcNow, null, instanceId));
+        _store.Store(new McpServerEvent(chronos, McpServerEventType.Started, DateTime.UtcNow));
 
         var paging = PagingParameters.Create(1, 10).Value;
         var result = _store.GetEvents(paging, serverNameFilter: chronos, instanceIdFilter: instanceId);

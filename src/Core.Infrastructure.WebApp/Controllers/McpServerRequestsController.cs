@@ -1,3 +1,4 @@
+using Core.Application.Events;
 using Core.Application.McpServers;
 using Core.Domain.McpServers;
 using Core.Domain.Models;
@@ -22,20 +23,20 @@ public class McpServerRequestsController : ControllerBase
     private readonly IMcpServerService _mcpServerService;
     private readonly IMcpServerRequestStore _requestStore;
     private readonly IMcpServerRequestQueue _requestQueue;
-    private readonly IEventStore _eventStore;
+    private readonly IEventPublisher<McpServerEvent> _eventPublisher;
     private readonly McpServerStatusOptions _statusOptions;
 
     public McpServerRequestsController(
         IMcpServerService mcpServerService,
         IMcpServerRequestStore requestStore,
         IMcpServerRequestQueue requestQueue,
-        IEventStore eventStore,
+        IEventPublisher<McpServerEvent> eventPublisher,
         IOptions<McpServerStatusOptions> statusOptions)
     {
         _mcpServerService = mcpServerService;
         _requestStore = requestStore;
         _requestQueue = requestQueue;
-        _eventStore = eventStore;
+        _eventPublisher = eventPublisher;
         _statusOptions = statusOptions.Value;
     }
 
@@ -99,12 +100,17 @@ public class McpServerRequestsController : ControllerBase
                 domainRequest.ToolName!,
                 domainRequest.Input,
                 null);
-            _eventStore.RecordEvent(
+            var @event = new McpServerEvent(
                 serverName,
                 McpServerEventType.ToolInvocationAccepted,
-                instanceId: domainRequest.TargetInstanceId,
-                requestId: domainRequest.Id,
-                toolInvocationData: toolInvocationData);
+                DateTime.UtcNow,
+                null,
+                domainRequest.TargetInstanceId,
+                domainRequest.Id,
+                null,
+                null,
+                toolInvocationData);
+            _eventPublisher.Publish(@event);
         }
 
         var response = RequestMapper.ToResponse(domainRequest, resolvedTimeZone);

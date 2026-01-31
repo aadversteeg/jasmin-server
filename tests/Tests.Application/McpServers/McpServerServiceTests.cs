@@ -1,4 +1,5 @@
 using Ave.Extensions.Functional;
+using Core.Application.Events;
 using Core.Application.McpServers;
 using Core.Domain.McpServers;
 using Core.Domain.Models;
@@ -12,15 +13,15 @@ public class McpServerServiceTests
 {
     private readonly Mock<IMcpServerRepository> _mockRepository;
     private readonly Mock<IMcpServerConnectionStatusCache> _mockStatusCache;
-    private readonly Mock<IEventStore> _mockEventStore;
+    private readonly Mock<IEventPublisher<McpServerEvent>> _mockEventPublisher;
     private readonly McpServerService _service;
 
     public McpServerServiceTests()
     {
         _mockRepository = new Mock<IMcpServerRepository>();
         _mockStatusCache = new Mock<IMcpServerConnectionStatusCache>();
-        _mockEventStore = new Mock<IEventStore>();
-        _service = new McpServerService(_mockRepository.Object, _mockStatusCache.Object, _mockEventStore.Object);
+        _mockEventPublisher = new Mock<IEventPublisher<McpServerEvent>>();
+        _service = new McpServerService(_mockRepository.Object, _mockStatusCache.Object, _mockEventPublisher.Object);
     }
 
     [Fact(DisplayName = "MSS-001: GetAll should delegate to repository")]

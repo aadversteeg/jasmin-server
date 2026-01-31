@@ -12,31 +12,15 @@ public class EventStore : IEventStore
     private readonly List<McpServerEvent> _events = new();
     private readonly object _lock = new();
 
-    /// <inheritdoc />
-    public void RecordEvent(
-        McpServerName serverName,
-        McpServerEventType eventType,
-        IReadOnlyList<McpServerEventError>? errors = null,
-        McpServerInstanceId? instanceId = null,
-        McpServerRequestId? requestId = null,
-        McpServerEventConfiguration? oldConfiguration = null,
-        McpServerEventConfiguration? configuration = null,
-        McpServerToolInvocationEventData? toolInvocationData = null)
+    /// <summary>
+    /// Stores an event in the event store.
+    /// </summary>
+    /// <param name="event">The event to store.</param>
+    public void Store(McpServerEvent @event)
     {
-        var evt = new McpServerEvent(
-            serverName,
-            eventType,
-            DateTime.UtcNow,
-            errors,
-            instanceId,
-            requestId,
-            oldConfiguration,
-            configuration,
-            toolInvocationData);
-
         lock (_lock)
         {
-            _events.Add(evt);
+            _events.Add(@event);
         }
     }
 

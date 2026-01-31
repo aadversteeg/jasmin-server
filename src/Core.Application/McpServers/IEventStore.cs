@@ -4,31 +4,10 @@ using Core.Domain.Paging;
 namespace Core.Application.McpServers;
 
 /// <summary>
-/// Global store for all MCP server events.
+/// Store for querying MCP server events.
 /// </summary>
 public interface IEventStore
 {
-    /// <summary>
-    /// Records an event for the specified server.
-    /// </summary>
-    /// <param name="serverName">The name of the server.</param>
-    /// <param name="eventType">The type of event.</param>
-    /// <param name="errors">Optional list of errors for failure events.</param>
-    /// <param name="instanceId">Optional instance identifier for instance-specific events.</param>
-    /// <param name="requestId">Optional request identifier for request-initiated events.</param>
-    /// <param name="oldConfiguration">Previous configuration for update/delete events.</param>
-    /// <param name="configuration">Configuration for create/update/start events.</param>
-    /// <param name="toolInvocationData">Data for tool invocation events.</param>
-    void RecordEvent(
-        McpServerName serverName,
-        McpServerEventType eventType,
-        IReadOnlyList<McpServerEventError>? errors = null,
-        McpServerInstanceId? instanceId = null,
-        McpServerRequestId? requestId = null,
-        McpServerEventConfiguration? oldConfiguration = null,
-        McpServerEventConfiguration? configuration = null,
-        McpServerToolInvocationEventData? toolInvocationData = null);
-
     /// <summary>
     /// Gets events with paging, filtering, and sorting.
     /// </summary>

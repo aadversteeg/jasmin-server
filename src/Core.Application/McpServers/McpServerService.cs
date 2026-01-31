@@ -1,4 +1,5 @@
 using Ave.Extensions.Functional;
+using Core.Application.Events;
 using Core.Domain.McpServers;
 using Core.Domain.Models;
 
@@ -11,16 +12,16 @@ public class McpServerService : IMcpServerService
 {
     private readonly IMcpServerRepository _repository;
     private readonly IMcpServerConnectionStatusCache _statusCache;
-    private readonly IEventStore _eventStore;
+    private readonly IEventPublisher<McpServerEvent> _eventPublisher;
 
     public McpServerService(
         IMcpServerRepository repository,
         IMcpServerConnectionStatusCache statusCache,
-        IEventStore eventStore)
+        IEventPublisher<McpServerEvent> eventPublisher)
     {
         _repository = repository;
         _statusCache = statusCache;
-        _eventStore = eventStore;
+        _eventPublisher = eventPublisher;
     }
 
     /// <inheritdoc />
@@ -42,16 +43,13 @@ public class McpServerService : IMcpServerService
         if (result.IsSuccess)
         {
             // Record ServerCreated event
-            _eventStore.RecordEvent(definition.Id, McpServerEventType.ServerCreated);
+            PublishEvent(definition.Id, McpServerEventType.ServerCreated);
 
             // Record ConfigurationCreated event if server has configuration
             if (definition.HasConfiguration)
             {
                 var newConfig = McpServerEventConfiguration.FromDefinition(definition);
-                _eventStore.RecordEvent(
-                    definition.Id,
-                    McpServerEventType.ConfigurationCreated,
-                    configuration: newConfig);
+                PublishEvent(definition.Id, McpServerEventType.ConfigurationCreated, configuration: newConfig);
             }
         }
         return result;
@@ -81,11 +79,7 @@ public class McpServerService : IMcpServerService
                 ? McpServerEventType.ConfigurationUpdated
                 : McpServerEventType.ConfigurationCreated;
 
-            _eventStore.RecordEvent(
-                definition.Id,
-                eventType,
-                oldConfiguration: oldConfig,
-                configuration: newConfig);
+            PublishEvent(definition.Id, eventType, oldConfiguration: oldConfig, configuration: newConfig);
         }
         return result;
     }
@@ -105,14 +99,11 @@ public class McpServerService : IMcpServerService
         // Record ConfigurationDeleted event if server had configuration
         if (oldConfig != null)
         {
-            _eventStore.RecordEvent(
-                id,
-                McpServerEventType.ConfigurationDeleted,
-                oldConfiguration: oldConfig);
+            PublishEvent(id, McpServerEventType.ConfigurationDeleted, oldConfiguration: oldConfig);
         }
 
         // Record ServerDeleted event
-        _eventStore.RecordEvent(id, McpServerEventType.ServerDeleted);
+        PublishEvent(id, McpServerEventType.ServerDeleted);
 
         // Delete from repository (this will also clear the status cache)
         return _repository.Delete(id);
@@ -133,11 +124,32 @@ public class McpServerService : IMcpServerService
         var result = _repository.DeleteConfiguration(id);
         if (result.IsSuccess && oldConfig != null)
         {
-            _eventStore.RecordEvent(
-                id,
-                McpServerEventType.ConfigurationDeleted,
-                oldConfiguration: oldConfig);
+            PublishEvent(id, McpServerEventType.ConfigurationDeleted, oldConfiguration: oldConfig);
         }
         return result;
+    }
+
+    private void PublishEvent(
+        McpServerName serverName,
+        McpServerEventType eventType,
+        IReadOnlyList<McpServerEventError>? errors = null,
+        McpServerInstanceId? instanceId = null,
+        McpServerRequestId? requestId = null,
+        McpServerEventConfiguration? oldConfiguration = null,
+        McpServerEventConfiguration? configuration = null,
+        McpServerToolInvocationEventData? toolInvocationData = null)
+    {
+        var @event = new McpServerEvent(
+            serverName,
+            eventType,
+            DateTime.UtcNow,
+            errors,
+            instanceId,
+            requestId,
+            oldConfiguration,
+            configuration,
+            toolInvocationData);
+
+        _eventPublisher.Publish(@event);
     }
 }

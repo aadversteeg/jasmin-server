@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Ave.Extensions.Functional;
+using Core.Application.Events;
 using Core.Application.McpServers;
 using Core.Domain.McpServers;
 using Core.Domain.Models;
@@ -16,7 +17,7 @@ public class McpServerRequestProcessorServiceTests
     private readonly Mock<IMcpServerRequestQueue> _queueMock;
     private readonly Mock<IMcpServerRequestStore> _storeMock;
     private readonly Mock<IMcpServerInstanceManager> _instanceManagerMock;
-    private readonly Mock<IEventStore> _eventStoreMock;
+    private readonly Mock<IEventPublisher<McpServerEvent>> _eventPublisherMock;
     private readonly Mock<ILogger<McpServerRequestProcessorService>> _loggerMock;
 
     public McpServerRequestProcessorServiceTests()
@@ -24,7 +25,7 @@ public class McpServerRequestProcessorServiceTests
         _queueMock = new Mock<IMcpServerRequestQueue>();
         _storeMock = new Mock<IMcpServerRequestStore>();
         _instanceManagerMock = new Mock<IMcpServerInstanceManager>();
-        _eventStoreMock = new Mock<IEventStore>();
+        _eventPublisherMock = new Mock<IEventPublisher<McpServerEvent>>();
         _loggerMock = new Mock<ILogger<McpServerRequestProcessorService>>();
     }
 
@@ -78,7 +79,7 @@ public class McpServerRequestProcessorServiceTests
             _queueMock.Object,
             _storeMock.Object,
             _instanceManagerMock.Object,
-            _eventStoreMock.Object,
+            _eventPublisherMock.Object,
             _loggerMock.Object);
 
         // Act
@@ -142,7 +143,7 @@ public class McpServerRequestProcessorServiceTests
             _queueMock.Object,
             _storeMock.Object,
             _instanceManagerMock.Object,
-            _eventStoreMock.Object,
+            _eventPublisherMock.Object,
             _loggerMock.Object);
 
         // Act
@@ -195,7 +196,7 @@ public class McpServerRequestProcessorServiceTests
             _queueMock.Object,
             _storeMock.Object,
             _instanceManagerMock.Object,
-            _eventStoreMock.Object,
+            _eventPublisherMock.Object,
             _loggerMock.Object);
 
         // Act
@@ -239,7 +240,7 @@ public class McpServerRequestProcessorServiceTests
             _queueMock.Object,
             _storeMock.Object,
             _instanceManagerMock.Object,
-            _eventStoreMock.Object,
+            _eventPublisherMock.Object,
             _loggerMock.Object);
 
         // Act
@@ -281,7 +282,7 @@ public class McpServerRequestProcessorServiceTests
             _queueMock.Object,
             _storeMock.Object,
             _instanceManagerMock.Object,
-            _eventStoreMock.Object,
+            _eventPublisherMock.Object,
             _loggerMock.Object);
 
         // Act
@@ -338,7 +339,7 @@ public class McpServerRequestProcessorServiceTests
             _queueMock.Object,
             _storeMock.Object,
             _instanceManagerMock.Object,
-            _eventStoreMock.Object,
+            _eventPublisherMock.Object,
             _loggerMock.Object);
 
         // Act

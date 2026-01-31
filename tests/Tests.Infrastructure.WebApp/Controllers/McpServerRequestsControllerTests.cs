@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Ave.Extensions.Functional;
+using Core.Application.Events;
 using Core.Application.McpServers;
 using Core.Domain.McpServers;
 using Core.Domain.Models;
@@ -22,7 +23,7 @@ public class McpServerRequestsControllerTests
     private readonly Mock<IMcpServerService> _mockService;
     private readonly Mock<IMcpServerRequestStore> _mockRequestStore;
     private readonly Mock<IMcpServerRequestQueue> _mockRequestQueue;
-    private readonly Mock<IEventStore> _mockEventStore;
+    private readonly Mock<IEventPublisher<McpServerEvent>> _mockEventPublisher;
     private readonly McpServerRequestsController _controller;
 
     public McpServerRequestsControllerTests()
@@ -30,13 +31,13 @@ public class McpServerRequestsControllerTests
         _mockService = new Mock<IMcpServerService>();
         _mockRequestStore = new Mock<IMcpServerRequestStore>();
         _mockRequestQueue = new Mock<IMcpServerRequestQueue>();
-        _mockEventStore = new Mock<IEventStore>();
+        _mockEventPublisher = new Mock<IEventPublisher<McpServerEvent>>();
         var statusOptions = Options.Create(new McpServerStatusOptions { DefaultTimeZone = "UTC" });
         _controller = new McpServerRequestsController(
             _mockService.Object,
             _mockRequestStore.Object,
             _mockRequestQueue.Object,
-            _mockEventStore.Object,
+            _mockEventPublisher.Object,
             statusOptions);
     }
 
@@ -93,15 +94,12 @@ public class McpServerRequestsControllerTests
         var result = _controller.Create("chronos", request);
 
         result.Should().BeOfType<AcceptedAtRouteResult>();
-        _mockEventStore.Verify(x => x.RecordEvent(
-            It.Is<McpServerName>(n => n.Value == "chronos"),
-            McpServerEventType.ToolInvocationAccepted,
-            null,
-            It.Is<McpServerInstanceId?>(i => i != null && i.Value == instanceId.Value),
-            It.IsAny<McpServerRequestId?>(),
-            null,
-            null,
-            It.Is<McpServerToolInvocationEventData?>(d => d != null && d.ToolName == "get_time")),
+        _mockEventPublisher.Verify(x => x.Publish(
+            It.Is<McpServerEvent>(e =>
+                e.ServerName.Value == "chronos" &&
+                e.EventType == McpServerEventType.ToolInvocationAccepted &&
+                e.InstanceId != null && e.InstanceId.Value == instanceId.Value &&
+                e.ToolInvocationData != null && e.ToolInvocationData.ToolName == "get_time")),
             Times.Once);
     }
 
@@ -116,15 +114,7 @@ public class McpServerRequestsControllerTests
         var request = new CreateRequestRequest("start", null, null, null);
         _controller.Create("chronos", request);
 
-        _mockEventStore.Verify(x => x.RecordEvent(
-            It.IsAny<McpServerName>(),
-            It.IsAny<McpServerEventType>(),
-            It.IsAny<IReadOnlyList<McpServerEventError>?>(),
-            It.IsAny<McpServerInstanceId?>(),
-            It.IsAny<McpServerRequestId?>(),
-            It.IsAny<McpServerEventConfiguration?>(),
-            It.IsAny<McpServerEventConfiguration?>(),
-            It.IsAny<McpServerToolInvocationEventData?>()), Times.Never);
+        _mockEventPublisher.Verify(x => x.Publish(It.IsAny<McpServerEvent>()), Times.Never);
     }
 
     [Fact(DisplayName = "MSRC-006: Create stop request should NOT record event")]
@@ -139,15 +129,7 @@ public class McpServerRequestsControllerTests
         var request = new CreateRequestRequest("stop", instanceId.Value, null, null);
         _controller.Create("chronos", request);
 
-        _mockEventStore.Verify(x => x.RecordEvent(
-            It.IsAny<McpServerName>(),
-            It.IsAny<McpServerEventType>(),
-            It.IsAny<IReadOnlyList<McpServerEventError>?>(),
-            It.IsAny<McpServerInstanceId?>(),
-            It.IsAny<McpServerRequestId?>(),
-            It.IsAny<McpServerEventConfiguration?>(),
-            It.IsAny<McpServerEventConfiguration?>(),
-            It.IsAny<McpServerToolInvocationEventData?>()), Times.Never);
+        _mockEventPublisher.Verify(x => x.Publish(It.IsAny<McpServerEvent>()), Times.Never);
     }
 
     [Fact(DisplayName = "MSRC-007: GetById should return NotFound for non-existent request")]
@@ -258,18 +240,12 @@ public class McpServerRequestsControllerTests
         var request = new CreateRequestRequest("invokeTool", instanceId.Value, "test_tool", input);
         _controller.Create("chronos", request);
 
-        _mockEventStore.Verify(x => x.RecordEvent(
-            It.IsAny<McpServerName>(),
-            McpServerEventType.ToolInvocationAccepted,
-            null,
-            It.IsAny<McpServerInstanceId?>(),
-            It.IsAny<McpServerRequestId?>(),
-            null,
-            null,
-            It.Is<McpServerToolInvocationEventData?>(d =>
-                d != null &&
-                d.ToolName == "test_tool" &&
-                d.Input.HasValue)),
+        _mockEventPublisher.Verify(x => x.Publish(
+            It.Is<McpServerEvent>(e =>
+                e.EventType == McpServerEventType.ToolInvocationAccepted &&
+                e.ToolInvocationData != null &&
+                e.ToolInvocationData.ToolName == "test_tool" &&
+                e.ToolInvocationData.Input.HasValue)),
             Times.Once);
     }
 

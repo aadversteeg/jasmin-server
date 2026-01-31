@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Core.Application.Events;
 using Core.Application.McpServers;
 using Core.Domain.McpServers;
 using Microsoft.Extensions.Hosting;
@@ -14,20 +15,20 @@ public class McpServerRequestProcessorService : BackgroundService
     private readonly IMcpServerRequestQueue _queue;
     private readonly IMcpServerRequestStore _store;
     private readonly IMcpServerInstanceManager _instanceManager;
-    private readonly IEventStore _eventStore;
+    private readonly IEventPublisher<McpServerEvent> _eventPublisher;
     private readonly ILogger<McpServerRequestProcessorService> _logger;
 
     public McpServerRequestProcessorService(
         IMcpServerRequestQueue queue,
         IMcpServerRequestStore store,
         IMcpServerInstanceManager instanceManager,
-        IEventStore eventStore,
+        IEventPublisher<McpServerEvent> eventPublisher,
         ILogger<McpServerRequestProcessorService> logger)
     {
         _queue = queue;
         _store = store;
         _instanceManager = instanceManager;
-        _eventStore = eventStore;
+        _eventPublisher = eventPublisher;
         _logger = logger;
     }
 
@@ -144,7 +145,15 @@ public class McpServerRequestProcessorService : BackgroundService
             {
                 new(result.Error.Code.Value, result.Error.Message)
             }.AsReadOnly();
-            _eventStore.RecordEvent(request.ServerName, McpServerEventType.StopFailed, eventErrors, request.TargetInstanceId, request.Id);
+
+            var @event = new McpServerEvent(
+                request.ServerName,
+                McpServerEventType.StopFailed,
+                DateTime.UtcNow,
+                eventErrors,
+                request.TargetInstanceId,
+                request.Id);
+            _eventPublisher.Publish(@event);
 
             request.MarkFailed(ToRequestErrors(result.Error));
             _logger.LogWarning("Request {RequestId} failed: {Error}",
