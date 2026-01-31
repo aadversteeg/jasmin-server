@@ -5,6 +5,7 @@
     <Project Path="Core.Infrastructure.McpServers.FileStorage/Core.Infrastructure.McpServers.FileStorage.csproj" />
     <Project Path="Core.Infrastructure.Messaging/Core.Infrastructure.Messaging.csproj" />
     <Project Path="Core.Infrastructure.Messaging.InMemory/Core.Infrastructure.Messaging.InMemory.csproj" />
+    <Project Path="Core.Infrastructure.Messaging.SSE/Core.Infrastructure.Messaging.SSE.csproj" />
     <Project Path="Core.Infrastructure.ModelContextProtocol.Hosting/Core.Infrastructure.ModelContextProtocol.Hosting.csproj" />
     <Project Path="Core.Infrastructure.ModelContextProtocol.InMemory/Core.Infrastructure.ModelContextProtocol.InMemory.csproj" />
     <Project Path="Core.Infrastructure.WebApp/Core.Infrastructure.WebApp.csproj" />
@@ -16,5 +17,6 @@
     <Project Path="../tests/Tests.Infrastructure.WebApp/Tests.Infrastructure.WebApp.csproj" />
     <Project Path="../tests/Tests.Infrastructure.ModelContextProtocol.InMemory/Tests.Infrastructure.ModelContextProtocol.InMemory.csproj" />
     <Project Path="../tests/Tests.Infrastructure.Messaging/Tests.Infrastructure.Messaging.csproj" />
+    <Project Path="../tests/Tests.Infrastructure.Messaging.SSE/Tests.Infrastructure.Messaging.SSE.csproj" />
   </Folder>
 </Solution>

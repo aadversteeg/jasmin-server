@@ -1,6 +1,8 @@
+using System.Text.Json;
 using Core.Application.McpServers;
 using Core.Domain.McpServers;
 using Core.Domain.Paging;
+using Core.Infrastructure.Messaging.SSE;
 using Core.Infrastructure.ModelContextProtocol.InMemory;
 using Core.Infrastructure.WebApp.Models;
 using Core.Infrastructure.WebApp.Models.McpServers;
@@ -19,14 +21,20 @@ namespace Core.Infrastructure.WebApp.Controllers;
 public class EventsController : ControllerBase
 {
     private readonly IEventStore _eventStore;
+    private readonly SseClientManager _sseClientManager;
     private readonly McpServerStatusOptions _statusOptions;
+    private readonly JsonSerializerOptions _jsonOptions;
 
     public EventsController(
         IEventStore eventStore,
-        IOptions<McpServerStatusOptions> statusOptions)
+        SseClientManager sseClientManager,
+        IOptions<McpServerStatusOptions> statusOptions,
+        IOptions<JsonOptions> jsonOptions)
     {
         _eventStore = eventStore;
+        _sseClientManager = sseClientManager;
         _statusOptions = statusOptions.Value;
+        _jsonOptions = jsonOptions.Value.JsonSerializerOptions;
     }
 
     /// <summary>
@@ -106,6 +114,69 @@ public class EventsController : ControllerBase
 
         var response = Mapper.ToPagedResponse(pagedEvents, resolvedTimeZone);
         return Ok(response);
+    }
+
+    /// <summary>
+    /// Streams events using Server-Sent Events (SSE).
+    /// </summary>
+    /// <param name="serverName">Optional filter by server name.</param>
+    /// <param name="timeZone">Optional timezone for timestamps. Defaults to configured timezone or UTC.</param>
+    /// <param name="cancellationToken">Cancellation token for the stream.</param>
+    /// <returns>A stream of events in SSE format.</returns>
+    [HttpGet("stream", Name = "StreamEvents")]
+    [Produces("text/event-stream")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task StreamEvents(
+        [FromQuery] string? serverName = null,
+        [FromQuery] string? timeZone = null,
+        CancellationToken cancellationToken = default)
+    {
+        var resolvedTimeZone = ResolveTimeZone(timeZone);
+        if (resolvedTimeZone == null)
+        {
+            Response.StatusCode = StatusCodes.Status400BadRequest;
+            return;
+        }
+
+        McpServerName? serverNameFilter = null;
+        if (!string.IsNullOrEmpty(serverName))
+        {
+            var serverNameResult = McpServerName.Create(serverName);
+            if (serverNameResult.IsFailure)
+            {
+                Response.StatusCode = StatusCodes.Status400BadRequest;
+                return;
+            }
+            serverNameFilter = serverNameResult.Value;
+        }
+
+        Response.Headers.CacheControl = "no-cache";
+        Response.Headers.Connection = "keep-alive";
+        Response.ContentType = "text/event-stream";
+
+        var clientId = _sseClientManager.RegisterClient();
+        try
+        {
+            await foreach (var @event in _sseClientManager.GetEventsAsync(clientId, cancellationToken))
+            {
+                if (serverNameFilter != null && @event.ServerName != serverNameFilter)
+                {
+                    continue;
+                }
+
+                var eventResponse = Mapper.ToEventResponse(@event, resolvedTimeZone);
+                var json = JsonSerializer.Serialize(eventResponse, _jsonOptions);
+
+                await Response.WriteAsync($"event: mcp-server-event\n", cancellationToken);
+                await Response.WriteAsync($"data: {json}\n\n", cancellationToken);
+                await Response.Body.FlushAsync(cancellationToken);
+            }
+        }
+        finally
+        {
+            _sseClientManager.UnregisterClient(clientId);
+        }
     }
 
     private TimeZoneInfo? ResolveTimeZone(string? requestedTimeZone)

@@ -1,6 +1,7 @@
 using Core.Application.McpServers;
 using Core.Domain.McpServers;
 using Core.Domain.Paging;
+using Core.Infrastructure.Messaging.SSE;
 using Core.Infrastructure.ModelContextProtocol.InMemory;
 using Core.Infrastructure.WebApp.Controllers;
 using Core.Infrastructure.WebApp.Models;
@@ -8,6 +9,7 @@ using Core.Infrastructure.WebApp.Models.McpServers;
 using Core.Infrastructure.WebApp.Models.Paging;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
 using Xunit;
@@ -17,13 +19,17 @@ namespace Tests.Infrastructure.WebApp.Controllers;
 public class EventsControllerTests
 {
     private readonly Mock<IEventStore> _mockEventStore;
+    private readonly SseClientManager _sseClientManager;
     private readonly EventsController _controller;
 
     public EventsControllerTests()
     {
         _mockEventStore = new Mock<IEventStore>();
+        var loggerMock = new Mock<ILogger<SseClientManager>>();
+        _sseClientManager = new SseClientManager(loggerMock.Object);
         var statusOptions = Options.Create(new McpServerStatusOptions { DefaultTimeZone = "UTC" });
-        _controller = new EventsController(_mockEventStore.Object, statusOptions);
+        var jsonOptions = Options.Create(new JsonOptions());
+        _controller = new EventsController(_mockEventStore.Object, _sseClientManager, statusOptions, jsonOptions);
     }
 
     [Fact(DisplayName = "EVC-001: GetEvents should return OkResult with paged events")]

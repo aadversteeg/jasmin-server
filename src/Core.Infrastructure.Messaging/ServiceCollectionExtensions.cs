@@ -44,14 +44,10 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<THandler>();
         services.AddSingleton<IEventHandler<T>>(sp => sp.GetRequiredService<THandler>());
 
-        services.AddSingleton<HandlerRunner<T>>(sp =>
-        {
-            var handler = sp.GetRequiredService<THandler>();
-            var settings = sp.GetRequiredService<EventPublisherSettings>();
-            var logger = sp.GetRequiredService<ILogger<HandlerRunner<T>>>();
-            return new HandlerRunner<T>(handler, settings, logger);
-        });
-        services.AddHostedService(sp => sp.GetRequiredService<HandlerRunner<T>>());
+        // Use typed runner to ensure each handler gets its own distinct registration
+        services.AddSingleton<TypedHandlerRunner<T, THandler>>();
+        services.AddSingleton<HandlerRunner<T>>(sp => sp.GetRequiredService<TypedHandlerRunner<T, THandler>>());
+        services.AddHostedService(sp => sp.GetRequiredService<TypedHandlerRunner<T, THandler>>());
 
         return services;
     }
