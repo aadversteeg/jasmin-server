@@ -17,6 +17,16 @@ public class Program
         var configFilePath = builder.Configuration["McpServerRepository:ConfigFilePath"]
             ?? "~/.mcp-servers/config.json";
 
+        builder.Services.AddCors(options =>
+        {
+            options.AddDefaultPolicy(policy =>
+            {
+                policy.AllowAnyOrigin()
+                      .AllowAnyHeader()
+                      .AllowAnyMethod();
+            });
+        });
+
         builder.Services.AddMcpServerFileStorage(configFilePath);
         builder.Services.AddMcpServerHosting();
         builder.Services.AddInMemoryEventStore(builder.Configuration);
@@ -48,6 +58,7 @@ public class Program
         app.UseSwagger();
         app.UseSwaggerUI();
 
+        app.UseCors();
         app.UseHttpsRedirection();
         app.MapControllers();
 

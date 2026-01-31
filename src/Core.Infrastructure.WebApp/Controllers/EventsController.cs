@@ -5,6 +5,7 @@ using Core.Domain.Paging;
 using Core.Infrastructure.Messaging.SSE;
 using Core.Infrastructure.ModelContextProtocol.InMemory;
 using Core.Infrastructure.WebApp.Models;
+using Core.Infrastructure.WebApp.Models.Events;
 using Core.Infrastructure.WebApp.Models.McpServers;
 using Core.Infrastructure.WebApp.Models.Paging;
 using Microsoft.AspNetCore.Mvc;
@@ -155,6 +156,10 @@ public class EventsController : ControllerBase
         Response.Headers.Connection = "keep-alive";
         Response.ContentType = "text/event-stream";
 
+        // Send initial comment to establish connection and trigger EventSource onopen
+        await Response.WriteAsync(": connected\n\n", cancellationToken);
+        await Response.Body.FlushAsync(cancellationToken);
+
         var clientId = _sseClientManager.RegisterClient();
         try
         {
@@ -177,6 +182,17 @@ public class EventsController : ControllerBase
         {
             _sseClientManager.UnregisterClient(clientId);
         }
+    }
+
+    /// <summary>
+    /// Gets all available event types with their categories and descriptions.
+    /// </summary>
+    /// <returns>A list of all event types.</returns>
+    [HttpGet("types", Name = "GetEventTypes")]
+    [ProducesResponseType(typeof(EventTypeListResponse), StatusCodes.Status200OK)]
+    public IActionResult GetEventTypes()
+    {
+        return Ok(EventTypeMapper.ToListResponse());
     }
 
     private TimeZoneInfo? ResolveTimeZone(string? requestedTimeZone)
