@@ -7,13 +7,16 @@ namespace Tests.Domain.McpServers;
 
 public class McpServerEventTests
 {
-    [Fact(DisplayName = "MSE-001: Event should store event type and timestamp")]
+    private static readonly McpServerName TestServerName = McpServerName.Create("test-server").Value;
+
+    [Fact(DisplayName = "MSE-001: Event should store server name, event type and timestamp")]
     public void MSE001()
     {
         var timestamp = DateTime.UtcNow;
 
-        var evt = new McpServerEvent(McpServerEventType.Starting, timestamp);
+        var evt = new McpServerEvent(TestServerName, McpServerEventType.Starting, timestamp);
 
+        evt.ServerName.Should().Be(TestServerName);
         evt.EventType.Should().Be(McpServerEventType.Starting);
         evt.TimestampUtc.Should().Be(timestamp);
         evt.Errors.Should().BeNull();
@@ -28,7 +31,7 @@ public class McpServerEventTests
             new("ConnectionError", "Connection refused")
         }.AsReadOnly();
 
-        var evt = new McpServerEvent(McpServerEventType.StartFailed, timestamp, errors);
+        var evt = new McpServerEvent(TestServerName, McpServerEventType.StartFailed, timestamp, errors);
 
         evt.EventType.Should().Be(McpServerEventType.StartFailed);
         evt.Errors.Should().NotBeNull();
@@ -48,6 +51,8 @@ public class McpServerEventTests
         eventTypes.Should().Contain(McpServerEventType.Stopping);
         eventTypes.Should().Contain(McpServerEventType.Stopped);
         eventTypes.Should().Contain(McpServerEventType.StopFailed);
+        eventTypes.Should().Contain(McpServerEventType.ServerCreated);
+        eventTypes.Should().Contain(McpServerEventType.ServerDeleted);
     }
 
     [Fact(DisplayName = "MSE-004: Events with same values should be equal")]
@@ -55,8 +60,8 @@ public class McpServerEventTests
     {
         var timestamp = new DateTime(2024, 1, 15, 10, 30, 0, DateTimeKind.Utc);
 
-        var evt1 = new McpServerEvent(McpServerEventType.Started, timestamp);
-        var evt2 = new McpServerEvent(McpServerEventType.Started, timestamp);
+        var evt1 = new McpServerEvent(TestServerName, McpServerEventType.Started, timestamp);
+        var evt2 = new McpServerEvent(TestServerName, McpServerEventType.Started, timestamp);
 
         evt1.Should().Be(evt2);
     }
@@ -67,7 +72,7 @@ public class McpServerEventTests
         var timestamp = DateTime.UtcNow;
         var instanceId = McpServerInstanceId.Create();
 
-        var evt = new McpServerEvent(McpServerEventType.Starting, timestamp, null, instanceId);
+        var evt = new McpServerEvent(TestServerName, McpServerEventType.Starting, timestamp, null, instanceId);
 
         evt.InstanceId.Should().Be(instanceId);
     }
@@ -77,7 +82,7 @@ public class McpServerEventTests
     {
         var timestamp = DateTime.UtcNow;
 
-        var evt = new McpServerEvent(McpServerEventType.Starting, timestamp);
+        var evt = new McpServerEvent(TestServerName, McpServerEventType.Starting, timestamp);
 
         evt.InstanceId.Should().BeNull();
     }
@@ -89,8 +94,8 @@ public class McpServerEventTests
         var instanceId1 = McpServerInstanceId.Create();
         var instanceId2 = McpServerInstanceId.Create();
 
-        var evt1 = new McpServerEvent(McpServerEventType.Started, timestamp, null, instanceId1);
-        var evt2 = new McpServerEvent(McpServerEventType.Started, timestamp, null, instanceId2);
+        var evt1 = new McpServerEvent(TestServerName, McpServerEventType.Started, timestamp, null, instanceId1);
+        var evt2 = new McpServerEvent(TestServerName, McpServerEventType.Started, timestamp, null, instanceId2);
 
         evt1.Should().NotBe(evt2);
     }
@@ -101,7 +106,7 @@ public class McpServerEventTests
         var timestamp = DateTime.UtcNow;
         var requestId = McpServerRequestId.Create();
 
-        var evt = new McpServerEvent(McpServerEventType.Starting, timestamp, null, null, requestId);
+        var evt = new McpServerEvent(TestServerName, McpServerEventType.Starting, timestamp, null, null, requestId);
 
         evt.RequestId.Should().Be(requestId);
     }
@@ -111,7 +116,7 @@ public class McpServerEventTests
     {
         var timestamp = DateTime.UtcNow;
 
-        var evt = new McpServerEvent(McpServerEventType.Starting, timestamp);
+        var evt = new McpServerEvent(TestServerName, McpServerEventType.Starting, timestamp);
 
         evt.RequestId.Should().BeNull();
     }
@@ -123,8 +128,8 @@ public class McpServerEventTests
         var requestId1 = McpServerRequestId.Create();
         var requestId2 = McpServerRequestId.Create();
 
-        var evt1 = new McpServerEvent(McpServerEventType.Started, timestamp, null, null, requestId1);
-        var evt2 = new McpServerEvent(McpServerEventType.Started, timestamp, null, null, requestId2);
+        var evt1 = new McpServerEvent(TestServerName, McpServerEventType.Started, timestamp, null, null, requestId1);
+        var evt2 = new McpServerEvent(TestServerName, McpServerEventType.Started, timestamp, null, null, requestId2);
 
         evt1.Should().NotBe(evt2);
     }
@@ -179,6 +184,13 @@ public class McpServerEventTests
         ((int)McpServerEventType.ToolInvocationFailed).Should().Be(21);
     }
 
+    [Fact(DisplayName = "MSE-019: ServerCreated and ServerDeleted event types should have correct values")]
+    public void MSE019()
+    {
+        ((int)McpServerEventType.ServerCreated).Should().Be(22);
+        ((int)McpServerEventType.ServerDeleted).Should().Be(23);
+    }
+
     [Fact(DisplayName = "MSE-013: Event should store tool invocation data")]
     public void MSE013()
     {
@@ -187,6 +199,7 @@ public class McpServerEventTests
         var toolInvocationData = new McpServerToolInvocationEventData("get_time", input, null);
 
         var evt = new McpServerEvent(
+            TestServerName,
             McpServerEventType.ToolInvoking,
             timestamp,
             ToolInvocationData: toolInvocationData);
@@ -202,7 +215,7 @@ public class McpServerEventTests
     {
         var timestamp = DateTime.UtcNow;
 
-        var evt = new McpServerEvent(McpServerEventType.Starting, timestamp);
+        var evt = new McpServerEvent(TestServerName, McpServerEventType.Starting, timestamp);
 
         evt.ToolInvocationData.Should().BeNull();
     }
@@ -216,6 +229,7 @@ public class McpServerEventTests
         var toolInvocationData = new McpServerToolInvocationEventData("test_tool", input, output);
 
         var evt = new McpServerEvent(
+            TestServerName,
             McpServerEventType.ToolInvoked,
             timestamp,
             ToolInvocationData: toolInvocationData);

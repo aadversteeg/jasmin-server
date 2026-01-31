@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Core.Infrastructure.ModelContextProtocol.InMemory\Core.Infrastructure.ModelContextProtocol.InMemory.csproj" />
+    <ProjectReference Include="..\..\src\Core.Infrastructure.Messaging.InMemory\Core.Infrastructure.Messaging.InMemory.csproj" />
   </ItemGroup>
 
   <ItemGroup>

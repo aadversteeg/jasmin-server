@@ -22,20 +22,20 @@ public class McpServerRequestsController : ControllerBase
     private readonly IMcpServerService _mcpServerService;
     private readonly IMcpServerRequestStore _requestStore;
     private readonly IMcpServerRequestQueue _requestQueue;
-    private readonly IMcpServerConnectionStatusCache _statusCache;
+    private readonly IEventStore _eventStore;
     private readonly McpServerStatusOptions _statusOptions;
 
     public McpServerRequestsController(
         IMcpServerService mcpServerService,
         IMcpServerRequestStore requestStore,
         IMcpServerRequestQueue requestQueue,
-        IMcpServerConnectionStatusCache statusCache,
+        IEventStore eventStore,
         IOptions<McpServerStatusOptions> statusOptions)
     {
         _mcpServerService = mcpServerService;
         _requestStore = requestStore;
         _requestQueue = requestQueue;
-        _statusCache = statusCache;
+        _eventStore = eventStore;
         _statusOptions = statusOptions.Value;
     }
 
@@ -95,13 +95,12 @@ public class McpServerRequestsController : ControllerBase
         // Record ToolInvocationAccepted event for InvokeTool actions
         if (domainRequest.Action == McpServerRequestAction.InvokeTool)
         {
-            var serverId_internal = _statusCache.GetOrCreateId(serverName);
             var toolInvocationData = new McpServerToolInvocationEventData(
                 domainRequest.ToolName!,
                 domainRequest.Input,
                 null);
-            _statusCache.RecordEvent(
-                serverId_internal,
+            _eventStore.RecordEvent(
+                serverName,
                 McpServerEventType.ToolInvocationAccepted,
                 instanceId: domainRequest.TargetInstanceId,
                 requestId: domainRequest.Id,

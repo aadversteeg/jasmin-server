@@ -14,7 +14,6 @@ public record DetailsResponse(
     string Status,
     string? UpdatedAt,
     ConfigurationResponse? Configuration = null,
-    IReadOnlyList<EventResponse>? Events = null,
     IReadOnlyList<RequestResponse>? Requests = null,
     IReadOnlyList<InstanceResponse>? Instances = null,
     IReadOnlyList<ToolResponse>? Tools = null,

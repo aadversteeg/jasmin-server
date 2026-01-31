@@ -12,15 +12,15 @@ public class McpServerServiceTests
 {
     private readonly Mock<IMcpServerRepository> _mockRepository;
     private readonly Mock<IMcpServerConnectionStatusCache> _mockStatusCache;
-    private readonly Mock<IGlobalEventStore> _mockGlobalEventStore;
+    private readonly Mock<IEventStore> _mockEventStore;
     private readonly McpServerService _service;
 
     public McpServerServiceTests()
     {
         _mockRepository = new Mock<IMcpServerRepository>();
         _mockStatusCache = new Mock<IMcpServerConnectionStatusCache>();
-        _mockGlobalEventStore = new Mock<IGlobalEventStore>();
-        _service = new McpServerService(_mockRepository.Object, _mockStatusCache.Object, _mockGlobalEventStore.Object);
+        _mockEventStore = new Mock<IEventStore>();
+        _service = new McpServerService(_mockRepository.Object, _mockStatusCache.Object, _mockEventStore.Object);
     }
 
     [Fact(DisplayName = "MSS-001: GetAll should delegate to repository")]

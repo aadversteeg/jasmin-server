@@ -3,6 +3,7 @@
     <Project Path="Core.Domain/Core.Domain.csproj" />
     <Project Path="Core.Application/Core.Application.csproj" />
     <Project Path="Core.Infrastructure.McpServers.FileStorage/Core.Infrastructure.McpServers.FileStorage.csproj" />
+    <Project Path="Core.Infrastructure.Messaging.InMemory/Core.Infrastructure.Messaging.InMemory.csproj" />
     <Project Path="Core.Infrastructure.ModelContextProtocol.Hosting/Core.Infrastructure.ModelContextProtocol.Hosting.csproj" />
     <Project Path="Core.Infrastructure.ModelContextProtocol.InMemory/Core.Infrastructure.ModelContextProtocol.InMemory.csproj" />
     <Project Path="Core.Infrastructure.WebApp/Core.Infrastructure.WebApp.csproj" />

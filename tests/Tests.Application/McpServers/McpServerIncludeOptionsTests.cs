@@ -14,7 +14,6 @@ public class McpServerIncludeOptionsTests
 
         result.IsSuccess.Should().BeTrue();
         result.Value.IncludeConfiguration.Should().BeFalse();
-        result.Value.IncludeEvents.Should().BeFalse();
         result.Value.IncludeRequests.Should().BeFalse();
     }
 
@@ -24,18 +23,6 @@ public class McpServerIncludeOptionsTests
         var result = McpServerIncludeOptions.Create("");
 
         result.IsSuccess.Should().BeTrue();
-        result.Value.IncludeConfiguration.Should().BeFalse();
-        result.Value.IncludeEvents.Should().BeFalse();
-        result.Value.IncludeRequests.Should().BeFalse();
-    }
-
-    [Fact(DisplayName = "MIO-003: Create with 'events' should set IncludeEvents to true")]
-    public void MIO003()
-    {
-        var result = McpServerIncludeOptions.Create("events");
-
-        result.IsSuccess.Should().BeTrue();
-        result.Value.IncludeEvents.Should().BeTrue();
         result.Value.IncludeConfiguration.Should().BeFalse();
         result.Value.IncludeRequests.Should().BeFalse();
     }
@@ -47,7 +34,6 @@ public class McpServerIncludeOptionsTests
 
         result.IsSuccess.Should().BeTrue();
         result.Value.IncludeConfiguration.Should().BeTrue();
-        result.Value.IncludeEvents.Should().BeTrue();
         result.Value.IncludeRequests.Should().BeTrue();
         result.Value.IncludeInstances.Should().BeTrue();
         result.Value.IncludeTools.Should().BeTrue();
@@ -62,30 +48,11 @@ public class McpServerIncludeOptionsTests
 
         result.IsSuccess.Should().BeTrue();
         result.Value.IncludeConfiguration.Should().BeTrue();
-        result.Value.IncludeEvents.Should().BeTrue();
         result.Value.IncludeRequests.Should().BeTrue();
         result.Value.IncludeInstances.Should().BeTrue();
         result.Value.IncludeTools.Should().BeTrue();
         result.Value.IncludePrompts.Should().BeTrue();
         result.Value.IncludeResources.Should().BeTrue();
-    }
-
-    [Fact(DisplayName = "MIO-006: Create with 'Events' (mixed case) should set IncludeEvents to true")]
-    public void MIO006()
-    {
-        var result = McpServerIncludeOptions.Create("Events");
-
-        result.IsSuccess.Should().BeTrue();
-        result.Value.IncludeEvents.Should().BeTrue();
-    }
-
-    [Fact(DisplayName = "MIO-007: Create with whitespace around option should work")]
-    public void MIO007()
-    {
-        var result = McpServerIncludeOptions.Create("  events  ");
-
-        result.IsSuccess.Should().BeTrue();
-        result.Value.IncludeEvents.Should().BeTrue();
     }
 
     [Fact(DisplayName = "MIO-008: Create with invalid option should return error")]
@@ -104,7 +71,6 @@ public class McpServerIncludeOptionsTests
         var options = McpServerIncludeOptions.Default;
 
         options.IncludeConfiguration.Should().BeFalse();
-        options.IncludeEvents.Should().BeFalse();
         options.IncludeRequests.Should().BeFalse();
         options.IncludeInstances.Should().BeFalse();
         options.IncludeTools.Should().BeFalse();
@@ -118,7 +84,6 @@ public class McpServerIncludeOptionsTests
         var options = McpServerIncludeOptions.All;
 
         options.IncludeConfiguration.Should().BeTrue();
-        options.IncludeEvents.Should().BeTrue();
         options.IncludeRequests.Should().BeTrue();
         options.IncludeInstances.Should().BeTrue();
         options.IncludeTools.Should().BeTrue();
@@ -133,7 +98,6 @@ public class McpServerIncludeOptionsTests
 
         result.IsSuccess.Should().BeTrue();
         result.Value.IncludeConfiguration.Should().BeTrue();
-        result.Value.IncludeEvents.Should().BeFalse();
         result.Value.IncludeRequests.Should().BeFalse();
     }
 
@@ -145,28 +109,15 @@ public class McpServerIncludeOptionsTests
         result.IsSuccess.Should().BeTrue();
         result.Value.IncludeRequests.Should().BeTrue();
         result.Value.IncludeConfiguration.Should().BeFalse();
-        result.Value.IncludeEvents.Should().BeFalse();
     }
 
     [Fact(DisplayName = "MIO-013: Create with comma-separated options should set multiple options")]
     public void MIO013()
     {
-        var result = McpServerIncludeOptions.Create("configuration,events");
+        var result = McpServerIncludeOptions.Create("configuration,requests");
 
         result.IsSuccess.Should().BeTrue();
         result.Value.IncludeConfiguration.Should().BeTrue();
-        result.Value.IncludeEvents.Should().BeTrue();
-        result.Value.IncludeRequests.Should().BeFalse();
-    }
-
-    [Fact(DisplayName = "MIO-014: Create with all comma-separated options should work")]
-    public void MIO014()
-    {
-        var result = McpServerIncludeOptions.Create("configuration,events,requests");
-
-        result.IsSuccess.Should().BeTrue();
-        result.Value.IncludeConfiguration.Should().BeTrue();
-        result.Value.IncludeEvents.Should().BeTrue();
         result.Value.IncludeRequests.Should().BeTrue();
     }
 
@@ -178,7 +129,6 @@ public class McpServerIncludeOptionsTests
         result.IsSuccess.Should().BeTrue();
         result.Value.IncludeInstances.Should().BeTrue();
         result.Value.IncludeConfiguration.Should().BeFalse();
-        result.Value.IncludeEvents.Should().BeFalse();
         result.Value.IncludeRequests.Should().BeFalse();
     }
 

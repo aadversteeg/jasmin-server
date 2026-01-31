@@ -17,8 +17,6 @@ using Microsoft.Extensions.Options;
 using Moq;
 using Xunit;
 
-using McpServerEvent = Core.Domain.McpServers.McpServerEvent;
-
 namespace Tests.Infrastructure.WebApp.Controllers;
 
 public class McpServersControllerTests
@@ -240,39 +238,7 @@ public class McpServersControllerTests
         result.Should().BeOfType<BadRequestObjectResult>();
     }
 
-    [Fact(DisplayName = "MSC-014: GetById with include=events should return server with events")]
-    public void MSC014()
-    {
-        var chronosId = McpServerName.Create("chronos").Value;
-        var server = new McpServerDefinition(
-            chronosId,
-            "docker",
-            new List<string> { "run" }.AsReadOnly(),
-            new Dictionary<string, string>().AsReadOnly());
-        var events = new List<McpServerEvent>
-        {
-            new(McpServerEventType.Starting, new DateTime(2024, 1, 15, 10, 0, 0, DateTimeKind.Utc)),
-            new(McpServerEventType.Started, new DateTime(2024, 1, 15, 10, 0, 1, DateTimeKind.Utc))
-        };
-        _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
-            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
-        _mockService.Setup(x => x.GetEvents(It.Is<McpServerName>(id => id.Value == "chronos")))
-            .Returns(Result<IReadOnlyList<McpServerEvent>, Error>.Success(events));
-
-        var result = _controller.GetById("chronos", "events");
-
-        result.Should().BeOfType<OkObjectResult>();
-        var okResult = (OkObjectResult)result;
-        var response = okResult.Value as DetailsResponse;
-        response.Should().NotBeNull();
-        response!.Name.Should().Be("chronos");
-        response.Events.Should().NotBeNull();
-        response.Events.Should().HaveCount(2);
-        response.Events![0].EventType.Should().Be("Starting");
-        response.Events[1].EventType.Should().Be("Started");
-    }
-
-    [Fact(DisplayName = "MSC-015: GetById without include should not return events or configuration")]
+    [Fact(DisplayName = "MSC-015: GetById without include should not return configuration")]
     public void MSC015()
     {
         var chronosId = McpServerName.Create("chronos").Value;
@@ -290,8 +256,7 @@ public class McpServersControllerTests
         var okResult = (OkObjectResult)result;
         var response = okResult.Value as DetailsResponse;
         response.Should().NotBeNull();
-        response!.Events.Should().BeNull();
-        response.Configuration.Should().BeNull();
+        response!.Configuration.Should().BeNull();
     }
 
     [Fact(DisplayName = "MSC-016: GetById with invalid include should return BadRequest")]
@@ -302,81 +267,10 @@ public class McpServersControllerTests
         result.Should().BeOfType<BadRequestObjectResult>();
     }
 
-    [Fact(DisplayName = "MSC-017: GetEvents should return paged events for existing server")]
-    public void MSC017()
-    {
-        var chronosId = McpServerName.Create("chronos").Value;
-        var server = new McpServerDefinition(
-            chronosId,
-            "docker",
-            new List<string>().AsReadOnly(),
-            new Dictionary<string, string>().AsReadOnly());
-        var events = new List<McpServerEvent>
-        {
-            new(McpServerEventType.Starting, new DateTime(2024, 1, 15, 10, 0, 0, DateTimeKind.Utc)),
-            new(McpServerEventType.Started, new DateTime(2024, 1, 15, 10, 0, 1, DateTimeKind.Utc))
-        };
-        var pagedEvents = new PagedResult<McpServerEvent>(events, 1, 20, 2);
-        _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
-            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
-        _mockService.Setup(x => x.GetEvents(
-                It.Is<McpServerName>(id => id.Value == "chronos"),
-                It.IsAny<PagingParameters>(),
-                It.IsAny<DateRangeFilter?>(),
-                It.IsAny<SortDirection>()))
-            .Returns(Result<PagedResult<McpServerEvent>, Error>.Success(pagedEvents));
-
-        var result = _controller.GetEvents("chronos");
-
-        result.Should().BeOfType<OkObjectResult>();
-        var okResult = (OkObjectResult)result;
-        var response = okResult.Value as PagedResponse<EventResponse>;
-        response.Should().NotBeNull();
-        response!.Items.Should().HaveCount(2);
-        response.Items[0].EventType.Should().Be("Starting");
-        response.Page.Should().Be(1);
-        response.TotalItems.Should().Be(2);
-    }
-
-    [Fact(DisplayName = "MSC-018: GetEvents should return NotFound for non-existent server")]
-    public void MSC018()
-    {
-        _mockService.Setup(x => x.GetById(It.IsAny<McpServerName>()))
-            .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe<McpServerDefinition>.None));
-
-        var result = _controller.GetEvents("non-existent");
-
-        result.Should().BeOfType<NotFoundObjectResult>();
-    }
-
-    [Fact(DisplayName = "MSC-019: GetEvents should return BadRequest for invalid timezone")]
-    public void MSC019()
-    {
-        var result = _controller.GetEvents("chronos", timeZone: "Invalid/Timezone");
-
-        result.Should().BeOfType<BadRequestObjectResult>();
-    }
-
     [Fact(DisplayName = "MSC-020: GetById with invalid timezone should return BadRequest")]
     public void MSC020()
     {
         var result = _controller.GetById("chronos", null, "Invalid/Timezone");
-
-        result.Should().BeOfType<BadRequestObjectResult>();
-    }
-
-    [Fact(DisplayName = "MSC-021: GetEvents should return BadRequest for invalid page")]
-    public void MSC021()
-    {
-        var result = _controller.GetEvents("chronos", page: 0);
-
-        result.Should().BeOfType<BadRequestObjectResult>();
-    }
-
-    [Fact(DisplayName = "MSC-022: GetEvents should return BadRequest for invalid pageSize")]
-    public void MSC022()
-    {
-        var result = _controller.GetEvents("chronos", pageSize: 101);
 
         result.Should().BeOfType<BadRequestObjectResult>();
     }
@@ -414,10 +308,6 @@ public class McpServersControllerTests
             "docker",
             new List<string> { "run" }.AsReadOnly(),
             new Dictionary<string, string>().AsReadOnly());
-        var events = new List<McpServerEvent>
-        {
-            new(McpServerEventType.Starting, new DateTime(2024, 1, 15, 10, 0, 0, DateTimeKind.Utc))
-        };
         var requests = new List<McpServerRequest>
         {
             new(McpServerRequestId.Create(), chronosId, McpServerRequestAction.Start)
@@ -428,8 +318,6 @@ public class McpServersControllerTests
         };
         _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
             .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
-        _mockService.Setup(x => x.GetEvents(It.Is<McpServerName>(id => id.Value == "chronos")))
-            .Returns(Result<IReadOnlyList<McpServerEvent>, Error>.Success(events));
         _mockRequestStore.Setup(x => x.GetByServerName(It.Is<McpServerName>(id => id.Value == "chronos")))
             .Returns(requests);
         _mockInstanceManager.Setup(x => x.GetRunningInstances(It.Is<McpServerName>(id => id.Value == "chronos")))
@@ -442,8 +330,6 @@ public class McpServersControllerTests
         var response = okResult.Value as DetailsResponse;
         response.Should().NotBeNull();
         response!.Configuration.Should().NotBeNull();
-        response.Events.Should().NotBeNull();
-        response.Events.Should().HaveCount(1);
         response.Requests.Should().NotBeNull();
         response.Requests.Should().HaveCount(1);
         response.Instances.Should().NotBeNull();
@@ -682,7 +568,6 @@ public class McpServersControllerTests
         response.Instances.Should().HaveCount(1);
         response.Instances![0].Configuration.Should().NotBeNull();
         response.Configuration.Should().BeNull(); // Not included
-        response.Events.Should().BeNull(); // Not included
     }
 
     [Fact(DisplayName = "MSC-037: GetById without include should not return instances")]

@@ -3,6 +3,7 @@ namespace Core.Domain.McpServers;
 /// <summary>
 /// Represents an event in the MCP server lifecycle.
 /// </summary>
+/// <param name="ServerName">The name of the server associated with this event.</param>
 /// <param name="EventType">The type of event.</param>
 /// <param name="TimestampUtc">The UTC timestamp when the event occurred.</param>
 /// <param name="Errors">Optional list of errors for failure events.</param>
@@ -12,6 +13,7 @@ namespace Core.Domain.McpServers;
 /// <param name="Configuration">Configuration for create/update/start events.</param>
 /// <param name="ToolInvocationData">Data for tool invocation events.</param>
 public record McpServerEvent(
+    McpServerName ServerName,
     McpServerEventType EventType,
     DateTime TimestampUtc,
     IReadOnlyList<McpServerEventError>? Errors = null,

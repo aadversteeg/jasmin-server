@@ -1,9 +1,6 @@
 using Ave.Extensions.Functional;
 using Core.Domain.McpServers;
 using Core.Domain.Models;
-using Core.Domain.Paging;
-
-using McpServerEvent = Core.Domain.McpServers.McpServerEvent;
 
 namespace Core.Application.McpServers;
 
@@ -14,16 +11,16 @@ public class McpServerService : IMcpServerService
 {
     private readonly IMcpServerRepository _repository;
     private readonly IMcpServerConnectionStatusCache _statusCache;
-    private readonly IGlobalEventStore _globalEventStore;
+    private readonly IEventStore _eventStore;
 
     public McpServerService(
         IMcpServerRepository repository,
         IMcpServerConnectionStatusCache statusCache,
-        IGlobalEventStore globalEventStore)
+        IEventStore eventStore)
     {
         _repository = repository;
         _statusCache = statusCache;
-        _globalEventStore = globalEventStore;
+        _eventStore = eventStore;
     }
 
     /// <inheritdoc />
@@ -44,16 +41,15 @@ public class McpServerService : IMcpServerService
         var result = _repository.Create(definition);
         if (result.IsSuccess)
         {
-            // Record ServerCreated event to global store
-            _globalEventStore.RecordEvent(GlobalEventType.ServerCreated, definition.Id);
+            // Record ServerCreated event
+            _eventStore.RecordEvent(definition.Id, McpServerEventType.ServerCreated);
 
             // Record ConfigurationCreated event if server has configuration
             if (definition.HasConfiguration)
             {
-                var serverId = _statusCache.GetOrCreateId(definition.Id);
                 var newConfig = McpServerEventConfiguration.FromDefinition(definition);
-                _statusCache.RecordEvent(
-                    serverId,
+                _eventStore.RecordEvent(
+                    definition.Id,
                     McpServerEventType.ConfigurationCreated,
                     configuration: newConfig);
             }
@@ -79,15 +75,14 @@ public class McpServerService : IMcpServerService
         var result = _repository.Update(definition);
         if (result.IsSuccess)
         {
-            var serverId = _statusCache.GetOrCreateId(definition.Id);
             var newConfig = McpServerEventConfiguration.FromDefinition(definition);
 
             var eventType = hadConfiguration
                 ? McpServerEventType.ConfigurationUpdated
                 : McpServerEventType.ConfigurationCreated;
 
-            _statusCache.RecordEvent(
-                serverId,
+            _eventStore.RecordEvent(
+                definition.Id,
                 eventType,
                 oldConfiguration: oldConfig,
                 configuration: newConfig);
@@ -110,15 +105,14 @@ public class McpServerService : IMcpServerService
         // Record ConfigurationDeleted event if server had configuration
         if (oldConfig != null)
         {
-            var serverId = _statusCache.GetOrCreateId(id);
-            _statusCache.RecordEvent(
-                serverId,
+            _eventStore.RecordEvent(
+                id,
                 McpServerEventType.ConfigurationDeleted,
                 oldConfiguration: oldConfig);
         }
 
-        // Record ServerDeleted event to global store
-        _globalEventStore.RecordEvent(GlobalEventType.ServerDeleted, id);
+        // Record ServerDeleted event
+        _eventStore.RecordEvent(id, McpServerEventType.ServerDeleted);
 
         // Delete from repository (this will also clear the status cache)
         return _repository.Delete(id);
@@ -139,43 +133,11 @@ public class McpServerService : IMcpServerService
         var result = _repository.DeleteConfiguration(id);
         if (result.IsSuccess && oldConfig != null)
         {
-            var serverId = _statusCache.GetOrCreateId(id);
-            _statusCache.RecordEvent(
-                serverId,
+            _eventStore.RecordEvent(
+                id,
                 McpServerEventType.ConfigurationDeleted,
                 oldConfiguration: oldConfig);
         }
         return result;
-    }
-
-    /// <inheritdoc />
-    public Result<IReadOnlyList<McpServerEvent>, Error> GetEvents(McpServerName name)
-    {
-        var serverId = _statusCache.GetOrCreateId(name);
-        var events = _statusCache.GetEvents(serverId);
-        return Result<IReadOnlyList<McpServerEvent>, Error>.Success(events);
-    }
-
-    /// <inheritdoc />
-    public Result<PagedResult<McpServerEvent>, Error> GetEvents(
-        McpServerName name,
-        PagingParameters paging,
-        DateRangeFilter? dateFilter = null,
-        SortDirection sortDirection = SortDirection.Descending)
-    {
-        var serverId = _statusCache.GetOrCreateId(name);
-        var pagedEvents = _statusCache.GetEvents(serverId, paging, dateFilter, sortDirection);
-        return Result<PagedResult<McpServerEvent>, Error>.Success(pagedEvents);
-    }
-
-    /// <inheritdoc />
-    public Result<PagedResult<GlobalEvent>, Error> GetGlobalEvents(
-        PagingParameters paging,
-        McpServerName? serverNameFilter = null,
-        DateRangeFilter? dateFilter = null,
-        SortDirection sortDirection = SortDirection.Descending)
-    {
-        var pagedEvents = _globalEventStore.GetEvents(paging, serverNameFilter, dateFilter, sortDirection);
-        return Result<PagedResult<GlobalEvent>, Error>.Success(pagedEvents);
     }
 }

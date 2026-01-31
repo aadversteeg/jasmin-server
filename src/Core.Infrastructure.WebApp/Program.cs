@@ -1,5 +1,6 @@
 using Core.Application;
 using Core.Infrastructure.McpServers.FileStorage;
+using Core.Infrastructure.Messaging.InMemory;
 using Core.Infrastructure.ModelContextProtocol.Hosting;
 using Core.Infrastructure.ModelContextProtocol.InMemory;
 using Microsoft.OpenApi.Models;
@@ -17,6 +18,7 @@ public class Program
 
         builder.Services.AddMcpServerFileStorage(configFilePath);
         builder.Services.AddMcpServerHosting();
+        builder.Services.AddInMemoryEventStore();
         builder.Services.AddMcpServerConnectionStatusCaching(builder.Configuration);
         builder.Services.AddApplicationServices();
 

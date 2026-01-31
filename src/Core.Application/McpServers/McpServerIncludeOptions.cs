@@ -9,7 +9,6 @@ namespace Core.Application.McpServers;
 public record McpServerIncludeOptions
 {
     private const string ConfigurationOption = "configuration";
-    private const string EventsOption = "events";
     private const string RequestsOption = "requests";
     private const string InstancesOption = "instances";
     private const string ToolsOption = "tools";
@@ -32,7 +31,6 @@ public record McpServerIncludeOptions
     public static McpServerIncludeOptions All => new()
     {
         IncludeConfiguration = true,
-        IncludeEvents = true,
         IncludeRequests = true,
         IncludeInstances = true,
         IncludeTools = true,
@@ -67,9 +65,6 @@ public record McpServerIncludeOptions
                 case ConfigurationOption:
                     result = result with { IncludeConfiguration = true };
                     break;
-                case EventsOption:
-                    result = result with { IncludeEvents = true };
-                    break;
                 case RequestsOption:
                     result = result with { IncludeRequests = true };
                     break;
@@ -98,11 +93,6 @@ public record McpServerIncludeOptions
     /// Gets whether to include configuration in the response.
     /// </summary>
     public bool IncludeConfiguration { get; private init; }
-
-    /// <summary>
-    /// Gets whether to include events in the response.
-    /// </summary>
-    public bool IncludeEvents { get; private init; }
 
     /// <summary>
     /// Gets whether to include requests in the response.

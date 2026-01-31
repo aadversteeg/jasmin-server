@@ -72,7 +72,7 @@ public class McpServersController : ControllerBase
     /// Gets details for a specific MCP server.
     /// </summary>
     /// <param name="id">The identifier of the MCP server.</param>
-    /// <param name="include">Optional comma-separated list of additional data to include (e.g., "configuration", "events", "requests", "instances", "tools", "prompts", "resources", or "all").</param>
+    /// <param name="include">Optional comma-separated list of additional data to include (e.g., "configuration", "requests", "instances", "tools", "prompts", "resources", or "all").</param>
     /// <param name="timeZone">Optional timezone for timestamps. Defaults to configured timezone or UTC.</param>
     /// <returns>The server details if found.</returns>
     [HttpGet("{id}", Name = "GetMcpServerById")]
@@ -126,17 +126,6 @@ public class McpServersController : ControllerBase
             definition = definitionResult.Value.Value;
         }
 
-        // Get optional events
-        IReadOnlyList<McpServerEvent>? events = null;
-        if (includeOptions.IncludeEvents)
-        {
-            var eventsResult = _mcpServerService.GetEvents(serverName);
-            if (eventsResult.IsSuccess)
-            {
-                events = eventsResult.Value;
-            }
-        }
-
         // Get optional requests
         IReadOnlyList<McpServerRequest>? requests = null;
         if (includeOptions.IncludeRequests)
@@ -163,7 +152,6 @@ public class McpServersController : ControllerBase
             statusEntry,
             resolvedTimeZone,
             definition,
-            events,
             requests,
             instances,
             metadata,
@@ -244,68 +232,6 @@ public class McpServersController : ControllerBase
             .OnSuccessBind(_mcpServerService.DeleteConfiguration)
             .OnSuccessMap(_ => Unit.Value)
             .ToNoContentResult();
-    }
-
-    /// <summary>
-    /// Gets the events for a specific MCP server with optional paging, filtering, and sorting.
-    /// </summary>
-    /// <param name="id">The identifier of the MCP server.</param>
-    /// <param name="timeZone">Optional timezone for timestamps. Defaults to configured timezone or UTC.</param>
-    /// <param name="page">Page number (1-based). Default: 1.</param>
-    /// <param name="pageSize">Number of items per page (1-100). Default: 20.</param>
-    /// <param name="orderDirection">Sort direction: 'asc' or 'desc'. Default: 'desc'.</param>
-    /// <param name="from">Filter events from this timestamp (inclusive).</param>
-    /// <param name="to">Filter events up to this timestamp (inclusive).</param>
-    /// <returns>A paged list of events for the server.</returns>
-    [HttpGet("{id}/events", Name = "GetMcpServerEvents")]
-    [ProducesResponseType(typeof(PagedResponse<EventResponse>), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public IActionResult GetEvents(
-        string id,
-        [FromQuery] string? timeZone = null,
-        [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 20,
-        [FromQuery] string orderDirection = "desc",
-        [FromQuery] DateTime? from = null,
-        [FromQuery] DateTime? to = null)
-    {
-        var resolvedTimeZone = ResolveTimeZone(timeZone);
-        if (resolvedTimeZone == null)
-        {
-            return BadRequest(ErrorResponse.Single("INVALID_TIMEZONE", $"Invalid timezone: {timeZone}"));
-        }
-
-        var pagingResult = PagingParameters.Create(page, pageSize);
-        if (pagingResult.IsFailure)
-        {
-            return BadRequest(ErrorResponse.FromError(pagingResult.Error));
-        }
-
-        var dateFilter = new DateRangeFilter(from, to);
-        var sortDir = orderDirection.ToLowerInvariant() == "asc"
-            ? SortDirection.Ascending
-            : SortDirection.Descending;
-
-        return McpServerName.Create(id)
-            .OnSuccessBind(serverName =>
-            {
-                // First check if the server exists
-                var definitionResult = _mcpServerService.GetById(serverName);
-                if (definitionResult.IsFailure)
-                {
-                    return Result<PagedResult<McpServerEvent>, Core.Domain.Models.Error>.Failure(definitionResult.Error);
-                }
-
-                if (!definitionResult.Value.HasValue)
-                {
-                    return Result<PagedResult<McpServerEvent>, Core.Domain.Models.Error>.Failure(
-                        Core.Domain.Models.Errors.McpServerNotFound(id));
-                }
-
-                return _mcpServerService.GetEvents(serverName, pagingResult.Value, dateFilter, sortDir);
-            })
-            .ToOkResult(pagedEvents => Mapper.ToPagedResponse(pagedEvents, resolvedTimeZone));
     }
 
     /// <summary>

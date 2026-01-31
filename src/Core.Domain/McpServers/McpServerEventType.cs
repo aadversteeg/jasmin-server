@@ -113,5 +113,15 @@ public enum McpServerEventType
     /// <summary>
     /// Tool invocation failed.
     /// </summary>
-    ToolInvocationFailed = 21
+    ToolInvocationFailed = 21,
+
+    /// <summary>
+    /// Server was created (registered in the system).
+    /// </summary>
+    ServerCreated = 22,
+
+    /// <summary>
+    /// Server was deleted (removed from the system).
+    /// </summary>
+    ServerDeleted = 23
 }

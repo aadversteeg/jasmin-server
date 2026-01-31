@@ -1,7 +1,6 @@
 using Core.Application.McpServers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Core.Infrastructure.ModelContextProtocol.InMemory;
 
@@ -27,11 +26,9 @@ public static class ServiceCollectionExtensions
         // Configure options
         services.Configure<McpServerStatusOptions>(
             configuration.GetSection(McpServerStatusOptions.SectionName));
+
         // Register the status cache as singleton (shared state)
         services.AddSingleton<IMcpServerConnectionStatusCache, McpServerConnectionStatusCache>();
-
-        // Register the global event store as singleton (shared state)
-        services.AddSingleton<IGlobalEventStore, GlobalEventStore>();
 
         // Register the initialization background service
         services.AddHostedService<McpServerConnectionInitializationService>();

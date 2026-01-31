@@ -43,7 +43,6 @@ public static class Mapper
         McpServerStatusCacheEntry statusEntry,
         TimeZoneInfo timeZone,
         McpServerDefinition? definition = null,
-        IReadOnlyList<McpServerEvent>? events = null,
         IReadOnlyList<McpServerRequest>? requests = null,
         IReadOnlyList<McpServerInstanceInfo>? instances = null,
         McpServerMetadata? metadata = null,
@@ -57,12 +56,6 @@ public static class Mapper
         if (definition != null && definition.HasConfiguration)
         {
             configuration = ToConfigurationResponse(definition);
-        }
-
-        IReadOnlyList<EventResponse>? eventResponses = null;
-        if (events != null)
-        {
-            eventResponses = events.Select(e => ToEventResponse(e, timeZone)).ToList().AsReadOnly();
         }
 
         IReadOnlyList<RequestResponse>? requestResponses = null;
@@ -100,7 +93,6 @@ public static class Mapper
             statusEntry.Status.ToString().ToLowerInvariant(),
             updatedOn,
             configuration,
-            eventResponses,
             requestResponses,
             instanceResponses,
             toolResponses,
@@ -128,6 +120,7 @@ public static class Mapper
         var config = ToEventConfigurationResponse(source.Configuration);
 
         return new(
+            source.ServerName.Value,
             source.EventType.ToString(),
             timestamp,
             errors,
