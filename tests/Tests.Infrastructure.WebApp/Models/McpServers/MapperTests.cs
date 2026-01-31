@@ -37,8 +37,8 @@ public class MapperTests
 
         var result = Mapper.ToEventResponse(evt, TimeZoneInfo.Utc);
 
-        result.CreatedAt.Should().EndWith("Z");
-        result.CreatedAt.Should().StartWith("2024-01-15T10:30:00");
+        result.Timestamp.Should().EndWith("Z");
+        result.Timestamp.Should().StartWith("2024-01-15T10:30:00");
     }
 
     [Fact(DisplayName = "MAP-003: ToEventResponse should convert to specified timezone")]
@@ -53,8 +53,8 @@ public class MapperTests
         var result = Mapper.ToEventResponse(evt, amsterdamTz);
 
         // In January, Amsterdam is UTC+1
-        result.CreatedAt.Should().StartWith("2024-01-15T11:30:00");
-        result.CreatedAt.Should().EndWith("+01:00");
+        result.Timestamp.Should().StartWith("2024-01-15T11:30:00");
+        result.Timestamp.Should().EndWith("+01:00");
     }
 
     [Fact(DisplayName = "MAP-004: ToEventResponse should include errors when present")]
@@ -229,7 +229,7 @@ public class MapperTests
         var result = Mapper.ToPagedResponse(pagedResult, TimeZoneInfo.Utc);
 
         result.Items[0].EventType.Should().Be("Starting");
-        result.Items[0].CreatedAt.Should().StartWith("2024-01-15T10:00:00");
+        result.Items[0].Timestamp.Should().StartWith("2024-01-15T10:00:00");
     }
 
     [Fact(DisplayName = "MAP-017: ToPagedResponse should handle empty paged result")]

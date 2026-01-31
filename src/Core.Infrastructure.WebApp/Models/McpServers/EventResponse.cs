@@ -6,7 +6,7 @@ namespace Core.Infrastructure.WebApp.Models.McpServers;
 public record EventResponse(
     string ServerName,
     string EventType,
-    string CreatedAt,
+    string Timestamp,
     IReadOnlyList<EventErrorResponse>? Errors,
     string? InstanceId,
     string? RequestId,
