@@ -120,10 +120,11 @@ public class EventsController : ControllerBase
 
     /// <summary>
     /// Streams events using Server-Sent Events (SSE).
-    /// Supports reconnection via Last-Event-ID header to replay missed events.
+    /// Supports reconnection via Last-Event-ID header or lastEventId query parameter to replay missed events.
     /// </summary>
     /// <param name="serverName">Optional filter by server name.</param>
     /// <param name="timeZone">Optional timezone for timestamps. Defaults to configured timezone or UTC.</param>
+    /// <param name="lastEventId">Optional last event ID for reconnection. If provided, events after this ID will be replayed. The Last-Event-ID header takes precedence if both are provided.</param>
     /// <param name="cancellationToken">Cancellation token for the stream.</param>
     /// <returns>A stream of events in SSE format.</returns>
     [HttpGet("stream", Name = "StreamEvents")]
@@ -133,6 +134,7 @@ public class EventsController : ControllerBase
     public async Task StreamEvents(
         [FromQuery] string? serverName = null,
         [FromQuery] string? timeZone = null,
+        [FromQuery] string? lastEventId = null,
         CancellationToken cancellationToken = default)
     {
         var resolvedTimeZone = ResolveTimeZone(timeZone);
@@ -154,11 +156,11 @@ public class EventsController : ControllerBase
             serverNameFilter = serverNameResult.Value;
         }
 
-        // Check for Last-Event-ID header for reconnection
-        var lastEventId = Request.Headers["Last-Event-ID"].FirstOrDefault();
+        // Check for Last-Event-ID header first, then query parameter for reconnection
+        var lastEventIdValue = Request.Headers["Last-Event-ID"].FirstOrDefault() ?? lastEventId;
         DateTime? lastEventTimestamp = null;
-        if (!string.IsNullOrEmpty(lastEventId) &&
-            DateTime.TryParse(lastEventId, null, DateTimeStyles.RoundtripKind, out var parsed))
+        if (!string.IsNullOrEmpty(lastEventIdValue) &&
+            DateTime.TryParse(lastEventIdValue, null, DateTimeStyles.RoundtripKind, out var parsed))
         {
             lastEventTimestamp = parsed.ToUniversalTime();
         }
