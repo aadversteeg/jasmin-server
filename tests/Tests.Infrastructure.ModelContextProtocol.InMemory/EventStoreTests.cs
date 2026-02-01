@@ -231,4 +231,94 @@ public class EventStoreTests
             e.InstanceId.Should().Be(instanceId);
         });
     }
+
+    [Fact(DisplayName = "EST-013: GetEventsAfter should return events after timestamp")]
+    public void EST013()
+    {
+        var serverName = McpServerName.Create("chronos").Value;
+        var timestamp1 = DateTime.UtcNow;
+        _store.Store(new McpServerEvent(serverName, McpServerEventType.ServerCreated, timestamp1));
+        Thread.Sleep(10);
+        var afterFirstEvent = DateTime.UtcNow;
+        Thread.Sleep(10);
+        var timestamp2 = DateTime.UtcNow;
+        _store.Store(new McpServerEvent(serverName, McpServerEventType.Started, timestamp2));
+        Thread.Sleep(10);
+        var timestamp3 = DateTime.UtcNow;
+        _store.Store(new McpServerEvent(serverName, McpServerEventType.Stopped, timestamp3));
+
+        var result = _store.GetEventsAfter(afterFirstEvent).ToList();
+
+        result.Should().HaveCount(2);
+        result[0].EventType.Should().Be(McpServerEventType.Started);
+        result[1].EventType.Should().Be(McpServerEventType.Stopped);
+    }
+
+    [Fact(DisplayName = "EST-014: GetEventsAfter should return empty for future timestamp")]
+    public void EST014()
+    {
+        var serverName = McpServerName.Create("chronos").Value;
+        _store.Store(new McpServerEvent(serverName, McpServerEventType.ServerCreated, DateTime.UtcNow));
+
+        var futureTimestamp = DateTime.UtcNow.AddHours(1);
+        var result = _store.GetEventsAfter(futureTimestamp).ToList();
+
+        result.Should().BeEmpty();
+    }
+
+    [Fact(DisplayName = "EST-015: GetEventsAfter should filter by server name")]
+    public void EST015()
+    {
+        var chronos = McpServerName.Create("chronos").Value;
+        var github = McpServerName.Create("github").Value;
+        var baseTime = DateTime.UtcNow;
+
+        _store.Store(new McpServerEvent(chronos, McpServerEventType.ServerCreated, baseTime));
+        Thread.Sleep(10);
+        var afterFirstEvent = DateTime.UtcNow;
+        Thread.Sleep(10);
+        _store.Store(new McpServerEvent(chronos, McpServerEventType.Started, DateTime.UtcNow));
+        _store.Store(new McpServerEvent(github, McpServerEventType.Started, DateTime.UtcNow));
+        _store.Store(new McpServerEvent(chronos, McpServerEventType.Stopped, DateTime.UtcNow));
+
+        var result = _store.GetEventsAfter(afterFirstEvent, chronos).ToList();
+
+        result.Should().HaveCount(2);
+        result.Should().AllSatisfy(e => e.ServerName.Should().Be(chronos));
+    }
+
+    [Fact(DisplayName = "EST-016: GetEventsAfter should return events in ascending order")]
+    public void EST016()
+    {
+        var serverName = McpServerName.Create("chronos").Value;
+        var baseTime = DateTime.UtcNow;
+
+        Thread.Sleep(10);
+        _store.Store(new McpServerEvent(serverName, McpServerEventType.Started, DateTime.UtcNow));
+        Thread.Sleep(10);
+        _store.Store(new McpServerEvent(serverName, McpServerEventType.Stopped, DateTime.UtcNow));
+        Thread.Sleep(10);
+        _store.Store(new McpServerEvent(serverName, McpServerEventType.Starting, DateTime.UtcNow));
+
+        var result = _store.GetEventsAfter(baseTime).ToList();
+
+        result.Should().HaveCount(3);
+        result[0].EventType.Should().Be(McpServerEventType.Started);
+        result[1].EventType.Should().Be(McpServerEventType.Stopped);
+        result[2].EventType.Should().Be(McpServerEventType.Starting);
+    }
+
+    [Fact(DisplayName = "EST-017: GetEventsAfter should exclude event at exact timestamp")]
+    public void EST017()
+    {
+        var serverName = McpServerName.Create("chronos").Value;
+        var exactTimestamp = new DateTime(2026, 1, 31, 12, 0, 0, DateTimeKind.Utc);
+        _store.Store(new McpServerEvent(serverName, McpServerEventType.ServerCreated, exactTimestamp));
+        _store.Store(new McpServerEvent(serverName, McpServerEventType.Started, exactTimestamp.AddSeconds(1)));
+
+        var result = _store.GetEventsAfter(exactTimestamp).ToList();
+
+        result.Should().HaveCount(1);
+        result[0].EventType.Should().Be(McpServerEventType.Started);
+    }
 }

@@ -68,4 +68,24 @@ public class EventStore : IEventStore
             return new PagedResult<McpServerEvent>(items, paging.Page, paging.PageSize, totalItems);
         }
     }
+
+    /// <inheritdoc />
+    public IEnumerable<McpServerEvent> GetEventsAfter(
+        DateTime afterTimestampUtc,
+        McpServerName? serverNameFilter = null)
+    {
+        lock (_lock)
+        {
+            var filtered = _events
+                .Where(e => e.TimestampUtc > afterTimestampUtc)
+                .OrderBy(e => e.TimestampUtc);
+
+            if (serverNameFilter != null)
+            {
+                return filtered.Where(e => e.ServerName == serverNameFilter).ToList();
+            }
+
+            return filtered.ToList();
+        }
+    }
 }

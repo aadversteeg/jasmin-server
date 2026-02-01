@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using Core.Application.McpServers;
 using Core.Domain.McpServers;
@@ -119,6 +120,7 @@ public class EventsController : ControllerBase
 
     /// <summary>
     /// Streams events using Server-Sent Events (SSE).
+    /// Supports reconnection via Last-Event-ID header to replay missed events.
     /// </summary>
     /// <param name="serverName">Optional filter by server name.</param>
     /// <param name="timeZone">Optional timezone for timestamps. Defaults to configured timezone or UTC.</param>
@@ -152,6 +154,15 @@ public class EventsController : ControllerBase
             serverNameFilter = serverNameResult.Value;
         }
 
+        // Check for Last-Event-ID header for reconnection
+        var lastEventId = Request.Headers["Last-Event-ID"].FirstOrDefault();
+        DateTime? lastEventTimestamp = null;
+        if (!string.IsNullOrEmpty(lastEventId) &&
+            DateTime.TryParse(lastEventId, null, DateTimeStyles.RoundtripKind, out var parsed))
+        {
+            lastEventTimestamp = parsed.ToUniversalTime();
+        }
+
         Response.Headers.CacheControl = "no-cache";
         Response.Headers.Connection = "keep-alive";
         Response.ContentType = "text/event-stream";
@@ -163,6 +174,20 @@ public class EventsController : ControllerBase
         var clientId = _sseClientManager.RegisterClient();
         try
         {
+            // Replay missed events if reconnecting with Last-Event-ID
+            if (lastEventTimestamp.HasValue)
+            {
+                var missedEvents = _eventStore.GetEventsAfter(
+                    lastEventTimestamp.Value,
+                    serverNameFilter);
+
+                foreach (var @event in missedEvents)
+                {
+                    await SendSseEventAsync(@event, resolvedTimeZone, cancellationToken);
+                }
+            }
+
+            // Stream live events
             await foreach (var @event in _sseClientManager.GetEventsAsync(clientId, cancellationToken))
             {
                 if (serverNameFilter != null && @event.ServerName != serverNameFilter)
@@ -170,18 +195,28 @@ public class EventsController : ControllerBase
                     continue;
                 }
 
-                var eventResponse = Mapper.ToEventResponse(@event, resolvedTimeZone);
-                var json = JsonSerializer.Serialize(eventResponse, _jsonOptions);
-
-                await Response.WriteAsync($"event: mcp-server-event\n", cancellationToken);
-                await Response.WriteAsync($"data: {json}\n\n", cancellationToken);
-                await Response.Body.FlushAsync(cancellationToken);
+                await SendSseEventAsync(@event, resolvedTimeZone, cancellationToken);
             }
         }
         finally
         {
             _sseClientManager.UnregisterClient(clientId);
         }
+    }
+
+    private async Task SendSseEventAsync(
+        McpServerEvent @event,
+        TimeZoneInfo timeZone,
+        CancellationToken cancellationToken)
+    {
+        var eventResponse = Mapper.ToEventResponse(@event, timeZone);
+        var json = JsonSerializer.Serialize(eventResponse, _jsonOptions);
+        var eventId = @event.TimestampUtc.ToString("o");
+
+        await Response.WriteAsync($"id: {eventId}\n", cancellationToken);
+        await Response.WriteAsync($"event: mcp-server-event\n", cancellationToken);
+        await Response.WriteAsync($"data: {json}\n\n", cancellationToken);
+        await Response.Body.FlushAsync(cancellationToken);
     }
 
     /// <summary>

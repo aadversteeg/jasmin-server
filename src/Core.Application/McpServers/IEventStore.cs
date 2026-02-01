@@ -25,4 +25,15 @@ public interface IEventStore
         McpServerRequestId? requestIdFilter = null,
         DateRangeFilter? dateFilter = null,
         SortDirection sortDirection = SortDirection.Descending);
+
+    /// <summary>
+    /// Gets all events that occurred after the specified timestamp.
+    /// Used for SSE reconnection to replay missed events.
+    /// </summary>
+    /// <param name="afterTimestampUtc">The timestamp to filter events after (exclusive).</param>
+    /// <param name="serverNameFilter">Optional filter by server name.</param>
+    /// <returns>Events ordered by timestamp ascending.</returns>
+    IEnumerable<McpServerEvent> GetEventsAfter(
+        DateTime afterTimestampUtc,
+        McpServerName? serverNameFilter = null);
 }
