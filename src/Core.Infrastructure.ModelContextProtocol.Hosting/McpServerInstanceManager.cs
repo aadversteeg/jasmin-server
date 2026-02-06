@@ -6,6 +6,7 @@ using Core.Application.McpServers;
 using Core.Domain.McpServers;
 using Core.Domain.Models;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using ModelContextProtocol;
 using ModelContextProtocol.Client;
 using ModelContextProtocol.Protocol;
@@ -21,19 +22,25 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
     private readonly IMcpServerConnectionStatusCache _statusCache;
     private readonly IEventPublisher<McpServerEvent> _eventPublisher;
     private readonly ILogger<McpServerInstanceManager> _logger;
+    private readonly McpServerHostingOptions _options;
     private readonly ConcurrentDictionary<string, ManagedMcpServerInstance> _instances = new();
-    private readonly TimeSpan _connectionTimeout = TimeSpan.FromSeconds(30);
+    private readonly TimeSpan _connectionTimeout;
+    private readonly TimeSpan _toolInvocationTimeout;
 
     public McpServerInstanceManager(
         IMcpServerRepository repository,
         IMcpServerConnectionStatusCache statusCache,
         IEventPublisher<McpServerEvent> eventPublisher,
-        ILogger<McpServerInstanceManager> logger)
+        ILogger<McpServerInstanceManager> logger,
+        IOptions<McpServerHostingOptions> options)
     {
         _repository = repository;
         _statusCache = statusCache;
         _eventPublisher = eventPublisher;
         _logger = logger;
+        _options = options.Value;
+        _connectionTimeout = TimeSpan.FromSeconds(_options.ConnectionTimeoutSeconds);
+        _toolInvocationTimeout = TimeSpan.FromSeconds(_options.ToolInvocationTimeoutSeconds);
     }
 
     /// <inheritdoc />
@@ -259,11 +266,15 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
             instanceId: instanceId, requestId: requestId,
             toolInvocationData: new McpServerToolInvocationEventData(toolName, inputJson, null));
 
+        // Create a linked cancellation token with timeout
+        using var timeoutCts = new CancellationTokenSource(_toolInvocationTimeout);
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+
         try
         {
-            // Call client.CallToolAsync
+            // Call client.CallToolAsync with timeout
             var sdkResult = await instance.Client.CallToolAsync(
-                toolName, arguments, cancellationToken: cancellationToken);
+                toolName, arguments, cancellationToken: linkedCts.Token);
 
             // Map SDK result to domain model
             var result = MapToToolInvocationResult(sdkResult);
@@ -276,6 +287,33 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
 
             _logger.LogInformation("Tool {ToolName} invoked successfully on instance {InstanceId}", toolName, instanceId.Value);
             return Result<McpToolInvocationResult, Error>.Success(result);
+        }
+        catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+        {
+            // Timeout occurred (not external cancellation)
+            _logger.LogWarning("Tool invocation timed out for {ToolName} on instance {InstanceId} after {Timeout}",
+                toolName, instanceId.Value, _toolInvocationTimeout);
+            PublishEvent(serverName, McpServerEventType.ToolInvocationFailed,
+                errors: [new McpServerEventError("TOOL_INVOCATION_TIMEOUT", $"Tool invocation timed out after {_toolInvocationTimeout.TotalSeconds} seconds")],
+                instanceId: instanceId, requestId: requestId,
+                toolInvocationData: new McpServerToolInvocationEventData(toolName, inputJson, null));
+
+            return Result<McpToolInvocationResult, Error>.Failure(new Error(
+                ErrorCodes.ToolInvocationFailed,
+                $"Tool invocation timed out after {_toolInvocationTimeout.TotalSeconds} seconds"));
+        }
+        catch (OperationCanceledException)
+        {
+            // External cancellation
+            _logger.LogInformation("Tool invocation cancelled for {ToolName} on instance {InstanceId}", toolName, instanceId.Value);
+            PublishEvent(serverName, McpServerEventType.ToolInvocationFailed,
+                errors: [new McpServerEventError("TOOL_INVOCATION_CANCELLED", "Tool invocation was cancelled")],
+                instanceId: instanceId, requestId: requestId,
+                toolInvocationData: new McpServerToolInvocationEventData(toolName, inputJson, null));
+
+            return Result<McpToolInvocationResult, Error>.Failure(new Error(
+                ErrorCodes.ToolInvocationFailed,
+                "Tool invocation was cancelled"));
         }
         catch (McpException ex)
         {
