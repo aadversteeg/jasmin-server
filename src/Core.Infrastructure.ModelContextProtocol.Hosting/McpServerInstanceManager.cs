@@ -343,6 +343,150 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
         }
     }
 
+    /// <inheritdoc />
+    public async Task<Result<McpPromptResult, Error>> GetPromptAsync(
+        McpServerName serverName,
+        McpServerInstanceId instanceId,
+        string promptName,
+        IReadOnlyDictionary<string, string?>? arguments,
+        McpServerRequestId? requestId = null,
+        CancellationToken cancellationToken = default)
+    {
+        // Get instance from dictionary, validate it exists
+        if (!_instances.TryGetValue(instanceId.Value, out var instance))
+        {
+            return Result<McpPromptResult, Error>.Failure(new Error(
+                ErrorCodes.McpServerInstanceNotFound,
+                $"Instance '{instanceId.Value}' not found"));
+        }
+
+        if (instance.ServerName.Value != serverName.Value)
+        {
+            return Result<McpPromptResult, Error>.Failure(new Error(
+                ErrorCodes.McpServerInstanceNotFound,
+                $"Instance '{instanceId.Value}' does not belong to server '{serverName.Value}'"));
+        }
+
+        _logger.LogDebug("Getting prompt {PromptName} from instance {InstanceId}", promptName, instanceId.Value);
+
+        // Create a linked cancellation token with timeout
+        using var timeoutCts = new CancellationTokenSource(_toolInvocationTimeout);
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+
+        try
+        {
+            // Convert string arguments to object arguments (SDK expects IReadOnlyDictionary<string, object?>)
+            IReadOnlyDictionary<string, object?>? objectArguments = null;
+            if (arguments != null)
+            {
+                objectArguments = arguments.ToDictionary(
+                    kvp => kvp.Key,
+                    kvp => (object?)kvp.Value);
+            }
+
+            // Call client.GetPromptAsync
+            var sdkResult = await instance.Client.GetPromptAsync(
+                promptName, objectArguments, cancellationToken: linkedCts.Token);
+
+            // Map SDK result to domain model
+            var result = MapToPromptResult(sdkResult);
+
+            _logger.LogInformation("Prompt {PromptName} retrieved successfully from instance {InstanceId}", promptName, instanceId.Value);
+            return Result<McpPromptResult, Error>.Success(result);
+        }
+        catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+        {
+            // Timeout occurred (not external cancellation)
+            _logger.LogWarning("Get prompt timed out for {PromptName} on instance {InstanceId} after {Timeout}",
+                promptName, instanceId.Value, _toolInvocationTimeout);
+
+            return Result<McpPromptResult, Error>.Failure(new Error(
+                ErrorCodes.ToolInvocationFailed,
+                $"Get prompt timed out after {_toolInvocationTimeout.TotalSeconds} seconds"));
+        }
+        catch (OperationCanceledException)
+        {
+            // External cancellation
+            _logger.LogInformation("Get prompt cancelled for {PromptName} on instance {InstanceId}", promptName, instanceId.Value);
+
+            return Result<McpPromptResult, Error>.Failure(new Error(
+                ErrorCodes.ToolInvocationFailed,
+                "Get prompt was cancelled"));
+        }
+        catch (McpException ex)
+        {
+            _logger.LogWarning(ex, "Get prompt failed for {PromptName} on instance {InstanceId}: MCP error", promptName, instanceId.Value);
+
+            return Result<McpPromptResult, Error>.Failure(new Error(
+                ErrorCodes.ToolInvocationFailed,
+                $"Get prompt failed: {ex.Message}"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Get prompt failed for {PromptName} on instance {InstanceId}", promptName, instanceId.Value);
+
+            return Result<McpPromptResult, Error>.Failure(new Error(
+                ErrorCodes.ToolInvocationFailed,
+                $"Get prompt failed: {ex.Message}"));
+        }
+    }
+
+    private static McpPromptResult MapToPromptResult(GetPromptResult sdkResult)
+    {
+        var messages = sdkResult.Messages
+            .Select(m => new McpPromptMessage(
+                m.Role.ToString().ToLowerInvariant(),
+                MapPromptContent(m.Content)))
+            .ToList()
+            .AsReadOnly();
+
+        return new McpPromptResult(messages, sdkResult.Description);
+    }
+
+    private static McpPromptMessageContent MapPromptContent(ContentBlock contentBlock)
+    {
+        // ContentBlock has various derived types like TextContentBlock, ImageContentBlock, etc.
+        return contentBlock switch
+        {
+            TextContentBlock text => new McpPromptMessageContent(
+                text.Type,
+                text.Text,
+                null,
+                null,
+                null),
+            ImageContentBlock image => new McpPromptMessageContent(
+                image.Type,
+                null,
+                image.MimeType,
+                image.Data,
+                null),
+            AudioContentBlock audio => new McpPromptMessageContent(
+                audio.Type,
+                null,
+                audio.MimeType,
+                audio.Data,
+                null),
+            EmbeddedResourceBlock embedded => new McpPromptMessageContent(
+                embedded.Type,
+                embedded.Resource is TextResourceContents textResource ? textResource.Text : null,
+                embedded.Resource.MimeType,
+                embedded.Resource is BlobResourceContents blobResource ? blobResource.Blob : null,
+                embedded.Resource.Uri),
+            ResourceLinkBlock resourceLink => new McpPromptMessageContent(
+                resourceLink.Type,
+                null,
+                resourceLink.MimeType,
+                null,
+                resourceLink.Uri),
+            _ => new McpPromptMessageContent(
+                contentBlock.Type,
+                null,
+                null,
+                null,
+                null)
+        };
+    }
+
     private static McpToolInvocationResult MapToToolInvocationResult(CallToolResult sdkResult)
     {
         var content = sdkResult.Content

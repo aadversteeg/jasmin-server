@@ -17,4 +17,7 @@ public record RequestResponse(
     IReadOnlyList<RequestErrorResponse>? Errors,
     string? ToolName = null,
     JsonElement? Input = null,
-    ToolInvocationOutputResponse? Output = null);
+    ToolInvocationOutputResponse? Output = null,
+    string? PromptName = null,
+    JsonElement? Arguments = null,
+    PromptOutputResponse? PromptOutput = null);

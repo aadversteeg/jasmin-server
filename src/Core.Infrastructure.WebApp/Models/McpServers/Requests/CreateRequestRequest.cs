@@ -9,4 +9,6 @@ public record CreateRequestRequest(
     string Action,
     string? InstanceId,
     string? ToolName = null,
-    JsonElement? Input = null);
+    JsonElement? Input = null,
+    string? PromptName = null,
+    JsonElement? Arguments = null);

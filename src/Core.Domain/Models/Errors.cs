@@ -47,7 +47,7 @@ public static class Errors
 
     public static Error InvalidRequestAction(string action) => new(
         ErrorCodes.InvalidRequestAction,
-        $"Invalid request action: '{action}'. Valid actions are: start, stop, invokeTool");
+        $"Invalid request action: '{action}'. Valid actions are: start, stop, invokeTool, getPrompt");
 
     public static readonly Error InstanceIdRequiredForStop = new(
         ErrorCodes.InstanceIdRequiredForStop,
@@ -60,6 +60,14 @@ public static class Errors
     public static readonly Error ToolNameRequired = new(
         ErrorCodes.ToolNameRequired,
         "ToolName is required for invokeTool action.");
+
+    public static readonly Error InstanceIdRequiredForGetPrompt = new(
+        ErrorCodes.InstanceIdRequiredForGetPrompt,
+        "InstanceId is required for getPrompt action.");
+
+    public static readonly Error PromptNameRequired = new(
+        ErrorCodes.PromptNameRequired,
+        "PromptName is required for getPrompt action.");
 
     public static Error InvalidPage() => new(
         ErrorCodes.InvalidPage,

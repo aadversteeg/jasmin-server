@@ -79,6 +79,10 @@ public class McpServerRequestProcessorService : BackgroundService
             {
                 await ProcessInvokeToolRequestAsync(request, cancellationToken);
             }
+            else if (request.Action == McpServerRequestAction.GetPrompt)
+            {
+                await ProcessGetPromptRequestAsync(request, cancellationToken);
+            }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -200,6 +204,54 @@ public class McpServerRequestProcessorService : BackgroundService
             request.MarkCompletedWithOutput(outputJson);
             _logger.LogInformation("Request {RequestId} completed: invoked tool {ToolName} on instance {InstanceId}",
                 request.Id.Value, request.ToolName, request.TargetInstanceId.Value);
+        }
+        else
+        {
+            request.MarkFailed(ToRequestErrors(result.Error));
+            _logger.LogWarning("Request {RequestId} failed: {Error}",
+                request.Id.Value, result.Error.Message);
+        }
+
+        _store.Update(request);
+    }
+
+    private async Task ProcessGetPromptRequestAsync(McpServerRequest request, CancellationToken cancellationToken)
+    {
+        if (request.TargetInstanceId == null)
+        {
+            request.MarkFailed(ToRequestErrors("INSTANCE_ID_REQUIRED_FOR_GET_PROMPT", "InstanceId is required for getPrompt action"));
+            _store.Update(request);
+            return;
+        }
+
+        if (string.IsNullOrEmpty(request.PromptName))
+        {
+            request.MarkFailed(ToRequestErrors("PROMPT_NAME_REQUIRED", "PromptName is required for getPrompt action"));
+            _store.Update(request);
+            return;
+        }
+
+        // Convert JsonElement arguments to dictionary for the instance manager
+        IReadOnlyDictionary<string, string?>? arguments = null;
+        if (request.Arguments.HasValue)
+        {
+            arguments = JsonSerializer.Deserialize<Dictionary<string, string?>>(request.Arguments.Value);
+        }
+
+        var result = await _instanceManager.GetPromptAsync(
+            request.ServerName,
+            request.TargetInstanceId,
+            request.PromptName,
+            arguments,
+            request.Id,
+            cancellationToken);
+
+        if (result.IsSuccess)
+        {
+            var outputJson = JsonSerializer.SerializeToElement(result.Value);
+            request.MarkCompletedWithOutput(outputJson);
+            _logger.LogInformation("Request {RequestId} completed: got prompt {PromptName} on instance {InstanceId}",
+                request.Id.Value, request.PromptName, request.TargetInstanceId.Value);
         }
         else
         {

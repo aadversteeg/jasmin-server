@@ -40,7 +40,17 @@ public class McpServerRequest
     public JsonElement? Input { get; }
 
     /// <summary>
-    /// For InvokeTool actions: the output from the tool invocation.
+    /// For GetPrompt actions: the name of the prompt to get.
+    /// </summary>
+    public string? PromptName { get; }
+
+    /// <summary>
+    /// For GetPrompt actions: the arguments for the prompt.
+    /// </summary>
+    public JsonElement? Arguments { get; }
+
+    /// <summary>
+    /// For InvokeTool and GetPrompt actions: the output from the operation.
     /// </summary>
     public JsonElement? Output { get; private set; }
 
@@ -50,7 +60,9 @@ public class McpServerRequest
         McpServerRequestAction action,
         McpServerInstanceId? targetInstanceId = null,
         string? toolName = null,
-        JsonElement? input = null)
+        JsonElement? input = null,
+        string? promptName = null,
+        JsonElement? arguments = null)
     {
         Id = id;
         ServerName = serverName;
@@ -60,6 +72,8 @@ public class McpServerRequest
         TargetInstanceId = targetInstanceId;
         ToolName = toolName;
         Input = input;
+        PromptName = promptName;
+        Arguments = arguments;
     }
 
     public void MarkRunning()

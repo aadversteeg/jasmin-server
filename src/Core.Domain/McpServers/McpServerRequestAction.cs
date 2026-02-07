@@ -18,5 +18,10 @@ public enum McpServerRequestAction
     /// <summary>
     /// Request to invoke a tool on a running instance.
     /// </summary>
-    InvokeTool = 2
+    InvokeTool = 2,
+
+    /// <summary>
+    /// Request to get a prompt from a running instance.
+    /// </summary>
+    GetPrompt = 3
 }

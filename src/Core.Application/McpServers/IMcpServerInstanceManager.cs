@@ -77,4 +77,22 @@ public interface IMcpServerInstanceManager
         IReadOnlyDictionary<string, object?>? arguments,
         McpServerRequestId? requestId = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets a prompt from a running instance.
+    /// </summary>
+    /// <param name="serverName">The name of the server.</param>
+    /// <param name="instanceId">The ID of the instance to get the prompt from.</param>
+    /// <param name="promptName">The name of the prompt to get.</param>
+    /// <param name="arguments">Optional arguments to pass to the prompt.</param>
+    /// <param name="requestId">Optional request ID for tracking this operation.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A result containing the prompt result if successful, or an error.</returns>
+    Task<Result<McpPromptResult, Error>> GetPromptAsync(
+        McpServerName serverName,
+        McpServerInstanceId instanceId,
+        string promptName,
+        IReadOnlyDictionary<string, string?>? arguments,
+        McpServerRequestId? requestId = null,
+        CancellationToken cancellationToken = default);
 }

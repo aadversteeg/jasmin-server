@@ -19,9 +19,18 @@ public static class RequestMapper
 
         // Map tool invocation output if present
         ToolInvocationOutputResponse? output = null;
+        PromptOutputResponse? promptOutput = null;
+
         if (source.Output.HasValue)
         {
-            output = MapToolInvocationOutput(source.Output.Value);
+            if (source.Action == McpServerRequestAction.InvokeTool)
+            {
+                output = MapToolInvocationOutput(source.Output.Value);
+            }
+            else if (source.Action == McpServerRequestAction.GetPrompt)
+            {
+                promptOutput = MapPromptOutput(source.Output.Value);
+            }
         }
 
         return new RequestResponse(
@@ -36,7 +45,10 @@ public static class RequestMapper
             errors,
             source.ToolName,
             source.Input,
-            output);
+            output,
+            source.PromptName,
+            source.Arguments,
+            promptOutput);
     }
 
     public static Result<McpServerRequest, Error> ToDomain(
@@ -74,6 +86,20 @@ public static class RequestMapper
             }
             targetInstanceId = McpServerInstanceId.From(request.InstanceId);
         }
+        else if (action == McpServerRequestAction.GetPrompt)
+        {
+            if (string.IsNullOrEmpty(request.InstanceId))
+            {
+                return Result<McpServerRequest, Error>.Failure(
+                    Errors.InstanceIdRequiredForGetPrompt);
+            }
+            if (string.IsNullOrEmpty(request.PromptName))
+            {
+                return Result<McpServerRequest, Error>.Failure(
+                    Errors.PromptNameRequired);
+            }
+            targetInstanceId = McpServerInstanceId.From(request.InstanceId);
+        }
 
         var requestId = McpServerRequestId.Create();
         var domainRequest = new McpServerRequest(
@@ -82,7 +108,9 @@ public static class RequestMapper
             action,
             targetInstanceId,
             request.ToolName,
-            request.Input);
+            request.Input,
+            request.PromptName,
+            request.Arguments);
 
         return Result<McpServerRequest, Error>.Success(domainRequest);
     }
@@ -104,6 +132,31 @@ public static class RequestMapper
             .AsReadOnly();
 
         return new ToolInvocationOutputResponse(content, result.StructuredContent, result.IsError);
+    }
+
+    private static PromptOutputResponse MapPromptOutput(JsonElement outputJson)
+    {
+        var result = JsonSerializer.Deserialize<McpPromptResult>(outputJson);
+        if (result == null)
+        {
+            return new PromptOutputResponse(
+                Array.Empty<PromptMessageResponse>().AsReadOnly(),
+                null);
+        }
+
+        var messages = result.Messages
+            .Select(m => new PromptMessageResponse(
+                m.Role,
+                new PromptMessageContentResponse(
+                    m.Content.Type,
+                    m.Content.Text,
+                    m.Content.MimeType,
+                    m.Content.Data,
+                    m.Content.Uri)))
+            .ToList()
+            .AsReadOnly();
+
+        return new PromptOutputResponse(messages, result.Description);
     }
 
     public static PagedResponse<RequestResponse> ToPagedResponse(
