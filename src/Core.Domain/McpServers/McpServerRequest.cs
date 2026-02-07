@@ -50,7 +50,12 @@ public class McpServerRequest
     public JsonElement? Arguments { get; }
 
     /// <summary>
-    /// For InvokeTool and GetPrompt actions: the output from the operation.
+    /// For ReadResource actions: the URI of the resource to read.
+    /// </summary>
+    public string? ResourceUri { get; }
+
+    /// <summary>
+    /// For InvokeTool, GetPrompt, and ReadResource actions: the output from the operation.
     /// </summary>
     public JsonElement? Output { get; private set; }
 
@@ -62,7 +67,8 @@ public class McpServerRequest
         string? toolName = null,
         JsonElement? input = null,
         string? promptName = null,
-        JsonElement? arguments = null)
+        JsonElement? arguments = null,
+        string? resourceUri = null)
     {
         Id = id;
         ServerName = serverName;
@@ -74,6 +80,7 @@ public class McpServerRequest
         Input = input;
         PromptName = promptName;
         Arguments = arguments;
+        ResourceUri = resourceUri;
     }
 
     public void MarkRunning()

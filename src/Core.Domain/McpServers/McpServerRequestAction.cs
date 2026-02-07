@@ -23,5 +23,15 @@ public enum McpServerRequestAction
     /// <summary>
     /// Request to get a prompt from a running instance.
     /// </summary>
-    GetPrompt = 3
+    GetPrompt = 3,
+
+    /// <summary>
+    /// Request to read a resource from a running instance.
+    /// </summary>
+    ReadResource = 4,
+
+    /// <summary>
+    /// Request to refresh metadata (tools, prompts, resources) from a running instance.
+    /// </summary>
+    RefreshMetadata = 5
 }

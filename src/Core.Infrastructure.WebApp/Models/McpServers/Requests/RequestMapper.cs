@@ -4,6 +4,7 @@ using Core.Application.McpServers;
 using Core.Domain.McpServers;
 using Core.Domain.Models;
 using Core.Domain.Paging;
+using Core.Infrastructure.WebApp.Models.McpServers.Resources;
 using Core.Infrastructure.WebApp.Models.Paging;
 
 namespace Core.Infrastructure.WebApp.Models.McpServers.Requests;
@@ -17,9 +18,10 @@ public static class RequestMapper
     {
         var errors = source.Errors?.Select(e => new RequestErrorResponse(e.Code, e.Message)).ToList().AsReadOnly();
 
-        // Map tool invocation output if present
+        // Map action-specific output if present
         ToolInvocationOutputResponse? output = null;
         PromptOutputResponse? promptOutput = null;
+        ResourceReadOutputResponse? resourceOutput = null;
 
         if (source.Output.HasValue)
         {
@@ -30,6 +32,10 @@ public static class RequestMapper
             else if (source.Action == McpServerRequestAction.GetPrompt)
             {
                 promptOutput = MapPromptOutput(source.Output.Value);
+            }
+            else if (source.Action == McpServerRequestAction.ReadResource)
+            {
+                resourceOutput = MapResourceOutput(source.Output.Value);
             }
         }
 
@@ -48,7 +54,9 @@ public static class RequestMapper
             output,
             source.PromptName,
             source.Arguments,
-            promptOutput);
+            promptOutput,
+            source.ResourceUri,
+            resourceOutput);
     }
 
     public static Result<McpServerRequest, Error> ToDomain(
@@ -100,6 +108,29 @@ public static class RequestMapper
             }
             targetInstanceId = McpServerInstanceId.From(request.InstanceId);
         }
+        else if (action == McpServerRequestAction.ReadResource)
+        {
+            if (string.IsNullOrEmpty(request.InstanceId))
+            {
+                return Result<McpServerRequest, Error>.Failure(
+                    Errors.InstanceIdRequiredForReadResource);
+            }
+            if (string.IsNullOrEmpty(request.ResourceUri))
+            {
+                return Result<McpServerRequest, Error>.Failure(
+                    Errors.ResourceUriRequired);
+            }
+            targetInstanceId = McpServerInstanceId.From(request.InstanceId);
+        }
+        else if (action == McpServerRequestAction.RefreshMetadata)
+        {
+            if (string.IsNullOrEmpty(request.InstanceId))
+            {
+                return Result<McpServerRequest, Error>.Failure(
+                    Errors.InstanceIdRequiredForRefreshMetadata);
+            }
+            targetInstanceId = McpServerInstanceId.From(request.InstanceId);
+        }
 
         var requestId = McpServerRequestId.Create();
         var domainRequest = new McpServerRequest(
@@ -110,7 +141,8 @@ public static class RequestMapper
             request.ToolName,
             request.Input,
             request.PromptName,
-            request.Arguments);
+            request.Arguments,
+            request.ResourceUri);
 
         return Result<McpServerRequest, Error>.Success(domainRequest);
     }
@@ -157,6 +189,23 @@ public static class RequestMapper
             .AsReadOnly();
 
         return new PromptOutputResponse(messages, result.Description);
+    }
+
+    private static ResourceReadOutputResponse MapResourceOutput(JsonElement outputJson)
+    {
+        var result = JsonSerializer.Deserialize<McpResourceReadResult>(outputJson);
+        if (result == null)
+        {
+            return new ResourceReadOutputResponse(
+                Array.Empty<ResourceContentResponse>().AsReadOnly());
+        }
+
+        var contents = result.Contents
+            .Select(c => new ResourceContentResponse(c.Uri, c.MimeType, c.Text, c.Blob))
+            .ToList()
+            .AsReadOnly();
+
+        return new ResourceReadOutputResponse(contents);
     }
 
     public static PagedResponse<RequestResponse> ToPagedResponse(

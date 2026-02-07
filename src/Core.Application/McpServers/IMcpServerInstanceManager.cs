@@ -95,4 +95,49 @@ public interface IMcpServerInstanceManager
         IReadOnlyDictionary<string, string?>? arguments,
         McpServerRequestId? requestId = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Reads a resource from a running instance.
+    /// </summary>
+    /// <param name="serverName">The name of the server.</param>
+    /// <param name="instanceId">The ID of the instance to read the resource from.</param>
+    /// <param name="resourceUri">The URI of the resource to read.</param>
+    /// <param name="requestId">Optional request ID for tracking this operation.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A result containing the resource content if successful, or an error.</returns>
+    Task<Result<McpResourceReadResult, Error>> ReadResourceAsync(
+        McpServerName serverName,
+        McpServerInstanceId instanceId,
+        string resourceUri,
+        McpServerRequestId? requestId = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Tests a configuration by starting a temporary instance and immediately stopping it.
+    /// Does not persist any server configuration.
+    /// </summary>
+    /// <param name="command">The command to execute.</param>
+    /// <param name="args">Optional command arguments.</param>
+    /// <param name="env">Optional environment variables.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A result indicating success or an error with details.</returns>
+    Task<Result<Unit, Error>> TestConfigurationAsync(
+        string command,
+        IReadOnlyList<string>? args,
+        IReadOnlyDictionary<string, string>? env,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Refreshes metadata (tools, prompts, resources) from a running instance.
+    /// </summary>
+    /// <param name="serverName">The name of the server.</param>
+    /// <param name="instanceId">The ID of the instance to refresh metadata from.</param>
+    /// <param name="requestId">Optional request ID for tracking this operation.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A result containing the refreshed metadata if successful, or an error.</returns>
+    Task<Result<McpServerMetadata, Error>> RefreshMetadataAsync(
+        McpServerName serverName,
+        McpServerInstanceId instanceId,
+        McpServerRequestId? requestId = null,
+        CancellationToken cancellationToken = default);
 }

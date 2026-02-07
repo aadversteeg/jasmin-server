@@ -26,4 +26,7 @@ public static class ErrorCodes
     public static readonly ErrorCode InstanceIdRequiredForInvokeTool = new("INSTANCE_ID_REQUIRED_FOR_INVOKE_TOOL");
     public static readonly ErrorCode InstanceIdRequiredForGetPrompt = new("INSTANCE_ID_REQUIRED_FOR_GET_PROMPT");
     public static readonly ErrorCode PromptNameRequired = new("PROMPT_NAME_REQUIRED");
+    public static readonly ErrorCode InstanceIdRequiredForReadResource = new("INSTANCE_ID_REQUIRED_FOR_READ_RESOURCE");
+    public static readonly ErrorCode ResourceUriRequired = new("RESOURCE_URI_REQUIRED");
+    public static readonly ErrorCode InstanceIdRequiredForRefreshMetadata = new("INSTANCE_ID_REQUIRED_FOR_REFRESH_METADATA");
 }

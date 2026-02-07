@@ -83,6 +83,14 @@ public class McpServerRequestProcessorService : BackgroundService
             {
                 await ProcessGetPromptRequestAsync(request, cancellationToken);
             }
+            else if (request.Action == McpServerRequestAction.ReadResource)
+            {
+                await ProcessReadResourceRequestAsync(request, cancellationToken);
+            }
+            else if (request.Action == McpServerRequestAction.RefreshMetadata)
+            {
+                await ProcessRefreshMetadataRequestAsync(request, cancellationToken);
+            }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -252,6 +260,77 @@ public class McpServerRequestProcessorService : BackgroundService
             request.MarkCompletedWithOutput(outputJson);
             _logger.LogInformation("Request {RequestId} completed: got prompt {PromptName} on instance {InstanceId}",
                 request.Id.Value, request.PromptName, request.TargetInstanceId.Value);
+        }
+        else
+        {
+            request.MarkFailed(ToRequestErrors(result.Error));
+            _logger.LogWarning("Request {RequestId} failed: {Error}",
+                request.Id.Value, result.Error.Message);
+        }
+
+        _store.Update(request);
+    }
+
+    private async Task ProcessReadResourceRequestAsync(McpServerRequest request, CancellationToken cancellationToken)
+    {
+        if (request.TargetInstanceId == null)
+        {
+            request.MarkFailed(ToRequestErrors("INSTANCE_ID_REQUIRED_FOR_READ_RESOURCE", "InstanceId is required for readResource action"));
+            _store.Update(request);
+            return;
+        }
+
+        if (string.IsNullOrEmpty(request.ResourceUri))
+        {
+            request.MarkFailed(ToRequestErrors("RESOURCE_URI_REQUIRED", "ResourceUri is required for readResource action"));
+            _store.Update(request);
+            return;
+        }
+
+        var result = await _instanceManager.ReadResourceAsync(
+            request.ServerName,
+            request.TargetInstanceId,
+            request.ResourceUri,
+            request.Id,
+            cancellationToken);
+
+        if (result.IsSuccess)
+        {
+            var outputJson = JsonSerializer.SerializeToElement(result.Value);
+            request.MarkCompletedWithOutput(outputJson);
+            _logger.LogInformation("Request {RequestId} completed: read resource {ResourceUri} from instance {InstanceId}",
+                request.Id.Value, request.ResourceUri, request.TargetInstanceId.Value);
+        }
+        else
+        {
+            request.MarkFailed(ToRequestErrors(result.Error));
+            _logger.LogWarning("Request {RequestId} failed: {Error}",
+                request.Id.Value, result.Error.Message);
+        }
+
+        _store.Update(request);
+    }
+
+    private async Task ProcessRefreshMetadataRequestAsync(McpServerRequest request, CancellationToken cancellationToken)
+    {
+        if (request.TargetInstanceId == null)
+        {
+            request.MarkFailed(ToRequestErrors("INSTANCE_ID_REQUIRED_FOR_REFRESH_METADATA", "InstanceId is required for refreshMetadata action"));
+            _store.Update(request);
+            return;
+        }
+
+        var result = await _instanceManager.RefreshMetadataAsync(
+            request.ServerName,
+            request.TargetInstanceId,
+            request.Id,
+            cancellationToken);
+
+        if (result.IsSuccess)
+        {
+            request.MarkCompleted();
+            _logger.LogInformation("Request {RequestId} completed: refreshed metadata for instance {InstanceId}",
+                request.Id.Value, request.TargetInstanceId.Value);
         }
         else
         {

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Core.Infrastructure.WebApp.Models.McpServers.Resources;
 
 namespace Core.Infrastructure.WebApp.Models.McpServers.Requests;
 
@@ -20,4 +21,6 @@ public record RequestResponse(
     ToolInvocationOutputResponse? Output = null,
     string? PromptName = null,
     JsonElement? Arguments = null,
-    PromptOutputResponse? PromptOutput = null);
+    PromptOutputResponse? PromptOutput = null,
+    string? ResourceUri = null,
+    ResourceReadOutputResponse? ResourceOutput = null);

@@ -546,6 +546,228 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
     }
 
     /// <inheritdoc />
+    public async Task<Result<McpResourceReadResult, Error>> ReadResourceAsync(
+        McpServerName serverName,
+        McpServerInstanceId instanceId,
+        string resourceUri,
+        McpServerRequestId? requestId = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (!_instances.TryGetValue(instanceId.Value, out var instance))
+        {
+            return Result<McpResourceReadResult, Error>.Failure(new Error(
+                ErrorCodes.McpServerInstanceNotFound,
+                $"Instance '{instanceId.Value}' not found"));
+        }
+
+        if (instance.ServerName.Value != serverName.Value)
+        {
+            return Result<McpResourceReadResult, Error>.Failure(new Error(
+                ErrorCodes.McpServerInstanceNotFound,
+                $"Instance '{instanceId.Value}' does not belong to server '{serverName.Value}'"));
+        }
+
+        _logger.LogDebug("Reading resource {ResourceUri} from instance {InstanceId}", resourceUri, instanceId.Value);
+
+        // Create a linked cancellation token with timeout
+        using var timeoutCts = new CancellationTokenSource(_toolInvocationTimeout);
+        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+
+        try
+        {
+            // Call client.ReadResourceAsync
+            var sdkResult = await instance.Client.ReadResourceAsync(
+                resourceUri, cancellationToken: linkedCts.Token);
+
+            // Map SDK result to domain model
+            var contents = sdkResult.Contents
+                .Select(MapResourceContents)
+                .ToList()
+                .AsReadOnly();
+
+            var result = new McpResourceReadResult(contents);
+
+            _logger.LogInformation("Resource {ResourceUri} read successfully from instance {InstanceId}", resourceUri, instanceId.Value);
+            return Result<McpResourceReadResult, Error>.Success(result);
+        }
+        catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+        {
+            // Timeout occurred (not external cancellation)
+            _logger.LogWarning("Read resource timed out for {ResourceUri} on instance {InstanceId} after {Timeout}",
+                resourceUri, instanceId.Value, _toolInvocationTimeout);
+
+            return Result<McpResourceReadResult, Error>.Failure(new Error(
+                ErrorCodes.ToolInvocationFailed,
+                $"Read resource timed out after {_toolInvocationTimeout.TotalSeconds} seconds"));
+        }
+        catch (OperationCanceledException)
+        {
+            // External cancellation
+            _logger.LogInformation("Read resource cancelled for {ResourceUri} on instance {InstanceId}", resourceUri, instanceId.Value);
+
+            return Result<McpResourceReadResult, Error>.Failure(new Error(
+                ErrorCodes.ToolInvocationFailed,
+                "Read resource was cancelled"));
+        }
+        catch (McpException ex)
+        {
+            _logger.LogWarning(ex, "Read resource failed for {ResourceUri} on instance {InstanceId}: MCP error", resourceUri, instanceId.Value);
+
+            return Result<McpResourceReadResult, Error>.Failure(new Error(
+                ErrorCodes.ToolInvocationFailed,
+                $"Read resource failed: {ex.Message}"));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Read resource failed for {ResourceUri} on instance {InstanceId}", resourceUri, instanceId.Value);
+
+            return Result<McpResourceReadResult, Error>.Failure(new Error(
+                ErrorCodes.ToolInvocationFailed,
+                $"Read resource failed: {ex.Message}"));
+        }
+    }
+
+    private static McpResourceContent MapResourceContents(ResourceContents contents)
+    {
+        return contents switch
+        {
+            TextResourceContents text => new McpResourceContent(
+                text.Uri,
+                text.MimeType,
+                text.Text,
+                null),
+            BlobResourceContents blob => new McpResourceContent(
+                blob.Uri,
+                blob.MimeType,
+                null,
+                blob.Blob),
+            _ => new McpResourceContent(
+                contents.Uri,
+                contents.MimeType,
+                null,
+                null)
+        };
+    }
+
+    /// <inheritdoc />
+    public async Task<Result<Unit, Error>> TestConfigurationAsync(
+        string command,
+        IReadOnlyList<string>? args,
+        IReadOnlyDictionary<string, string>? env,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Testing MCP server configuration: command={Command}", command);
+
+        try
+        {
+            // Create transport with the provided configuration
+            var transportOptions = new StdioClientTransportOptions
+            {
+                Command = command,
+                Arguments = args?.ToList() ?? [],
+                Name = "test-configuration",
+                EnvironmentVariables = env?.ToDictionary(kvp => kvp.Key, kvp => (string?)kvp.Value) ?? new Dictionary<string, string?>()
+            };
+
+            var transport = new StdioClientTransport(transportOptions);
+
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(_connectionTimeout);
+
+            McpClient client;
+            try
+            {
+                client = await McpClient.CreateAsync(transport, cancellationToken: timeoutCts.Token);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Configuration test failed: could not start MCP server");
+                return Result<Unit, Error>.Failure(new Error(
+                    ErrorCodes.ConfigFileReadError,
+                    $"Failed to start MCP server: {ex.Message}"));
+            }
+
+            // Successfully connected - dispose immediately
+            _logger.LogDebug("Configuration test passed: MCP server started successfully");
+            await client.DisposeAsync();
+
+            return Result<Unit, Error>.Success(Unit.Value);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogDebug("Configuration test cancelled");
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Configuration test error");
+            return Result<Unit, Error>.Failure(new Error(
+                ErrorCodes.ConfigFileReadError,
+                $"Configuration test error: {ex.Message}"));
+        }
+    }
+
+    /// <inheritdoc />
+    public async Task<Result<McpServerMetadata, Error>> RefreshMetadataAsync(
+        McpServerName serverName,
+        McpServerInstanceId instanceId,
+        McpServerRequestId? requestId = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (!_instances.TryGetValue(instanceId.Value, out var instance))
+        {
+            return Result<McpServerMetadata, Error>.Failure(new Error(
+                ErrorCodes.McpServerInstanceNotFound,
+                $"Instance '{instanceId.Value}' not found"));
+        }
+
+        if (instance.ServerName.Value != serverName.Value)
+        {
+            return Result<McpServerMetadata, Error>.Failure(new Error(
+                ErrorCodes.McpServerInstanceNotFound,
+                $"Instance '{instanceId.Value}' does not belong to server '{serverName.Value}'"));
+        }
+
+        _logger.LogDebug("Refreshing metadata for instance {InstanceId} of server {ServerName}",
+            instanceId.Value, serverName.Value);
+
+        try
+        {
+            // Retrieve fresh metadata from the running instance
+            var metadata = await RetrieveMetadataAsync(
+                instance.Client,
+                serverName,
+                instanceId,
+                requestId,
+                cancellationToken);
+
+            // Update the instance's cached metadata
+            instance.Metadata = metadata;
+
+            // Update the status cache with the new metadata
+            var serverId = _statusCache.GetOrCreateId(serverName);
+            _statusCache.SetMetadata(serverId, metadata);
+
+            _logger.LogInformation("Metadata refreshed successfully for instance {InstanceId} of server {ServerName}",
+                instanceId.Value, serverName.Value);
+
+            return Result<McpServerMetadata, Error>.Success(metadata);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogDebug("Refresh metadata cancelled for instance {InstanceId}", instanceId.Value);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to refresh metadata for instance {InstanceId}", instanceId.Value);
+            return Result<McpServerMetadata, Error>.Failure(new Error(
+                ErrorCodes.ToolInvocationFailed,
+                $"Failed to refresh metadata: {ex.Message}"));
+        }
+    }
+
+    /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
         await StopAllAsync();

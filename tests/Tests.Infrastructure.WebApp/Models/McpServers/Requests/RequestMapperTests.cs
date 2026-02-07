@@ -330,4 +330,141 @@ public class RequestMapperTests
         result.IsSuccess.Should().BeTrue();
         result.Value.Action.Should().Be(McpServerRequestAction.InvokeTool);
     }
+
+    [Fact(DisplayName = "RMAP-021: ToDomain should create ReadResource request with all fields")]
+    public void RMAP021()
+    {
+        var serverName = McpServerName.Create("everything").Value;
+        var instanceId = "550e8400-e29b-41d4-a716-446655440000";
+        var createRequest = new CreateRequestRequest("readResource", instanceId, ResourceUri: "demo://resource/test");
+
+        var result = RequestMapper.ToDomain(serverName, createRequest);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Action.Should().Be(McpServerRequestAction.ReadResource);
+        result.Value.TargetInstanceId!.Value.Should().Be(instanceId);
+        result.Value.ResourceUri.Should().Be("demo://resource/test");
+    }
+
+    [Fact(DisplayName = "RMAP-022: ToDomain should fail for ReadResource without instance ID")]
+    public void RMAP022()
+    {
+        var serverName = McpServerName.Create("everything").Value;
+        var createRequest = new CreateRequestRequest("readResource", null, ResourceUri: "demo://resource/test");
+
+        var result = RequestMapper.ToDomain(serverName, createRequest);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Message.Should().Contain("InstanceId is required");
+    }
+
+    [Fact(DisplayName = "RMAP-023: ToDomain should fail for ReadResource without resource URI")]
+    public void RMAP023()
+    {
+        var serverName = McpServerName.Create("everything").Value;
+        var instanceId = "550e8400-e29b-41d4-a716-446655440000";
+        var createRequest = new CreateRequestRequest("readResource", instanceId, ResourceUri: null);
+
+        var result = RequestMapper.ToDomain(serverName, createRequest);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Message.Should().Contain("ResourceUri is required");
+    }
+
+    [Fact(DisplayName = "RMAP-024: ToResponse should map ReadResource request with resource URI")]
+    public void RMAP024()
+    {
+        var requestId = McpServerRequestId.Create();
+        var serverName = McpServerName.Create("everything").Value;
+        var targetInstanceId = McpServerInstanceId.Create();
+        var request = new McpServerRequest(
+            requestId,
+            serverName,
+            McpServerRequestAction.ReadResource,
+            targetInstanceId,
+            resourceUri: "demo://resource/test");
+
+        var result = RequestMapper.ToResponse(request, TimeZoneInfo.Utc);
+
+        result.Action.Should().Be("readresource");
+        result.TargetInstanceId.Should().Be(targetInstanceId.Value);
+        result.ResourceUri.Should().Be("demo://resource/test");
+    }
+
+    [Fact(DisplayName = "RMAP-025: ToResponse should map completed ReadResource request with output")]
+    public void RMAP025()
+    {
+        var requestId = McpServerRequestId.Create();
+        var serverName = McpServerName.Create("everything").Value;
+        var targetInstanceId = McpServerInstanceId.Create();
+        var request = new McpServerRequest(
+            requestId,
+            serverName,
+            McpServerRequestAction.ReadResource,
+            targetInstanceId,
+            resourceUri: "demo://resource/test.md");
+
+        var outputContent = new
+        {
+            Contents = new[]
+            {
+                new { Uri = "demo://resource/test.md", MimeType = "text/markdown", Text = "# Hello World", Blob = (string?)null }
+            }
+        };
+        var output = JsonSerializer.SerializeToElement(outputContent);
+        request.MarkCompletedWithOutput(output);
+
+        var result = RequestMapper.ToResponse(request, TimeZoneInfo.Utc);
+
+        result.Status.Should().Be("completed");
+        result.ResourceOutput.Should().NotBeNull();
+        result.ResourceOutput!.Contents.Should().HaveCount(1);
+        result.ResourceOutput.Contents[0].Uri.Should().Be("demo://resource/test.md");
+        result.ResourceOutput.Contents[0].MimeType.Should().Be("text/markdown");
+        result.ResourceOutput.Contents[0].Text.Should().Be("# Hello World");
+    }
+
+    [Fact(DisplayName = "RMAP-026: ToResponse should handle ReadResource with binary content")]
+    public void RMAP026()
+    {
+        var requestId = McpServerRequestId.Create();
+        var serverName = McpServerName.Create("everything").Value;
+        var targetInstanceId = McpServerInstanceId.Create();
+        var request = new McpServerRequest(
+            requestId,
+            serverName,
+            McpServerRequestAction.ReadResource,
+            targetInstanceId,
+            resourceUri: "demo://resource/image.png");
+
+        var base64Data = Convert.ToBase64String(new byte[] { 0x89, 0x50, 0x4E, 0x47 });
+        var outputContent = new
+        {
+            Contents = new[]
+            {
+                new { Uri = "demo://resource/image.png", MimeType = "image/png", Text = (string?)null, Blob = base64Data }
+            }
+        };
+        var output = JsonSerializer.SerializeToElement(outputContent);
+        request.MarkCompletedWithOutput(output);
+
+        var result = RequestMapper.ToResponse(request, TimeZoneInfo.Utc);
+
+        result.ResourceOutput.Should().NotBeNull();
+        result.ResourceOutput!.Contents[0].Blob.Should().Be(base64Data);
+        result.ResourceOutput.Contents[0].Text.Should().BeNull();
+    }
+
+    [Fact(DisplayName = "RMAP-027: ToDomain should accept ReadResource with case-insensitive action")]
+    public void RMAP027()
+    {
+        var serverName = McpServerName.Create("everything").Value;
+        var instanceId = "550e8400-e29b-41d4-a716-446655440000";
+        var createRequest = new CreateRequestRequest("READRESOURCE", instanceId, ResourceUri: "demo://resource/test");
+
+        var result = RequestMapper.ToDomain(serverName, createRequest);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Action.Should().Be(McpServerRequestAction.ReadResource);
+    }
 }
