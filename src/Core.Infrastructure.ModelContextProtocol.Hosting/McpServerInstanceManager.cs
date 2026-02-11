@@ -21,6 +21,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
     private readonly IMcpServerRepository _repository;
     private readonly IMcpServerConnectionStatusCache _statusCache;
     private readonly IEventPublisher<McpServerEvent> _eventPublisher;
+    private readonly IMcpServerInstanceLogStore _logStore;
     private readonly ILogger<McpServerInstanceManager> _logger;
     private readonly McpServerHostingOptions _options;
     private readonly ConcurrentDictionary<string, ManagedMcpServerInstance> _instances = new();
@@ -31,12 +32,14 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
         IMcpServerRepository repository,
         IMcpServerConnectionStatusCache statusCache,
         IEventPublisher<McpServerEvent> eventPublisher,
+        IMcpServerInstanceLogStore logStore,
         ILogger<McpServerInstanceManager> logger,
         IOptions<McpServerHostingOptions> options)
     {
         _repository = repository;
         _statusCache = statusCache;
         _eventPublisher = eventPublisher;
+        _logStore = logStore;
         _logger = logger;
         _options = options.Value;
         _connectionTimeout = TimeSpan.FromSeconds(_options.ConnectionTimeoutSeconds);
@@ -94,7 +97,8 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
                 Command = definition.Command!,
                 Arguments = [.. definition.Args!],
                 Name = definition.Id.Value,
-                EnvironmentVariables = definition.Env!.ToDictionary(kvp => kvp.Key, kvp => (string?)kvp.Value)
+                EnvironmentVariables = definition.Env!.ToDictionary(kvp => kvp.Key, kvp => (string?)kvp.Value),
+                StandardErrorLines = line => _logStore.Append(instanceId, line)
             };
 
             var transport = new StdioClientTransport(transportOptions);
@@ -174,6 +178,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
             PublishEvent(instance.ServerName, McpServerEventType.Stopping, instanceId: instanceId, requestId: requestId);
 
             await instance.Client.DisposeAsync();
+            _logStore.Remove(instanceId);
 
             PublishEvent(instance.ServerName, McpServerEventType.Stopped, instanceId: instanceId, requestId: requestId);
             _logger.LogInformation("Stopped MCP server instance {InstanceId} for {ServerName}", instanceId.Value, instance.ServerName.Value);

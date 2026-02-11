@@ -25,6 +25,7 @@ public class McpServersControllerTests
     private readonly Mock<IMcpServerConnectionStatusCache> _mockStatusCache;
     private readonly Mock<IMcpServerRequestStore> _mockRequestStore;
     private readonly Mock<IMcpServerInstanceManager> _mockInstanceManager;
+    private readonly Mock<IMcpServerInstanceLogStore> _mockLogStore;
     private readonly McpServersController _controller;
 
     public McpServersControllerTests()
@@ -33,13 +34,17 @@ public class McpServersControllerTests
         _mockStatusCache = new Mock<IMcpServerConnectionStatusCache>();
         _mockRequestStore = new Mock<IMcpServerRequestStore>();
         _mockInstanceManager = new Mock<IMcpServerInstanceManager>();
+        _mockLogStore = new Mock<IMcpServerInstanceLogStore>();
         var statusOptions = Options.Create(new McpServerStatusOptions { DefaultTimeZone = "UTC" });
+        var jsonOptions = Options.Create(new Microsoft.AspNetCore.Mvc.JsonOptions());
         _controller = new McpServersController(
             _mockService.Object,
             _mockStatusCache.Object,
             _mockRequestStore.Object,
             _mockInstanceManager.Object,
-            statusOptions);
+            _mockLogStore.Object,
+            statusOptions,
+            jsonOptions);
 
         // Default status cache behavior
         _mockStatusCache.Setup(x => x.GetOrCreateId(It.IsAny<McpServerName>()))

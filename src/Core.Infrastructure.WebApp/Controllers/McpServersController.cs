@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Ave.Extensions.Functional;
 using Core.Application.McpServers;
 using Core.Domain.McpServers;
@@ -31,20 +32,26 @@ public class McpServersController : ControllerBase
     private readonly IMcpServerConnectionStatusCache _statusCache;
     private readonly IMcpServerRequestStore _requestStore;
     private readonly IMcpServerInstanceManager _instanceManager;
+    private readonly IMcpServerInstanceLogStore _logStore;
     private readonly McpServerStatusOptions _statusOptions;
+    private readonly JsonSerializerOptions _jsonOptions;
 
     public McpServersController(
         IMcpServerService mcpServerService,
         IMcpServerConnectionStatusCache statusCache,
         IMcpServerRequestStore requestStore,
         IMcpServerInstanceManager instanceManager,
-        IOptions<McpServerStatusOptions> statusOptions)
+        IMcpServerInstanceLogStore logStore,
+        IOptions<McpServerStatusOptions> statusOptions,
+        IOptions<JsonOptions> jsonOptions)
     {
         _mcpServerService = mcpServerService;
         _statusCache = statusCache;
         _requestStore = requestStore;
         _instanceManager = instanceManager;
+        _logStore = logStore;
         _statusOptions = statusOptions.Value;
+        _jsonOptions = jsonOptions.Value.JsonSerializerOptions;
     }
 
     /// <summary>
@@ -481,6 +488,197 @@ public class McpServersController : ControllerBase
         }
 
         return Ok(ResourceMapper.ToListResponse(instance.Metadata, resolvedTimeZone));
+    }
+
+    /// <summary>
+    /// Gets the stderr log entries for a specific MCP server instance with cursor-based pagination.
+    /// </summary>
+    /// <param name="id">The identifier of the MCP server.</param>
+    /// <param name="instanceId">The identifier of the instance.</param>
+    /// <param name="afterLine">Return entries after this line number. Use 0 to start from the beginning.</param>
+    /// <param name="limit">Maximum number of entries to return (1-1000). Default: 100.</param>
+    /// <param name="timeZone">Optional timezone for timestamps. Defaults to configured timezone or UTC.</param>
+    /// <returns>A paginated list of log entries.</returns>
+    [HttpGet("{id}/instances/{instanceId}/logs", Name = "GetMcpServerInstanceLogs")]
+    [ProducesResponseType(typeof(LogListResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public IActionResult GetInstanceLogs(
+        string id,
+        string instanceId,
+        [FromQuery] long afterLine = 0,
+        [FromQuery] int limit = 100,
+        [FromQuery] string? timeZone = null)
+    {
+        var resolvedTimeZone = ResolveTimeZone(timeZone);
+        if (resolvedTimeZone == null)
+        {
+            return BadRequest(ErrorResponse.Single("INVALID_TIMEZONE", $"Invalid timezone: {timeZone}"));
+        }
+
+        if (limit < 1 || limit > 1000)
+        {
+            return BadRequest(ErrorResponse.Single("INVALID_LIMIT", "Limit must be between 1 and 1000"));
+        }
+
+        if (afterLine < 0)
+        {
+            return BadRequest(ErrorResponse.Single("INVALID_AFTER_LINE", "afterLine must be 0 or greater"));
+        }
+
+        var serverNameResult = McpServerName.Create(id);
+        if (serverNameResult.IsFailure)
+        {
+            return BadRequest(ErrorResponse.FromError(serverNameResult.Error));
+        }
+
+        var serverName = serverNameResult.Value;
+
+        // Check if server exists
+        var definitionResult = _mcpServerService.GetById(serverName);
+        if (definitionResult.IsFailure)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, ErrorResponse.FromError(definitionResult.Error));
+        }
+
+        if (!definitionResult.Value.HasValue)
+        {
+            return NotFound();
+        }
+
+        var mcpInstanceId = McpServerInstanceId.From(instanceId);
+        var instance = _instanceManager.GetInstance(serverName, mcpInstanceId);
+
+        if (instance == null)
+        {
+            return NotFound();
+        }
+
+        var entries = _logStore.GetEntries(mcpInstanceId, afterLine, limit);
+        var totalItems = _logStore.GetCount(mcpInstanceId);
+
+        return Ok(LogMapper.ToListResponse(entries, totalItems, resolvedTimeZone));
+    }
+
+    /// <summary>
+    /// Streams stderr log entries for a specific MCP server instance using Server-Sent Events (SSE).
+    /// Supports reconnection via Last-Event-ID header (parsed as line number).
+    /// First sends all buffered entries after the specified line, then streams new entries live.
+    /// </summary>
+    /// <param name="id">The identifier of the MCP server.</param>
+    /// <param name="instanceId">The identifier of the instance.</param>
+    /// <param name="afterLine">Start streaming from entries after this line number. Use 0 to start from the beginning.</param>
+    /// <param name="timeZone">Optional timezone for timestamps. Defaults to configured timezone or UTC.</param>
+    /// <param name="cancellationToken">Cancellation token for the stream.</param>
+    [HttpGet("{id}/instances/{instanceId}/logs/stream", Name = "StreamMcpServerInstanceLogs")]
+    [Produces("text/event-stream")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task StreamInstanceLogs(
+        string id,
+        string instanceId,
+        [FromQuery] long afterLine = 0,
+        [FromQuery] string? timeZone = null,
+        CancellationToken cancellationToken = default)
+    {
+        var resolvedTimeZone = ResolveTimeZone(timeZone);
+        if (resolvedTimeZone == null)
+        {
+            Response.StatusCode = StatusCodes.Status400BadRequest;
+            return;
+        }
+
+        var serverNameResult = McpServerName.Create(id);
+        if (serverNameResult.IsFailure)
+        {
+            Response.StatusCode = StatusCodes.Status400BadRequest;
+            return;
+        }
+
+        var serverName = serverNameResult.Value;
+
+        // Check if server exists
+        var definitionResult = _mcpServerService.GetById(serverName);
+        if (definitionResult.IsFailure)
+        {
+            Response.StatusCode = StatusCodes.Status500InternalServerError;
+            return;
+        }
+
+        if (!definitionResult.Value.HasValue)
+        {
+            Response.StatusCode = StatusCodes.Status404NotFound;
+            return;
+        }
+
+        var mcpInstanceId = McpServerInstanceId.From(instanceId);
+        var instance = _instanceManager.GetInstance(serverName, mcpInstanceId);
+
+        if (instance == null)
+        {
+            Response.StatusCode = StatusCodes.Status404NotFound;
+            return;
+        }
+
+        // Check for Last-Event-ID header (takes precedence over query parameter)
+        var lastEventIdHeader = Request.Headers["Last-Event-ID"].FirstOrDefault();
+        if (!string.IsNullOrEmpty(lastEventIdHeader) && long.TryParse(lastEventIdHeader, out var parsedLine))
+        {
+            afterLine = parsedLine;
+        }
+
+        Response.Headers.CacheControl = "no-cache";
+        Response.Headers.Connection = "keep-alive";
+        Response.ContentType = "text/event-stream";
+
+        await Response.WriteAsync(": connected\n\n", cancellationToken);
+        await Response.Body.FlushAsync(cancellationToken);
+
+        // Step 1: Subscribe BEFORE catching up to avoid missing entries
+        var (subscriptionId, reader) = _logStore.Subscribe(mcpInstanceId);
+        try
+        {
+            // Step 2: Catchup — send all buffered entries after the specified line
+            var buffered = _logStore.GetEntries(mcpInstanceId, afterLine, int.MaxValue);
+            var lastSentLine = afterLine;
+
+            foreach (var entry in buffered)
+            {
+                await SendSseLogEntryAsync(entry, resolvedTimeZone, cancellationToken);
+                lastSentLine = entry.LineNumber;
+            }
+
+            // Step 3: Live — stream from channel, skipping entries already sent during catchup
+            await foreach (var entry in reader.ReadAllAsync(cancellationToken))
+            {
+                if (entry.LineNumber <= lastSentLine)
+                {
+                    continue;
+                }
+
+                lastSentLine = entry.LineNumber;
+                await SendSseLogEntryAsync(entry, resolvedTimeZone, cancellationToken);
+            }
+        }
+        finally
+        {
+            _logStore.Unsubscribe(mcpInstanceId, subscriptionId);
+        }
+    }
+
+    private async Task SendSseLogEntryAsync(
+        McpServerInstanceLogEntry entry,
+        TimeZoneInfo timeZone,
+        CancellationToken cancellationToken)
+    {
+        var response = LogMapper.ToResponse(entry, timeZone);
+        var json = JsonSerializer.Serialize(response, _jsonOptions);
+
+        await Response.WriteAsync($"id: {entry.LineNumber}\n", cancellationToken);
+        await Response.WriteAsync("event: instance-log\n", cancellationToken);
+        await Response.WriteAsync($"data: {json}\n\n", cancellationToken);
+        await Response.Body.FlushAsync(cancellationToken);
     }
 
     /// <summary>
