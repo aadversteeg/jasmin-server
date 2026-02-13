@@ -679,64 +679,6 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
     }
 
     /// <inheritdoc />
-    public async Task<Result<Unit, Error>> TestConfigurationAsync(
-        string command,
-        IReadOnlyList<string>? args,
-        IReadOnlyDictionary<string, string>? env,
-        CancellationToken cancellationToken = default)
-    {
-        _logger.LogDebug("Testing MCP server configuration: command={Command}", command);
-
-        try
-        {
-            // Create transport with the provided configuration
-            var transportOptions = new StdioClientTransportOptions
-            {
-                Command = command,
-                Arguments = args?.ToList() ?? [],
-                Name = "test-configuration",
-                EnvironmentVariables = env?.ToDictionary(kvp => kvp.Key, kvp => (string?)kvp.Value) ?? new Dictionary<string, string?>()
-            };
-
-            var transport = new StdioClientTransport(transportOptions);
-
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeoutCts.CancelAfter(_connectionTimeout);
-
-            McpClient client;
-            try
-            {
-                client = await McpClient.CreateAsync(transport, cancellationToken: timeoutCts.Token);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogDebug(ex, "Configuration test failed: could not start MCP server");
-                return Result<Unit, Error>.Failure(new Error(
-                    ErrorCodes.McpServers.Instance.ConnectionFailed,
-                    $"Failed to start MCP server: {ex.Message}"));
-            }
-
-            // Successfully connected - dispose immediately
-            _logger.LogDebug("Configuration test passed: MCP server started successfully");
-            await client.DisposeAsync();
-
-            return Result<Unit, Error>.Success(Unit.Value);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            _logger.LogDebug("Configuration test cancelled");
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Configuration test error");
-            return Result<Unit, Error>.Failure(new Error(
-                ErrorCodes.McpServers.Instance.ConnectionFailed,
-                $"Configuration test error: {ex.Message}"));
-        }
-    }
-
-    /// <inheritdoc />
     public async Task<Result<McpServerMetadata, Error>> RefreshMetadataAsync(
         McpServerName serverName,
         McpServerInstanceId instanceId,

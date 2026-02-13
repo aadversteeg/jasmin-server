@@ -5,6 +5,7 @@ using Core.Infrastructure.ModelContextProtocol.Hosting.RequestHandlers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Core.Infrastructure.ModelContextProtocol.Hosting;
 
@@ -62,6 +63,12 @@ public static class ServiceCollectionExtensions
 
             registry.Register(RequestActions.McpServer.Instance.RefreshMetadata,
                 new McpServerRefreshMetadataHandler(instanceManager, loggerFactory.CreateLogger<McpServerRefreshMetadataHandler>()));
+
+            var hostingOptions = sp.GetRequiredService<IOptions<McpServerHostingOptions>>();
+            registry.Register(RequestActions.McpServer.TestConfiguration,
+                new McpServerTestConfigurationHandler(
+                    loggerFactory.CreateLogger<McpServerTestConfigurationHandler>(),
+                    hostingOptions.Value));
 
             return registry.Build();
         });

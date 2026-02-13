@@ -801,36 +801,6 @@ public class McpServersController : ControllerBase
     }
 
     /// <summary>
-    /// Tests an MCP server configuration without persisting it.
-    /// Starts a temporary instance with the provided configuration and immediately stops it.
-    /// </summary>
-    /// <param name="request">The configuration to test.</param>
-    /// <returns>Success if the configuration is valid and the server can start.</returns>
-    [HttpPost("test-configuration")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> TestConfiguration([FromBody] TestConfigurationRequest request, CancellationToken cancellationToken)
-    {
-        if (string.IsNullOrWhiteSpace(request.Command))
-        {
-            return BadRequest(ErrorResponse.Single("INVALID_COMMAND", "Command is required"));
-        }
-
-        var result = await _instanceManager.TestConfigurationAsync(
-            request.Command,
-            request.Args,
-            request.Env,
-            cancellationToken);
-
-        if (result.IsFailure)
-        {
-            return BadRequest(ErrorResponse.FromError(result.Error));
-        }
-
-        return Ok(new { success = true });
-    }
-
-    /// <summary>
     /// Creates a new MCP server.
     /// </summary>
     /// <param name="request">The server details to create.</param>

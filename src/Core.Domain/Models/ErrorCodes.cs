@@ -61,6 +61,13 @@ public static class ErrorCodes
             public static readonly ErrorCode Cancelled = Root / "Cancelled";
         }
 
+        public static class TestConfiguration
+        {
+            private static readonly ErrorCode Root = McpServer / "TestConfiguration";
+            public static readonly ErrorCode ConnectionFailed = Root / "ConnectionFailed";
+            public static readonly ErrorCode Timeout = Root / "Timeout";
+        }
+
         public static class Parameters
         {
             private static readonly ErrorCode Root = McpServer / "Parameters";
@@ -68,6 +75,7 @@ public static class ErrorCodes
             public static readonly ErrorCode ToolNameRequired = Root / "ToolNameRequired";
             public static readonly ErrorCode PromptNameRequired = Root / "PromptNameRequired";
             public static readonly ErrorCode ResourceUriRequired = Root / "ResourceUriRequired";
+            public static readonly ErrorCode CommandRequired = Root / "CommandRequired";
         }
     }
 

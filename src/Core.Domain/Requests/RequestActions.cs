@@ -17,6 +17,9 @@ public static class RequestActions
         /// <summary>Start an MCP server (<c>mcp-server.start</c>).</summary>
         public static readonly RequestAction Start = _ / "start";
 
+        /// <summary>Test an MCP server configuration (<c>mcp-server.test-configuration</c>).</summary>
+        public static readonly RequestAction TestConfiguration = _ / "test-configuration";
+
         /// <summary>
         /// Actions targeting MCP server instances (<c>mcp-server.instance.*</c>).
         /// </summary>

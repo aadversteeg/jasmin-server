@@ -28,6 +28,7 @@ public static class RequestMapper
         ["mcp-server.instance.get-prompt"] = RequestActions.McpServer.Instance.GetPrompt,
         ["mcp-server.instance.read-resource"] = RequestActions.McpServer.Instance.ReadResource,
         ["mcp-server.instance.refresh-metadata"] = RequestActions.McpServer.Instance.RefreshMetadata,
+        ["mcp-server.test-configuration"] = RequestActions.McpServer.TestConfiguration,
     };
 
     /// <summary>
@@ -67,12 +68,6 @@ public static class RequestMapper
                 Errors.InvalidRequestAction(body.Action));
         }
 
-        if (string.IsNullOrWhiteSpace(body.Target))
-        {
-            return Result<Request, Error>.Failure(
-                new Error(ErrorCodes.McpServers.InvalidTarget, "Target is required."));
-        }
-
         var validationError = ValidateParametersForAction(action, body.Target, body.Parameters);
         if (validationError != null)
         {
@@ -100,7 +95,7 @@ public static class RequestMapper
             source.TotalPages);
     }
 
-    private static Error? ValidateParametersForAction(RequestAction action, string target, JsonElement? parameters)
+    private static Error? ValidateParametersForAction(RequestAction action, string? target, JsonElement? parameters)
     {
         if (action == RequestActions.McpServer.Start)
         {
@@ -169,6 +164,19 @@ public static class RequestMapper
             if (resourceParams == null || string.IsNullOrEmpty(resourceParams.ResourceUri))
             {
                 return Errors.ResourceUriRequired;
+            }
+        }
+        else if (action == RequestActions.McpServer.TestConfiguration)
+        {
+            if (!parameters.HasValue)
+            {
+                return Errors.CommandRequired;
+            }
+
+            var testParams = DeserializeParameters<TestConfigurationParameters>(parameters.Value);
+            if (testParams == null || string.IsNullOrWhiteSpace(testParams.Command))
+            {
+                return Errors.CommandRequired;
             }
         }
 

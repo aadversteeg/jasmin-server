@@ -190,6 +190,31 @@ public class RequestStoreTests
         result.Items[0].Target.Should().Be("mcp-servers/chronos");
     }
 
+    [Fact(DisplayName = "RST-013: GetAll with target filter should exclude null-target requests")]
+    public void RST013()
+    {
+        _store.Add(CreateRequest(RequestActions.McpServer.Start, "mcp-servers/chronos"));
+        _store.Add(new Request(RequestId.Create(), RequestActions.McpServer.TestConfiguration));
+
+        var paging = PagingParameters.Create(1, 10).Value;
+        var result = _store.GetAll(paging, targetFilter: "mcp-servers/chronos");
+
+        result.Items.Should().HaveCount(1);
+        result.Items[0].Target.Should().Be("mcp-servers/chronos");
+    }
+
+    [Fact(DisplayName = "RST-014: GetAll without target filter should include null-target requests")]
+    public void RST014()
+    {
+        _store.Add(CreateRequest(RequestActions.McpServer.Start, "mcp-servers/chronos"));
+        _store.Add(new Request(RequestId.Create(), RequestActions.McpServer.TestConfiguration));
+
+        var paging = PagingParameters.Create(1, 10).Value;
+        var result = _store.GetAll(paging);
+
+        result.Items.Should().HaveCount(2);
+    }
+
     private static Request CreateRequest(RequestAction action, string target)
     {
         return new Request(RequestId.Create(), action, target);

@@ -10,7 +10,7 @@ public class Request
 {
     public RequestId Id { get; }
     public RequestAction Action { get; }
-    public string Target { get; }
+    public string? Target { get; }
     public RequestStatus Status { get; private set; }
     public DateTime CreatedAtUtc { get; }
     public DateTime? CompletedAtUtc { get; private set; }
@@ -21,7 +21,7 @@ public class Request
     public Request(
         RequestId id,
         RequestAction action,
-        string target,
+        string? target = null,
         JsonElement? parameters = null)
     {
         Id = id;

@@ -127,7 +127,7 @@ public class RequestMapperTests
         result.IsFailure.Should().BeTrue();
     }
 
-    [Fact(DisplayName = "GRM-009: ToDomain should fail for empty target")]
+    [Fact(DisplayName = "GRM-009: ToDomain should fail for start with empty target")]
     public void GRM009()
     {
         var body = new CreateRequestBody("mcp-server.start", "");
@@ -135,7 +135,7 @@ public class RequestMapperTests
         var result = RequestMapper.ToDomain(body);
 
         result.IsFailure.Should().BeTrue();
-        result.Error.Message.Should().Contain("Target is required");
+        result.Error.Message.Should().Contain("not a valid MCP server target");
     }
 
     [Fact(DisplayName = "GRM-010: ToDomain should create invoke-tool request with parameters")]
@@ -385,5 +385,52 @@ public class RequestMapperTests
         result.IsSuccess.Should().BeTrue();
         result.Value.Parameters.Should().NotBeNull();
         result.Value.Parameters!.Value.GetRawText().Should().Contain("test_tool");
+    }
+
+    [Fact(DisplayName = "GRM-028: ToDomain should create test-configuration request without target")]
+    public void GRM028()
+    {
+        var parameters = JsonSerializer.SerializeToElement(new { command = "npx", args = new[] { "-y", "server" } });
+        var body = new CreateRequestBody("mcp-server.test-configuration", null, parameters);
+
+        var result = RequestMapper.ToDomain(body);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Action.Should().Be(RequestActions.McpServer.TestConfiguration);
+        result.Value.Target.Should().BeNull();
+    }
+
+    [Fact(DisplayName = "GRM-029: ToDomain should fail for test-configuration without parameters")]
+    public void GRM029()
+    {
+        var body = new CreateRequestBody("mcp-server.test-configuration");
+
+        var result = RequestMapper.ToDomain(body);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Message.Should().Contain("Command is required");
+    }
+
+    [Fact(DisplayName = "GRM-030: ToDomain should fail for test-configuration with empty command")]
+    public void GRM030()
+    {
+        var parameters = JsonSerializer.SerializeToElement(new { command = "" });
+        var body = new CreateRequestBody("mcp-server.test-configuration", null, parameters);
+
+        var result = RequestMapper.ToDomain(body);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Message.Should().Contain("Command is required");
+    }
+
+    [Fact(DisplayName = "GRM-031: ToResponse should map null target")]
+    public void GRM031()
+    {
+        var request = new Request(RequestId.Create(), RequestActions.McpServer.TestConfiguration);
+
+        var result = RequestMapper.ToResponse(request, TimeZoneInfo.Utc);
+
+        result.Target.Should().BeNull();
+        result.Action.Should().Be("mcp-server.test-configuration");
     }
 }

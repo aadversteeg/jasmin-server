@@ -63,6 +63,10 @@ public static class Errors
         ErrorCodes.McpServers.Parameters.ResourceUriRequired,
         "ResourceUri is required for read-resource action.");
 
+    public static readonly Error CommandRequired = new(
+        ErrorCodes.McpServers.Parameters.CommandRequired,
+        "Command is required for test-configuration action.");
+
     public static Error InvalidPage() => new(
         ErrorCodes.Request.InvalidPage,
         "Page must be greater than or equal to 1.");

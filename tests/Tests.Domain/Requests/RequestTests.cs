@@ -152,6 +152,17 @@ public class RequestTests
         id.ToString().Should().Be("test-id-123");
     }
 
+    [Fact(DisplayName = "GRQ-014: New request should allow null target")]
+    public void GRQ014()
+    {
+        var action = RequestActions.McpServer.TestConfiguration;
+        var request = new Request(RequestId.Create(), action);
+
+        request.Target.Should().BeNull();
+        request.Action.Should().Be(action);
+        request.Status.Should().Be(RequestStatus.Pending);
+    }
+
     private static Request CreateRequest()
     {
         return new Request(RequestId.Create(), RequestActions.McpServer.Start, "mcp-servers/test-server");

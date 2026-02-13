@@ -7,7 +7,7 @@ namespace Core.Infrastructure.WebApp.Models.Requests;
 /// </summary>
 /// <param name="Id">The request ID.</param>
 /// <param name="Action">The request action (e.g. "mcp-server.instance.invoke-tool").</param>
-/// <param name="Target">The target URI (e.g. "mcp-servers/chronos/instances/abc123").</param>
+/// <param name="Target">The target URI (e.g. "mcp-servers/chronos/instances/abc123"), or null for target-less requests.</param>
 /// <param name="Status">The request status (pending, running, completed, failed).</param>
 /// <param name="CreatedAt">The creation timestamp.</param>
 /// <param name="CompletedAt">The completion timestamp, if completed or failed.</param>
@@ -17,7 +17,7 @@ namespace Core.Infrastructure.WebApp.Models.Requests;
 public record RequestResponse(
     string Id,
     string Action,
-    string Target,
+    string? Target,
     string Status,
     string CreatedAt,
     string? CompletedAt,

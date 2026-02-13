@@ -26,7 +26,7 @@ public static class TargetUri
     /// <param name="target">The target URI to parse.</param>
     /// <param name="name">The parsed server name.</param>
     /// <returns>true if the target matches the pattern <c>mcp-servers/{name}</c>; otherwise, false.</returns>
-    public static bool TryParseMcpServer(string target, out string name)
+    public static bool TryParseMcpServer(string? target, out string name)
     {
         name = string.Empty;
 
@@ -52,7 +52,7 @@ public static class TargetUri
     /// <param name="name">The parsed server name.</param>
     /// <param name="instanceId">The parsed instance ID.</param>
     /// <returns>true if the target matches the pattern <c>mcp-servers/{name}/instances/{instanceId}</c>; otherwise, false.</returns>
-    public static bool TryParseMcpServerInstance(string target, out string name, out string instanceId)
+    public static bool TryParseMcpServerInstance(string? target, out string name, out string instanceId)
     {
         name = string.Empty;
         instanceId = string.Empty;

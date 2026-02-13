@@ -71,4 +71,18 @@ public class RequestActionsTests
 
         RequestActions.McpServer.Start.IsChildOf(instance).Should().BeFalse();
     }
+
+    [Fact(DisplayName = "RAS-010: McpServer.TestConfiguration should be mcp-server.test-configuration")]
+    public void RAS010()
+    {
+        RequestActions.McpServer.TestConfiguration.Value.Should().Be("mcp-server.test-configuration");
+    }
+
+    [Fact(DisplayName = "RAS-011: McpServer.TestConfiguration should be child of mcp-server")]
+    public void RAS011()
+    {
+        var mcpServer = new RequestAction("mcp-server");
+
+        RequestActions.McpServer.TestConfiguration.IsChildOf(mcpServer).Should().BeTrue();
+    }
 }

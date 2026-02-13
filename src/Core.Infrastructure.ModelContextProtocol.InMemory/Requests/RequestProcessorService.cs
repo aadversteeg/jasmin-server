@@ -59,7 +59,8 @@ public class RequestProcessorService : BackgroundService
 
     private async Task ProcessRequestWithTargetSerializationAsync(Request request, CancellationToken cancellationToken)
     {
-        var semaphore = _targetSemaphores.GetOrAdd(request.Target, _ => new SemaphoreSlim(1, 1));
+        var semaphoreKey = request.Target ?? request.Id.Value;
+        var semaphore = _targetSemaphores.GetOrAdd(semaphoreKey, _ => new SemaphoreSlim(1, 1));
 
         await semaphore.WaitAsync(cancellationToken);
         try
@@ -75,7 +76,7 @@ public class RequestProcessorService : BackgroundService
     private async Task ProcessRequestAsync(Request request, CancellationToken cancellationToken)
     {
         _logger.LogDebug("Processing request {RequestId}, action: {Action}, target: {Target}",
-            request.Id.Value, request.Action.Value, request.Target);
+            request.Id.Value, request.Action.Value, request.Target ?? "(none)");
 
         request.MarkRunning();
         _store.Update(request);

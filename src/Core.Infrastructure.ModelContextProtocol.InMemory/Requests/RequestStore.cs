@@ -45,8 +45,9 @@ public class RequestStore : IRequestStore
             if (!string.IsNullOrEmpty(targetFilter))
             {
                 requests = requests.Where(r =>
-                    r.Target.Equals(targetFilter, StringComparison.Ordinal) ||
-                    r.Target.StartsWith(targetFilter + "/", StringComparison.Ordinal));
+                    r.Target != null && (
+                        r.Target.Equals(targetFilter, StringComparison.Ordinal) ||
+                        r.Target.StartsWith(targetFilter + "/", StringComparison.Ordinal)));
             }
 
             if (actionFilter.HasValue)

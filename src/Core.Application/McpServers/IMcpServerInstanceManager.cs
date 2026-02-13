@@ -113,21 +113,6 @@ public interface IMcpServerInstanceManager
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Tests a configuration by starting a temporary instance and immediately stopping it.
-    /// Does not persist any server configuration.
-    /// </summary>
-    /// <param name="command">The command to execute.</param>
-    /// <param name="args">Optional command arguments.</param>
-    /// <param name="env">Optional environment variables.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>A result indicating success or an error with details.</returns>
-    Task<Result<Unit, Error>> TestConfigurationAsync(
-        string command,
-        IReadOnlyList<string>? args,
-        IReadOnlyDictionary<string, string>? env,
-        CancellationToken cancellationToken = default);
-
-    /// <summary>
     /// Refreshes metadata (tools, prompts, resources) from a running instance.
     /// </summary>
     /// <param name="serverName">The name of the server.</param>
