@@ -35,4 +35,11 @@ public class RequestHandlerResult
     /// </summary>
     /// <param name="errors">The errors that occurred.</param>
     public static RequestHandlerResult Failure(IReadOnlyList<Error> errors) => new(false, null, errors);
+
+    /// <summary>
+    /// Creates a failure result with output and errors.
+    /// </summary>
+    /// <param name="output">The output from the handler.</param>
+    /// <param name="errors">The errors that occurred.</param>
+    public static RequestHandlerResult Failure(JsonElement output, IReadOnlyList<Error> errors) => new(false, output, errors);
 }

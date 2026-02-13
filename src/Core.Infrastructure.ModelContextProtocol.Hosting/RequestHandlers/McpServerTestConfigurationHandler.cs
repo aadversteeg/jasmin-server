@@ -17,6 +17,9 @@ public class McpServerTestConfigurationHandler : IRequestHandler
 {
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
+    private static JsonElement BuildOutput(bool success, List<string> stderrLines) =>
+        JsonSerializer.SerializeToElement(new { success, stderr = stderrLines });
+
     private readonly ILogger<McpServerTestConfigurationHandler> _logger;
     private readonly TimeSpan _connectionTimeout;
 
@@ -71,38 +74,24 @@ public class McpServerTestConfigurationHandler : IRequestHandler
             }
             catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
             {
-                var timeoutMessage = $"Connection timed out after {_connectionTimeout.TotalSeconds} seconds.";
-                if (stderrLines.Count > 0)
-                {
-                    timeoutMessage += "\n\nStderr:\n" + string.Join("\n", stderrLines);
-                }
-
-                return RequestHandlerResult.Failure(
-                    [new Error(ErrorCodes.McpServers.TestConfiguration.Timeout, timeoutMessage)]);
+                var output = BuildOutput(false, stderrLines);
+                return RequestHandlerResult.Failure(output,
+                    [new Error(ErrorCodes.McpServers.TestConfiguration.Timeout,
+                        $"Connection timed out after {_connectionTimeout.TotalSeconds} seconds.")]);
             }
             catch (Exception ex)
             {
                 _logger.LogDebug(ex, "Configuration test failed: could not start MCP server");
-                var failMessage = $"Failed to start MCP server: {ex.Message}";
-                if (stderrLines.Count > 0)
-                {
-                    failMessage += "\n\nStderr:\n" + string.Join("\n", stderrLines);
-                }
-
-                return RequestHandlerResult.Failure(
-                    [new Error(ErrorCodes.McpServers.TestConfiguration.ConnectionFailed, failMessage)]);
+                var output = BuildOutput(false, stderrLines);
+                return RequestHandlerResult.Failure(output,
+                    [new Error(ErrorCodes.McpServers.TestConfiguration.ConnectionFailed,
+                        $"Failed to start MCP server: {ex.Message}")]);
             }
 
             _logger.LogDebug("Configuration test passed: MCP server started successfully");
             await client.DisposeAsync();
 
-            var output = JsonSerializer.SerializeToElement(new
-            {
-                success = true,
-                stderr = stderrLines
-            });
-
-            return RequestHandlerResult.Success(output);
+            return RequestHandlerResult.Success(BuildOutput(true, stderrLines));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -112,14 +101,10 @@ public class McpServerTestConfigurationHandler : IRequestHandler
         catch (Exception ex)
         {
             _logger.LogError(ex, "Configuration test error");
-            var errorMessage = $"Configuration test error: {ex.Message}";
-            if (stderrLines.Count > 0)
-            {
-                errorMessage += "\n\nStderr:\n" + string.Join("\n", stderrLines);
-            }
-
-            return RequestHandlerResult.Failure(
-                [new Error(ErrorCodes.McpServers.TestConfiguration.ConnectionFailed, errorMessage)]);
+            var output = BuildOutput(false, stderrLines);
+            return RequestHandlerResult.Failure(output,
+                [new Error(ErrorCodes.McpServers.TestConfiguration.ConnectionFailed,
+                    $"Configuration test error: {ex.Message}")]);
         }
     }
 }

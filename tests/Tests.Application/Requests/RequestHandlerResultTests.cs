@@ -48,4 +48,22 @@ public class RequestHandlerResultTests
         result.Errors![0].Code.Should().Be(new ErrorCode("ERR_001"));
         result.Errors[1].Message.Should().Be("Another issue");
     }
+
+    [Fact(DisplayName = "RHR-004: Failure with output should have IsSuccess false, output set, and errors set")]
+    public void RHR004()
+    {
+        var output = JsonSerializer.SerializeToElement(new { success = false, stderr = new[] { "error line" } });
+        var errors = new List<Error>
+        {
+            new(new ErrorCode("ERR_001"), "Something went wrong")
+        }.AsReadOnly();
+
+        var result = RequestHandlerResult.Failure(output, errors);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Output.Should().NotBeNull();
+        result.Output!.Value.GetProperty("success").GetBoolean().Should().BeFalse();
+        result.Errors.Should().NotBeNull();
+        result.Errors.Should().HaveCount(1);
+    }
 }

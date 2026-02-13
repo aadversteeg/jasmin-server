@@ -142,7 +142,7 @@ public class RequestProcessorService : BackgroundService, IRequestCancellation
             }
             else
             {
-                request.MarkFailed(result.Errors!);
+                request.MarkFailed(result.Errors!, result.Output);
                 _logger.LogWarning("Request {RequestId} failed: {Errors}",
                     request.Id.Value, string.Join(", ", result.Errors!.Select(e => $"{e.Code.Value}: {e.Message}")));
             }

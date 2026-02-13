@@ -124,7 +124,7 @@ public class RequestTests
         request.Errors[1].Message.Should().Be("Operation timed out");
     }
 
-    [Fact(DisplayName = "GRQ-011: MarkFailed should not set output")]
+    [Fact(DisplayName = "GRQ-011: MarkFailed without output should not set output")]
     public void GRQ011()
     {
         var request = CreateRequest();
@@ -185,6 +185,21 @@ public class RequestTests
 
         request.Output.Should().BeNull();
         request.Errors.Should().BeNull();
+    }
+
+    [Fact(DisplayName = "GRQ-017: MarkFailed with output should set errors and output")]
+    public void GRQ017()
+    {
+        var request = CreateRequest();
+        var errors = new List<Error> { new(new ErrorCode("ERR"), "Error") }.AsReadOnly();
+        var output = JsonSerializer.SerializeToElement(new { success = false, stderr = new[] { "line1" } });
+
+        request.MarkFailed(errors, output);
+
+        request.Status.Should().Be(RequestStatus.Failed);
+        request.Errors.Should().HaveCount(1);
+        request.Output.Should().NotBeNull();
+        request.Output!.Value.GetProperty("success").GetBoolean().Should().BeFalse();
     }
 
     private static Request CreateRequest()

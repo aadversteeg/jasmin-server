@@ -44,11 +44,12 @@ public class Request
         Output = output;
     }
 
-    public void MarkFailed(IReadOnlyList<Error> errors)
+    public void MarkFailed(IReadOnlyList<Error> errors, JsonElement? output = null)
     {
         Status = RequestStatus.Failed;
         CompletedAtUtc = DateTime.UtcNow;
         Errors = errors;
+        Output = output;
     }
 
     public void MarkCancelled()
