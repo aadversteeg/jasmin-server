@@ -23,5 +23,10 @@ public enum RequestStatus
     /// <summary>
     /// Request failed.
     /// </summary>
-    Failed = 3
+    Failed = 3,
+
+    /// <summary>
+    /// Request was cancelled by the client.
+    /// </summary>
+    Cancelled = 4
 }

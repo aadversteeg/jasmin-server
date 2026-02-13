@@ -13,13 +13,14 @@ namespace Core.Infrastructure.ModelContextProtocol.InMemory.Requests;
 /// Background service that processes generic requests from the queue.
 /// Requests are processed in parallel across different targets, but serialized per target.
 /// </summary>
-public class RequestProcessorService : BackgroundService
+public class RequestProcessorService : BackgroundService, IRequestCancellation
 {
     private readonly IRequestQueue _queue;
     private readonly IRequestStore _store;
     private readonly IRequestHandlerRegistry _registry;
     private readonly ILogger<RequestProcessorService> _logger;
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _targetSemaphores = new();
+    private readonly ConcurrentDictionary<string, CancellationTokenSource> _requestCancellationTokens = new();
 
     public RequestProcessorService(
         IRequestQueue queue,
@@ -31,6 +32,38 @@ public class RequestProcessorService : BackgroundService
         _store = store;
         _registry = registry;
         _logger = logger;
+    }
+
+    public bool Cancel(RequestId requestId)
+    {
+        var maybeRequest = _store.GetById(requestId);
+        if (maybeRequest.HasNoValue)
+        {
+            return false;
+        }
+
+        var request = maybeRequest.Value;
+
+        if (request.Status == RequestStatus.Completed ||
+            request.Status == RequestStatus.Failed ||
+            request.Status == RequestStatus.Cancelled)
+        {
+            return false;
+        }
+
+        if (_requestCancellationTokens.TryGetValue(requestId.Value, out var cts))
+        {
+            cts.Cancel();
+            _logger.LogInformation("Cancellation requested for running request {RequestId}", requestId.Value);
+        }
+        else
+        {
+            request.MarkCancelled();
+            _store.Update(request);
+            _logger.LogInformation("Pending request {RequestId} marked as cancelled", requestId.Value);
+        }
+
+        return true;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -75,8 +108,17 @@ public class RequestProcessorService : BackgroundService
 
     private async Task ProcessRequestAsync(Request request, CancellationToken cancellationToken)
     {
+        if (request.Status == RequestStatus.Cancelled)
+        {
+            _logger.LogDebug("Skipping already cancelled request {RequestId}", request.Id.Value);
+            return;
+        }
+
         _logger.LogDebug("Processing request {RequestId}, action: {Action}, target: {Target}",
             request.Id.Value, request.Action.Value, request.Target ?? "(none)");
+
+        using var requestCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        _requestCancellationTokens[request.Id.Value] = requestCts;
 
         request.MarkRunning();
         _store.Update(request);
@@ -91,7 +133,7 @@ public class RequestProcessorService : BackgroundService
                 return;
             }
 
-            var result = await handler.HandleAsync(request, cancellationToken);
+            var result = await handler.HandleAsync(request, requestCts.Token);
 
             if (result.IsSuccess)
             {
@@ -107,6 +149,12 @@ public class RequestProcessorService : BackgroundService
 
             _store.Update(request);
         }
+        catch (OperationCanceledException) when (requestCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+        {
+            request.MarkCancelled();
+            _store.Update(request);
+            _logger.LogInformation("Request {RequestId} was cancelled", request.Id.Value);
+        }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             request.MarkFailed([new Error(ErrorCodes.Request.Cancelled, "Request cancelled due to shutdown.")]);
@@ -117,6 +165,10 @@ public class RequestProcessorService : BackgroundService
             _logger.LogError(ex, "Error processing request {RequestId}", request.Id.Value);
             request.MarkFailed([new Error(new ErrorCode(ex.GetType().Name), ex.Message)]);
             _store.Update(request);
+        }
+        finally
+        {
+            _requestCancellationTokens.TryRemove(request.Id.Value, out _);
         }
     }
 }

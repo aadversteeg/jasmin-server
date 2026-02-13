@@ -21,7 +21,9 @@ public static class ServiceCollectionExtensions
     {
         services.AddSingleton<IRequestStore, RequestStore>();
         services.AddSingleton<IRequestQueue, RequestQueue>();
-        services.AddHostedService<RequestProcessorService>();
+        services.AddSingleton<RequestProcessorService>();
+        services.AddSingleton<IRequestCancellation>(sp => sp.GetRequiredService<RequestProcessorService>());
+        services.AddHostedService(sp => sp.GetRequiredService<RequestProcessorService>());
         return services;
     }
 

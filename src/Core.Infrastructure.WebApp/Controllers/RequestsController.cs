@@ -21,15 +21,18 @@ public class RequestsController : ControllerBase
 {
     private readonly IRequestStore _requestStore;
     private readonly IRequestQueue _requestQueue;
+    private readonly IRequestCancellation _requestCancellation;
     private readonly McpServerStatusOptions _statusOptions;
 
     public RequestsController(
         IRequestStore requestStore,
         IRequestQueue requestQueue,
+        IRequestCancellation requestCancellation,
         IOptions<McpServerStatusOptions> statusOptions)
     {
         _requestStore = requestStore;
         _requestQueue = requestQueue;
+        _requestCancellation = requestCancellation;
         _statusOptions = statusOptions.Value;
     }
 
@@ -169,6 +172,73 @@ public class RequestsController : ControllerBase
         }
 
         return Ok(RequestMapper.ToResponse(maybeRequest.Value, resolvedTimeZone));
+    }
+
+    /// <summary>
+    /// Gets the status of a specific request.
+    /// </summary>
+    /// <param name="requestId">The identifier of the request.</param>
+    /// <returns>The request status.</returns>
+    [HttpGet("{requestId}/status", Name = "GetRequestStatus")]
+    [ProducesResponseType(typeof(RequestStatusResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public IActionResult GetStatus(string requestId)
+    {
+        var requestIdObj = RequestId.From(requestId);
+        var maybeRequest = _requestStore.GetById(requestIdObj);
+
+        if (maybeRequest.HasNoValue)
+        {
+            return NotFound(ErrorResponse.FromError(new Error(ErrorCodes.Request.NotFound, $"Request '{requestId}' not found")));
+        }
+
+        return Ok(new RequestStatusResponse(maybeRequest.Value.Status.ToString().ToLowerInvariant()));
+    }
+
+    /// <summary>
+    /// Updates the status of a specific request. Only transitioning to "cancelled" is supported.
+    /// </summary>
+    /// <param name="requestId">The identifier of the request.</param>
+    /// <param name="body">The desired status.</param>
+    /// <returns>The updated request status.</returns>
+    [HttpPut("{requestId}/status", Name = "UpdateRequestStatus")]
+    [ProducesResponseType(typeof(RequestStatusResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public IActionResult UpdateStatus(string requestId, [FromBody] UpdateRequestStatusBody body)
+    {
+        if (string.IsNullOrWhiteSpace(body.Status) ||
+            !body.Status.Equals("cancelled", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(ErrorResponse.FromError(
+                new Error(ErrorCodes.Request.InvalidStatusTransition, "Only transitioning to 'cancelled' is supported.")));
+        }
+
+        var requestIdObj = RequestId.From(requestId);
+        var maybeRequest = _requestStore.GetById(requestIdObj);
+
+        if (maybeRequest.HasNoValue)
+        {
+            return NotFound(ErrorResponse.FromError(new Error(ErrorCodes.Request.NotFound, $"Request '{requestId}' not found")));
+        }
+
+        var request = maybeRequest.Value;
+
+        if (request.Status == RequestStatus.Cancelled)
+        {
+            return Ok(new RequestStatusResponse("cancelled"));
+        }
+
+        if (request.Status == RequestStatus.Completed || request.Status == RequestStatus.Failed)
+        {
+            return Conflict(ErrorResponse.FromError(
+                new Error(ErrorCodes.Request.AlreadyCompleted, $"Request '{requestId}' has already {request.Status.ToString().ToLowerInvariant()} and cannot be cancelled.")));
+        }
+
+        _requestCancellation.Cancel(requestIdObj);
+
+        return Ok(new RequestStatusResponse("cancelled"));
     }
 
     private TimeZoneInfo? ResolveTimeZone(string? requestedTimeZone)

@@ -163,6 +163,30 @@ public class RequestTests
         request.Status.Should().Be(RequestStatus.Pending);
     }
 
+    [Fact(DisplayName = "GRQ-015: MarkCancelled should set status and timestamp")]
+    public void GRQ015()
+    {
+        var request = CreateRequest();
+        var before = DateTime.UtcNow;
+
+        request.MarkCancelled();
+
+        request.Status.Should().Be(RequestStatus.Cancelled);
+        request.CompletedAtUtc.Should().NotBeNull();
+        request.CompletedAtUtc!.Value.Should().BeOnOrAfter(before);
+    }
+
+    [Fact(DisplayName = "GRQ-016: MarkCancelled should not set output or errors")]
+    public void GRQ016()
+    {
+        var request = CreateRequest();
+
+        request.MarkCancelled();
+
+        request.Output.Should().BeNull();
+        request.Errors.Should().BeNull();
+    }
+
     private static Request CreateRequest()
     {
         return new Request(RequestId.Create(), RequestActions.McpServer.Start, "mcp-servers/test-server");

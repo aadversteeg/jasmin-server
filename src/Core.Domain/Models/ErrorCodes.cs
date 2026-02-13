@@ -89,6 +89,8 @@ public static class ErrorCodes
         public static readonly ErrorCode InvalidPageSize = Root / "InvalidPageSize";
         public static readonly ErrorCode NotFound = Root / "NotFound";
         public static readonly ErrorCode InvalidStatus = Root / "InvalidStatus";
+        public static readonly ErrorCode AlreadyCompleted = Root / "AlreadyCompleted";
+        public static readonly ErrorCode InvalidStatusTransition = Root / "InvalidStatusTransition";
     }
 
     public static class Include

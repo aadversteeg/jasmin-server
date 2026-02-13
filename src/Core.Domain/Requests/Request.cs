@@ -50,4 +50,10 @@ public class Request
         CompletedAtUtc = DateTime.UtcNow;
         Errors = errors;
     }
+
+    public void MarkCancelled()
+    {
+        Status = RequestStatus.Cancelled;
+        CompletedAtUtc = DateTime.UtcNow;
+    }
 }
