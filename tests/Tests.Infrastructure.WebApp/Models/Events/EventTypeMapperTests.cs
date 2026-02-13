@@ -1,4 +1,4 @@
-using Core.Domain.McpServers;
+using Core.Domain.Events;
 using Core.Infrastructure.WebApp.Models.Events;
 using FluentAssertions;
 using Xunit;
@@ -12,8 +12,8 @@ public class EventTypeMapperTests
     {
         var result = EventTypeMapper.ToListResponse();
 
-        var expectedCount = Enum.GetValues<McpServerEventType>().Length;
-        result.Items.Should().HaveCount(expectedCount);
+        // 24 event types total (2 server + 3 config + 6 lifecycle + 9 metadata + 4 tool invocation)
+        result.Items.Should().HaveCount(24);
     }
 
     [Fact(DisplayName = "ETM-002: ToListResponse should return items with correct properties")]
@@ -29,48 +29,44 @@ public class EventTypeMapperTests
         }
     }
 
-    [Fact(DisplayName = "ETM-003: ToListResponse should map Starting event correctly")]
+    [Fact(DisplayName = "ETM-003: ToListResponse should map mcp-server.instance.starting event correctly")]
     public void ETM003()
     {
         var result = EventTypeMapper.ToListResponse();
 
-        var startingEvent = result.Items.Single(e => e.Name == "Starting");
-        startingEvent.Value.Should().Be(0);
-        startingEvent.Category.Should().Be("Lifecycle");
-        startingEvent.Description.Should().Be("Server is attempting to start.");
+        var startingEvent = result.Items.Single(e => e.Name == EventTypes.McpServer.Instance.Starting.Value);
+        startingEvent.Category.Should().Be("lifecycle");
+        startingEvent.Description.Should().Be("Server instance is starting.");
     }
 
-    [Fact(DisplayName = "ETM-004: ToListResponse should map ConfigurationCreated event correctly")]
+    [Fact(DisplayName = "ETM-004: ToListResponse should map mcp-server.configuration.created event correctly")]
     public void ETM004()
     {
         var result = EventTypeMapper.ToListResponse();
 
-        var configEvent = result.Items.Single(e => e.Name == "ConfigurationCreated");
-        configEvent.Value.Should().Be(6);
-        configEvent.Category.Should().Be("Configuration");
+        var configEvent = result.Items.Single(e => e.Name == EventTypes.McpServer.Configuration.Created.Value);
+        configEvent.Category.Should().Be("configuration");
         configEvent.Description.Should().Be("Server configuration was created.");
     }
 
-    [Fact(DisplayName = "ETM-005: ToListResponse should map ToolsRetrieving event correctly")]
+    [Fact(DisplayName = "ETM-005: ToListResponse should map mcp-server.metadata.tools.retrieving event correctly")]
     public void ETM005()
     {
         var result = EventTypeMapper.ToListResponse();
 
-        var metadataEvent = result.Items.Single(e => e.Name == "ToolsRetrieving");
-        metadataEvent.Value.Should().Be(9);
-        metadataEvent.Category.Should().Be("Metadata");
+        var metadataEvent = result.Items.Single(e => e.Name == EventTypes.McpServer.Metadata.Tools.Retrieving.Value);
+        metadataEvent.Category.Should().Be("metadata");
         metadataEvent.Description.Should().Be("Tools retrieval is starting.");
     }
 
-    [Fact(DisplayName = "ETM-006: ToListResponse should map ToolInvocationAccepted event correctly")]
+    [Fact(DisplayName = "ETM-006: ToListResponse should map mcp-server.tool-invocation.accepted event correctly")]
     public void ETM006()
     {
         var result = EventTypeMapper.ToListResponse();
 
-        var toolEvent = result.Items.Single(e => e.Name == "ToolInvocationAccepted");
-        toolEvent.Value.Should().Be(18);
-        toolEvent.Category.Should().Be("ToolInvocation");
-        toolEvent.Description.Should().Be("Request to invoke a tool was accepted and queued.");
+        var toolEvent = result.Items.Single(e => e.Name == EventTypes.McpServer.ToolInvocation.Accepted.Value);
+        toolEvent.Category.Should().Be("tool-invocation");
+        toolEvent.Description.Should().Be("Tool invocation was accepted and queued.");
     }
 
     [Fact(DisplayName = "ETM-007: ToListResponse should categorize lifecycle events correctly")]
@@ -78,12 +74,17 @@ public class EventTypeMapperTests
     {
         var result = EventTypeMapper.ToListResponse();
 
-        var lifecycleEvents = result.Items.Where(e => e.Category == "Lifecycle").ToList();
+        var lifecycleEvents = result.Items.Where(e => e.Category == "lifecycle").ToList();
         lifecycleEvents.Select(e => e.Name).Should().Contain(new[]
         {
-            "Starting", "Started", "StartFailed",
-            "Stopping", "Stopped", "StopFailed",
-            "ServerCreated", "ServerDeleted"
+            EventTypes.McpServer.Instance.Starting.Value,
+            EventTypes.McpServer.Instance.Started.Value,
+            EventTypes.McpServer.Instance.StartFailed.Value,
+            EventTypes.McpServer.Instance.Stopping.Value,
+            EventTypes.McpServer.Instance.Stopped.Value,
+            EventTypes.McpServer.Instance.StopFailed.Value,
+            EventTypes.McpServer.Created.Value,
+            EventTypes.McpServer.Deleted.Value
         });
     }
 
@@ -92,10 +93,12 @@ public class EventTypeMapperTests
     {
         var result = EventTypeMapper.ToListResponse();
 
-        var configEvents = result.Items.Where(e => e.Category == "Configuration").ToList();
+        var configEvents = result.Items.Where(e => e.Category == "configuration").ToList();
         configEvents.Select(e => e.Name).Should().BeEquivalentTo(new[]
         {
-            "ConfigurationCreated", "ConfigurationUpdated", "ConfigurationDeleted"
+            EventTypes.McpServer.Configuration.Created.Value,
+            EventTypes.McpServer.Configuration.Updated.Value,
+            EventTypes.McpServer.Configuration.Deleted.Value
         });
     }
 
@@ -104,12 +107,18 @@ public class EventTypeMapperTests
     {
         var result = EventTypeMapper.ToListResponse();
 
-        var metadataEvents = result.Items.Where(e => e.Category == "Metadata").ToList();
+        var metadataEvents = result.Items.Where(e => e.Category == "metadata").ToList();
         metadataEvents.Select(e => e.Name).Should().BeEquivalentTo(new[]
         {
-            "ToolsRetrieving", "ToolsRetrieved", "ToolsRetrievalFailed",
-            "PromptsRetrieving", "PromptsRetrieved", "PromptsRetrievalFailed",
-            "ResourcesRetrieving", "ResourcesRetrieved", "ResourcesRetrievalFailed"
+            EventTypes.McpServer.Metadata.Tools.Retrieving.Value,
+            EventTypes.McpServer.Metadata.Tools.Retrieved.Value,
+            EventTypes.McpServer.Metadata.Tools.RetrievalFailed.Value,
+            EventTypes.McpServer.Metadata.Prompts.Retrieving.Value,
+            EventTypes.McpServer.Metadata.Prompts.Retrieved.Value,
+            EventTypes.McpServer.Metadata.Prompts.RetrievalFailed.Value,
+            EventTypes.McpServer.Metadata.Resources.Retrieving.Value,
+            EventTypes.McpServer.Metadata.Resources.Retrieved.Value,
+            EventTypes.McpServer.Metadata.Resources.RetrievalFailed.Value
         });
     }
 
@@ -118,10 +127,13 @@ public class EventTypeMapperTests
     {
         var result = EventTypeMapper.ToListResponse();
 
-        var toolInvocationEvents = result.Items.Where(e => e.Category == "ToolInvocation").ToList();
+        var toolInvocationEvents = result.Items.Where(e => e.Category == "tool-invocation").ToList();
         toolInvocationEvents.Select(e => e.Name).Should().BeEquivalentTo(new[]
         {
-            "ToolInvocationAccepted", "ToolInvoking", "ToolInvoked", "ToolInvocationFailed"
+            EventTypes.McpServer.ToolInvocation.Accepted.Value,
+            EventTypes.McpServer.ToolInvocation.Invoking.Value,
+            EventTypes.McpServer.ToolInvocation.Invoked.Value,
+            EventTypes.McpServer.ToolInvocation.Failed.Value
         });
     }
 
@@ -134,15 +146,6 @@ public class EventTypeMapperTests
         result1.Items.Should().BeSameAs(result2.Items);
     }
 
-    [Fact(DisplayName = "ETM-012: ToListResponse should have unique values for all event types")]
-    public void ETM012()
-    {
-        var result = EventTypeMapper.ToListResponse();
-
-        var values = result.Items.Select(e => e.Value).ToList();
-        values.Should().OnlyHaveUniqueItems();
-    }
-
     [Fact(DisplayName = "ETM-013: ToListResponse should have unique names for all event types")]
     public void ETM013()
     {
@@ -150,17 +153,5 @@ public class EventTypeMapperTests
 
         var names = result.Items.Select(e => e.Name).ToList();
         names.Should().OnlyHaveUniqueItems();
-    }
-
-    [Fact(DisplayName = "ETM-014: All categories should be valid McpServerEventCategory values")]
-    public void ETM014()
-    {
-        var result = EventTypeMapper.ToListResponse();
-
-        var validCategories = Enum.GetNames<McpServerEventCategory>();
-        foreach (var item in result.Items)
-        {
-            validCategories.Should().Contain(item.Category);
-        }
     }
 }

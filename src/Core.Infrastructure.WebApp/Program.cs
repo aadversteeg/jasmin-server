@@ -29,6 +29,8 @@ public class Program
 
         builder.Services.AddMcpServerFileStorage(configFilePath);
         builder.Services.AddMcpServerHosting(builder.Configuration);
+        builder.Services.AddRequestProcessing();
+        builder.Services.AddRequestHandlers();
         builder.Services.AddInMemoryEventStore(builder.Configuration);
         builder.Services.AddSseEventStreaming();
         builder.Services.AddMcpServerConnectionStatusCaching(builder.Configuration);

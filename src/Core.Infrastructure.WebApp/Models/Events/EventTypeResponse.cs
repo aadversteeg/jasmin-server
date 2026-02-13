@@ -5,6 +5,5 @@ namespace Core.Infrastructure.WebApp.Models.Events;
 /// </summary>
 public record EventTypeResponse(
     string Name,
-    int Value,
     string Category,
     string? Description);

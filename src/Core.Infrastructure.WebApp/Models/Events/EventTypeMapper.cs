@@ -1,4 +1,4 @@
-using Core.Domain.McpServers;
+using Core.Domain.Events;
 
 namespace Core.Infrastructure.WebApp.Models.Events;
 
@@ -16,75 +16,32 @@ public static class EventTypeMapper
 
     private static IReadOnlyList<EventTypeResponse> BuildEventTypes()
     {
-        return Enum.GetValues<McpServerEventType>()
-            .Select(e => new EventTypeResponse(
-                e.ToString(),
-                (int)e,
-                GetCategory(e).ToString(),
-                GetDescription(e)))
-            .ToList()
-            .AsReadOnly();
+        return new List<EventTypeResponse>
+        {
+            new(EventTypes.McpServer.Created, "lifecycle", "Server was created."),
+            new(EventTypes.McpServer.Deleted, "lifecycle", "Server was deleted."),
+            new(EventTypes.McpServer.Configuration.Created, "configuration", "Server configuration was created."),
+            new(EventTypes.McpServer.Configuration.Updated, "configuration", "Server configuration was updated."),
+            new(EventTypes.McpServer.Configuration.Deleted, "configuration", "Server configuration was deleted."),
+            new(EventTypes.McpServer.Instance.Starting, "lifecycle", "Server instance is starting."),
+            new(EventTypes.McpServer.Instance.Started, "lifecycle", "Server instance has started."),
+            new(EventTypes.McpServer.Instance.StartFailed, "lifecycle", "Server instance failed to start."),
+            new(EventTypes.McpServer.Instance.Stopping, "lifecycle", "Server instance is stopping."),
+            new(EventTypes.McpServer.Instance.Stopped, "lifecycle", "Server instance has stopped."),
+            new(EventTypes.McpServer.Instance.StopFailed, "lifecycle", "Server instance failed to stop."),
+            new(EventTypes.McpServer.Metadata.Tools.Retrieving, "metadata", "Tools retrieval is starting."),
+            new(EventTypes.McpServer.Metadata.Tools.Retrieved, "metadata", "Tools were retrieved successfully."),
+            new(EventTypes.McpServer.Metadata.Tools.RetrievalFailed, "metadata", "Tools retrieval failed."),
+            new(EventTypes.McpServer.Metadata.Prompts.Retrieving, "metadata", "Prompts retrieval is starting."),
+            new(EventTypes.McpServer.Metadata.Prompts.Retrieved, "metadata", "Prompts were retrieved successfully."),
+            new(EventTypes.McpServer.Metadata.Prompts.RetrievalFailed, "metadata", "Prompts retrieval failed."),
+            new(EventTypes.McpServer.Metadata.Resources.Retrieving, "metadata", "Resources retrieval is starting."),
+            new(EventTypes.McpServer.Metadata.Resources.Retrieved, "metadata", "Resources were retrieved successfully."),
+            new(EventTypes.McpServer.Metadata.Resources.RetrievalFailed, "metadata", "Resources retrieval failed."),
+            new(EventTypes.McpServer.ToolInvocation.Accepted, "tool-invocation", "Tool invocation was accepted and queued."),
+            new(EventTypes.McpServer.ToolInvocation.Invoking, "tool-invocation", "Tool invocation is starting."),
+            new(EventTypes.McpServer.ToolInvocation.Invoked, "tool-invocation", "Tool was invoked successfully."),
+            new(EventTypes.McpServer.ToolInvocation.Failed, "tool-invocation", "Tool invocation failed."),
+        }.AsReadOnly();
     }
-
-    private static McpServerEventCategory GetCategory(McpServerEventType eventType) => eventType switch
-    {
-        McpServerEventType.Starting or
-        McpServerEventType.Started or
-        McpServerEventType.StartFailed or
-        McpServerEventType.Stopping or
-        McpServerEventType.Stopped or
-        McpServerEventType.StopFailed or
-        McpServerEventType.ServerCreated or
-        McpServerEventType.ServerDeleted => McpServerEventCategory.Lifecycle,
-
-        McpServerEventType.ConfigurationCreated or
-        McpServerEventType.ConfigurationUpdated or
-        McpServerEventType.ConfigurationDeleted => McpServerEventCategory.Configuration,
-
-        McpServerEventType.ToolsRetrieving or
-        McpServerEventType.ToolsRetrieved or
-        McpServerEventType.ToolsRetrievalFailed or
-        McpServerEventType.PromptsRetrieving or
-        McpServerEventType.PromptsRetrieved or
-        McpServerEventType.PromptsRetrievalFailed or
-        McpServerEventType.ResourcesRetrieving or
-        McpServerEventType.ResourcesRetrieved or
-        McpServerEventType.ResourcesRetrievalFailed => McpServerEventCategory.Metadata,
-
-        McpServerEventType.ToolInvocationAccepted or
-        McpServerEventType.ToolInvoking or
-        McpServerEventType.ToolInvoked or
-        McpServerEventType.ToolInvocationFailed => McpServerEventCategory.ToolInvocation,
-
-        _ => McpServerEventCategory.Lifecycle
-    };
-
-    private static string GetDescription(McpServerEventType eventType) => eventType switch
-    {
-        McpServerEventType.Starting => "Server is attempting to start.",
-        McpServerEventType.Started => "Server has successfully started.",
-        McpServerEventType.StartFailed => "Server failed to start.",
-        McpServerEventType.Stopping => "Server is attempting to stop.",
-        McpServerEventType.Stopped => "Server has successfully stopped.",
-        McpServerEventType.StopFailed => "Server failed to stop.",
-        McpServerEventType.ConfigurationCreated => "Server configuration was created.",
-        McpServerEventType.ConfigurationUpdated => "Server configuration was updated.",
-        McpServerEventType.ConfigurationDeleted => "Server configuration was deleted.",
-        McpServerEventType.ToolsRetrieving => "Tools retrieval is starting.",
-        McpServerEventType.ToolsRetrieved => "Tools were retrieved successfully.",
-        McpServerEventType.ToolsRetrievalFailed => "Tools retrieval failed.",
-        McpServerEventType.PromptsRetrieving => "Prompts retrieval is starting.",
-        McpServerEventType.PromptsRetrieved => "Prompts were retrieved successfully.",
-        McpServerEventType.PromptsRetrievalFailed => "Prompts retrieval failed.",
-        McpServerEventType.ResourcesRetrieving => "Resources retrieval is starting.",
-        McpServerEventType.ResourcesRetrieved => "Resources were retrieved successfully.",
-        McpServerEventType.ResourcesRetrievalFailed => "Resources retrieval failed.",
-        McpServerEventType.ToolInvocationAccepted => "Request to invoke a tool was accepted and queued.",
-        McpServerEventType.ToolInvoking => "Tool invocation is starting.",
-        McpServerEventType.ToolInvoked => "Tool was invoked successfully.",
-        McpServerEventType.ToolInvocationFailed => "Tool invocation failed.",
-        McpServerEventType.ServerCreated => "Server was created (registered in the system).",
-        McpServerEventType.ServerDeleted => "Server was deleted (removed from the system).",
-        _ => "Unknown event type."
-    };
 }

@@ -3,6 +3,9 @@ using System.Text.Json;
 using Ave.Extensions.Functional;
 using Core.Application.Events;
 using Core.Application.McpServers;
+using Core.Application.Requests;
+using Core.Domain.Events;
+using Core.Domain.Events.Payloads;
 using Core.Domain.McpServers;
 using Core.Domain.Models;
 using Microsoft.Extensions.Logging;
@@ -20,7 +23,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
 {
     private readonly IMcpServerRepository _repository;
     private readonly IMcpServerConnectionStatusCache _statusCache;
-    private readonly IEventPublisher<McpServerEvent> _eventPublisher;
+    private readonly IEventPublisher<Event> _eventPublisher;
     private readonly IMcpServerInstanceLogStore _logStore;
     private readonly ILogger<McpServerInstanceManager> _logger;
     private readonly McpServerHostingOptions _options;
@@ -31,7 +34,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
     public McpServerInstanceManager(
         IMcpServerRepository repository,
         IMcpServerConnectionStatusCache statusCache,
-        IEventPublisher<McpServerEvent> eventPublisher,
+        IEventPublisher<Event> eventPublisher,
         IMcpServerInstanceLogStore logStore,
         ILogger<McpServerInstanceManager> logger,
         IOptions<McpServerHostingOptions> options)
@@ -49,15 +52,17 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
     /// <inheritdoc />
     public async Task<Result<McpServerInstanceId, Error>> StartInstanceAsync(
         McpServerName serverName,
-        McpServerRequestId? requestId = null,
+        string? requestId = null,
         CancellationToken cancellationToken = default)
     {
         var serverId = _statusCache.GetOrCreateId(serverName);
         var instanceId = McpServerInstanceId.Create();
+        var target = TargetUri.McpServerInstance(serverName.Value, instanceId.Value);
+
 
         // Record starting event immediately
         _logger.LogDebug("Starting MCP server instance {InstanceId} for {ServerName}", instanceId.Value, serverName.Value);
-        PublishEvent(serverName, McpServerEventType.Starting, instanceId: instanceId, requestId: requestId);
+        _eventPublisher.Publish(EventFactory.Create(EventTypes.McpServer.Instance.Starting, target, requestId));
 
         try
         {
@@ -65,7 +70,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
             var definitionResult = _repository.GetById(serverName);
             if (definitionResult.IsFailure)
             {
-                PublishEvent(serverName, McpServerEventType.StartFailed, ToEventErrors(definitionResult.Error), instanceId, requestId);
+                _eventPublisher.Publish(EventFactory.Create(EventTypes.McpServer.Instance.StartFailed, target, ToErrorPayload(definitionResult.Error), requestId));
                 _statusCache.SetStatus(serverId, McpServerConnectionStatus.Failed);
                 return Result<McpServerInstanceId, Error>.Failure(definitionResult.Error);
             }
@@ -73,7 +78,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
             if (!definitionResult.Value.HasValue)
             {
                 var error = Errors.McpServerNotFound(serverName.Value);
-                PublishEvent(serverName, McpServerEventType.StartFailed, ToEventErrors(error), instanceId, requestId);
+                _eventPublisher.Publish(EventFactory.Create(EventTypes.McpServer.Instance.StartFailed, target, ToErrorPayload(error), requestId));
                 _statusCache.SetStatus(serverId, McpServerConnectionStatus.Failed);
                 return Result<McpServerInstanceId, Error>.Failure(error);
             }
@@ -84,12 +89,12 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
             if (!definition.HasConfiguration)
             {
                 var error = Errors.ConfigurationMissing(serverName.Value);
-                PublishEvent(serverName, McpServerEventType.StartFailed, ToEventErrors(error), instanceId, requestId);
+                _eventPublisher.Publish(EventFactory.Create(EventTypes.McpServer.Instance.StartFailed, target, ToErrorPayload(error), requestId));
                 _statusCache.SetStatus(serverId, McpServerConnectionStatus.Failed);
                 return Result<McpServerInstanceId, Error>.Failure(error);
             }
 
-            var startConfig = McpServerEventConfiguration.FromDefinition(definition);
+            var startConfig = new EventConfiguration(definition.Command!, definition.Args!, definition.Env!);
 
             // Create transport and connect
             var transportOptions = new StdioClientTransportOptions
@@ -114,7 +119,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to start MCP server instance {InstanceId} for {ServerName}", instanceId.Value, serverName.Value);
-                PublishEvent(serverName, McpServerEventType.StartFailed, ToEventErrors(ex), instanceId, requestId);
+                _eventPublisher.Publish(EventFactory.Create(EventTypes.McpServer.Instance.StartFailed, target, ToErrorPayload(ex), requestId));
                 _statusCache.SetStatus(serverId, McpServerConnectionStatus.Failed);
                 return Result<McpServerInstanceId, Error>.Failure(new Error(
                     ErrorCodes.ConfigFileReadError,
@@ -133,7 +138,11 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
             _instances[instanceId.Value] = instance;
 
             // Record started event with configuration
-            PublishEvent(serverName, McpServerEventType.Started, instanceId: instanceId, requestId: requestId, configuration: startConfig);
+            _eventPublisher.Publish(EventFactory.Create(
+                EventTypes.McpServer.Instance.Started,
+                target,
+                new InstanceStartedPayload(startConfig),
+                requestId));
             _statusCache.SetStatus(serverId, McpServerConnectionStatus.Verified);
             _logger.LogInformation("Started MCP server instance {InstanceId} for {ServerName}", instanceId.Value, serverName.Value);
 
@@ -151,7 +160,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error starting MCP server instance for {ServerName}", serverName.Value);
-            PublishEvent(serverName, McpServerEventType.StartFailed, ToEventErrors(ex), instanceId, requestId);
+            _eventPublisher.Publish(EventFactory.Create(EventTypes.McpServer.Instance.StartFailed, target, ToErrorPayload(ex), requestId));
             _statusCache.SetStatus(serverId, McpServerConnectionStatus.Failed);
             return Result<McpServerInstanceId, Error>.Failure(new Error(
                 ErrorCodes.ConfigFileReadError,
@@ -162,7 +171,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
     /// <inheritdoc />
     public async Task<Result<Unit, Error>> StopInstanceAsync(
         McpServerInstanceId instanceId,
-        McpServerRequestId? requestId = null,
+        string? requestId = null,
         CancellationToken cancellationToken = default)
     {
         if (!_instances.TryRemove(instanceId.Value, out var instance))
@@ -172,15 +181,18 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
                 $"Instance '{instanceId.Value}' not found"));
         }
 
+        var target = TargetUri.McpServerInstance(instance.ServerName.Value, instanceId.Value);
+
+
         try
         {
             _logger.LogDebug("Stopping MCP server instance {InstanceId} for {ServerName}", instanceId.Value, instance.ServerName.Value);
-            PublishEvent(instance.ServerName, McpServerEventType.Stopping, instanceId: instanceId, requestId: requestId);
+            _eventPublisher.Publish(EventFactory.Create(EventTypes.McpServer.Instance.Stopping, target, requestId));
 
             await instance.Client.DisposeAsync();
             _logStore.Remove(instanceId);
 
-            PublishEvent(instance.ServerName, McpServerEventType.Stopped, instanceId: instanceId, requestId: requestId);
+            _eventPublisher.Publish(EventFactory.Create(EventTypes.McpServer.Instance.Stopped, target, requestId));
             _logger.LogInformation("Stopped MCP server instance {InstanceId} for {ServerName}", instanceId.Value, instance.ServerName.Value);
 
             return Result<Unit, Error>.Success(Unit.Value);
@@ -188,7 +200,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error stopping MCP server instance {InstanceId}", instanceId.Value);
-            PublishEvent(instance.ServerName, McpServerEventType.StopFailed, ToEventErrors(ex), instanceId, requestId);
+            _eventPublisher.Publish(EventFactory.Create(EventTypes.McpServer.Instance.StopFailed, target, ToErrorPayload(ex), requestId));
             return Result<Unit, Error>.Failure(new Error(
                 ErrorCodes.ConfigFileWriteError,
                 $"Error stopping instance '{instanceId.Value}': {ex.Message}"));
@@ -246,7 +258,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
         McpServerInstanceId instanceId,
         string toolName,
         IReadOnlyDictionary<string, object?>? arguments,
-        McpServerRequestId? requestId = null,
+        string? requestId = null,
         CancellationToken cancellationToken = default)
     {
         // Get instance from dictionary, validate it exists
@@ -264,12 +276,17 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
                 $"Instance '{instanceId.Value}' does not belong to server '{serverName.Value}'"));
         }
 
+        var target = TargetUri.McpServerInstance(serverName.Value, instanceId.Value);
+
+
         // Record ToolInvoking event
         _logger.LogDebug("Invoking tool {ToolName} on instance {InstanceId}", toolName, instanceId.Value);
         var inputJson = arguments != null ? JsonSerializer.SerializeToElement(arguments) : (JsonElement?)null;
-        PublishEvent(serverName, McpServerEventType.ToolInvoking,
-            instanceId: instanceId, requestId: requestId,
-            toolInvocationData: new McpServerToolInvocationEventData(toolName, inputJson, null));
+        _eventPublisher.Publish(EventFactory.Create(
+            EventTypes.McpServer.ToolInvocation.Invoking,
+            target,
+            new ToolInvocationPayload(toolName, inputJson, null),
+            requestId));
 
         // Create a linked cancellation token with timeout
         using var timeoutCts = new CancellationTokenSource(_toolInvocationTimeout);
@@ -286,9 +303,11 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
 
             // Record ToolInvoked event
             var outputJson = JsonSerializer.SerializeToElement(result);
-            PublishEvent(serverName, McpServerEventType.ToolInvoked,
-                instanceId: instanceId, requestId: requestId,
-                toolInvocationData: new McpServerToolInvocationEventData(toolName, inputJson, outputJson));
+            _eventPublisher.Publish(EventFactory.Create(
+                EventTypes.McpServer.ToolInvocation.Invoked,
+                target,
+                new ToolInvocationPayload(toolName, inputJson, outputJson),
+                requestId));
 
             _logger.LogInformation("Tool {ToolName} invoked successfully on instance {InstanceId}", toolName, instanceId.Value);
             return Result<McpToolInvocationResult, Error>.Success(result);
@@ -298,10 +317,11 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
             // Timeout occurred (not external cancellation)
             _logger.LogWarning("Tool invocation timed out for {ToolName} on instance {InstanceId} after {Timeout}",
                 toolName, instanceId.Value, _toolInvocationTimeout);
-            PublishEvent(serverName, McpServerEventType.ToolInvocationFailed,
-                errors: [new McpServerEventError("TOOL_INVOCATION_TIMEOUT", $"Tool invocation timed out after {_toolInvocationTimeout.TotalSeconds} seconds")],
-                instanceId: instanceId, requestId: requestId,
-                toolInvocationData: new McpServerToolInvocationEventData(toolName, inputJson, null));
+            _eventPublisher.Publish(EventFactory.Create(
+                EventTypes.McpServer.ToolInvocation.Failed,
+                target,
+                new ErrorPayload([new EventError("TOOL_INVOCATION_TIMEOUT", $"Tool invocation timed out after {_toolInvocationTimeout.TotalSeconds} seconds")]),
+                requestId));
 
             return Result<McpToolInvocationResult, Error>.Failure(new Error(
                 ErrorCodes.ToolInvocationFailed,
@@ -311,10 +331,11 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
         {
             // External cancellation
             _logger.LogInformation("Tool invocation cancelled for {ToolName} on instance {InstanceId}", toolName, instanceId.Value);
-            PublishEvent(serverName, McpServerEventType.ToolInvocationFailed,
-                errors: [new McpServerEventError("TOOL_INVOCATION_CANCELLED", "Tool invocation was cancelled")],
-                instanceId: instanceId, requestId: requestId,
-                toolInvocationData: new McpServerToolInvocationEventData(toolName, inputJson, null));
+            _eventPublisher.Publish(EventFactory.Create(
+                EventTypes.McpServer.ToolInvocation.Failed,
+                target,
+                new ErrorPayload([new EventError("TOOL_INVOCATION_CANCELLED", "Tool invocation was cancelled")]),
+                requestId));
 
             return Result<McpToolInvocationResult, Error>.Failure(new Error(
                 ErrorCodes.ToolInvocationFailed,
@@ -324,10 +345,11 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
         {
             // Record ToolInvocationFailed event (MCP protocol error)
             _logger.LogWarning(ex, "Tool invocation failed for {ToolName} on instance {InstanceId}: MCP error", toolName, instanceId.Value);
-            PublishEvent(serverName, McpServerEventType.ToolInvocationFailed,
-                errors: ToEventErrors(ex),
-                instanceId: instanceId, requestId: requestId,
-                toolInvocationData: new McpServerToolInvocationEventData(toolName, inputJson, null));
+            _eventPublisher.Publish(EventFactory.Create(
+                EventTypes.McpServer.ToolInvocation.Failed,
+                target,
+                ToErrorPayload(ex),
+                requestId));
 
             return Result<McpToolInvocationResult, Error>.Failure(new Error(
                 ErrorCodes.ToolInvocationFailed,
@@ -337,10 +359,11 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
         {
             // Record ToolInvocationFailed event (unexpected error)
             _logger.LogError(ex, "Tool invocation failed for {ToolName} on instance {InstanceId}", toolName, instanceId.Value);
-            PublishEvent(serverName, McpServerEventType.ToolInvocationFailed,
-                errors: ToEventErrors(ex),
-                instanceId: instanceId, requestId: requestId,
-                toolInvocationData: new McpServerToolInvocationEventData(toolName, inputJson, null));
+            _eventPublisher.Publish(EventFactory.Create(
+                EventTypes.McpServer.ToolInvocation.Failed,
+                target,
+                ToErrorPayload(ex),
+                requestId));
 
             return Result<McpToolInvocationResult, Error>.Failure(new Error(
                 ErrorCodes.ToolInvocationFailed,
@@ -354,7 +377,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
         McpServerInstanceId instanceId,
         string promptName,
         IReadOnlyDictionary<string, string?>? arguments,
-        McpServerRequestId? requestId = null,
+        string? requestId = null,
         CancellationToken cancellationToken = default)
     {
         // Get instance from dictionary, validate it exists
@@ -555,7 +578,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
         McpServerName serverName,
         McpServerInstanceId instanceId,
         string resourceUri,
-        McpServerRequestId? requestId = null,
+        string? requestId = null,
         CancellationToken cancellationToken = default)
     {
         if (!_instances.TryGetValue(instanceId.Value, out var instance))
@@ -716,7 +739,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
     public async Task<Result<McpServerMetadata, Error>> RefreshMetadataAsync(
         McpServerName serverName,
         McpServerInstanceId instanceId,
-        McpServerRequestId? requestId = null,
+        string? requestId = null,
         CancellationToken cancellationToken = default)
     {
         if (!_instances.TryGetValue(instanceId.Value, out var instance))
@@ -782,10 +805,12 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
         McpClient client,
         McpServerName serverName,
         McpServerInstanceId instanceId,
-        McpServerRequestId? requestId,
+        string? requestId,
         CancellationToken cancellationToken)
     {
         _logger.LogDebug("Retrieving metadata for MCP server {ServerName}", serverName.Value);
+
+        var target = TargetUri.McpServerInstance(serverName.Value, instanceId.Value);
 
         var errors = new List<McpServerMetadataError>();
         IReadOnlyList<McpTool>? tools = null;
@@ -793,7 +818,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
         IReadOnlyList<McpResource>? resources = null;
 
         // Retrieve tools
-        PublishEvent(serverName, McpServerEventType.ToolsRetrieving, instanceId: instanceId, requestId: requestId);
+        _eventPublisher.Publish(EventFactory.Create(EventTypes.McpServer.Metadata.Tools.Retrieving, target, requestId));
         try
         {
             var mcpTools = await client.ListToolsAsync(cancellationToken: cancellationToken);
@@ -803,18 +828,21 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
                 t.Description,
                 t.ProtocolTool.InputSchema.ToString())).ToList().AsReadOnly();
             _logger.LogDebug("Retrieved {Count} tools from MCP server {ServerName}", tools.Count, serverName.Value);
-            PublishEvent(serverName, McpServerEventType.ToolsRetrieved, instanceId: instanceId, requestId: requestId);
+            _eventPublisher.Publish(EventFactory.Create(EventTypes.McpServer.Metadata.Tools.Retrieved, target, requestId));
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to retrieve tools from MCP server {ServerName}", serverName.Value);
             errors.Add(new McpServerMetadataError("Tools", ex.Message));
-            PublishEvent(serverName, McpServerEventType.ToolsRetrievalFailed,
-                [new McpServerEventError("Tools", ex.Message)], instanceId, requestId);
+            _eventPublisher.Publish(EventFactory.Create(
+                EventTypes.McpServer.Metadata.Tools.RetrievalFailed,
+                target,
+                new ErrorPayload([new EventError("Tools", ex.Message)]),
+                requestId));
         }
 
         // Retrieve prompts
-        PublishEvent(serverName, McpServerEventType.PromptsRetrieving, instanceId: instanceId, requestId: requestId);
+        _eventPublisher.Publish(EventFactory.Create(EventTypes.McpServer.Metadata.Prompts.Retrieving, target, requestId));
         try
         {
             var mcpPrompts = await client.ListPromptsAsync(cancellationToken: cancellationToken);
@@ -827,18 +855,21 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
                     a.Description,
                     a.Required ?? false)).ToList().AsReadOnly())).ToList().AsReadOnly();
             _logger.LogDebug("Retrieved {Count} prompts from MCP server {ServerName}", prompts.Count, serverName.Value);
-            PublishEvent(serverName, McpServerEventType.PromptsRetrieved, instanceId: instanceId, requestId: requestId);
+            _eventPublisher.Publish(EventFactory.Create(EventTypes.McpServer.Metadata.Prompts.Retrieved, target, requestId));
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to retrieve prompts from MCP server {ServerName}", serverName.Value);
             errors.Add(new McpServerMetadataError("Prompts", ex.Message));
-            PublishEvent(serverName, McpServerEventType.PromptsRetrievalFailed,
-                [new McpServerEventError("Prompts", ex.Message)], instanceId, requestId);
+            _eventPublisher.Publish(EventFactory.Create(
+                EventTypes.McpServer.Metadata.Prompts.RetrievalFailed,
+                target,
+                new ErrorPayload([new EventError("Prompts", ex.Message)]),
+                requestId));
         }
 
         // Retrieve resources
-        PublishEvent(serverName, McpServerEventType.ResourcesRetrieving, instanceId: instanceId, requestId: requestId);
+        _eventPublisher.Publish(EventFactory.Create(EventTypes.McpServer.Metadata.Resources.Retrieving, target, requestId));
         try
         {
             var mcpResources = await client.ListResourcesAsync(cancellationToken: cancellationToken);
@@ -849,14 +880,17 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
                 r.Description,
                 r.MimeType)).ToList().AsReadOnly();
             _logger.LogDebug("Retrieved {Count} resources from MCP server {ServerName}", resources.Count, serverName.Value);
-            PublishEvent(serverName, McpServerEventType.ResourcesRetrieved, instanceId: instanceId, requestId: requestId);
+            _eventPublisher.Publish(EventFactory.Create(EventTypes.McpServer.Metadata.Resources.Retrieved, target, requestId));
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to retrieve resources from MCP server {ServerName}", serverName.Value);
             errors.Add(new McpServerMetadataError("Resources", ex.Message));
-            PublishEvent(serverName, McpServerEventType.ResourcesRetrievalFailed,
-                [new McpServerEventError("Resources", ex.Message)], instanceId, requestId);
+            _eventPublisher.Publish(EventFactory.Create(
+                EventTypes.McpServer.Metadata.Resources.RetrievalFailed,
+                target,
+                new ErrorPayload([new EventError("Resources", ex.Message)]),
+                requestId));
         }
 
         // Create metadata
@@ -879,38 +913,14 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
         return metadata;
     }
 
-    private static IReadOnlyList<McpServerEventError> ToEventErrors(Error error)
+    private static ErrorPayload ToErrorPayload(Error error)
     {
-        return [new McpServerEventError(error.Code.Value, error.Message)];
+        return new ErrorPayload([new EventError(error.Code.Value, error.Message)]);
     }
 
-    private static IReadOnlyList<McpServerEventError> ToEventErrors(Exception ex)
+    private static ErrorPayload ToErrorPayload(Exception ex)
     {
-        return [new McpServerEventError(ex.GetType().Name, ex.Message)];
-    }
-
-    private void PublishEvent(
-        McpServerName serverName,
-        McpServerEventType eventType,
-        IReadOnlyList<McpServerEventError>? errors = null,
-        McpServerInstanceId? instanceId = null,
-        McpServerRequestId? requestId = null,
-        McpServerEventConfiguration? oldConfiguration = null,
-        McpServerEventConfiguration? configuration = null,
-        McpServerToolInvocationEventData? toolInvocationData = null)
-    {
-        var @event = new McpServerEvent(
-            serverName,
-            eventType,
-            DateTime.UtcNow,
-            errors,
-            instanceId,
-            requestId,
-            oldConfiguration,
-            configuration,
-            toolInvocationData);
-
-        _eventPublisher.Publish(@event);
+        return new ErrorPayload([new EventError(ex.GetType().Name, ex.Message)]);
     }
 
     /// <summary>
@@ -923,7 +933,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
         public McpServerId ServerId { get; }
         public McpClient Client { get; }
         public DateTime StartedAtUtc { get; }
-        public McpServerEventConfiguration? Configuration { get; }
+        public EventConfiguration? Configuration { get; }
         public McpServerMetadata? Metadata { get; set; }
 
         public ManagedMcpServerInstance(
@@ -932,7 +942,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
             McpServerId serverId,
             McpClient client,
             DateTime startedAtUtc,
-            McpServerEventConfiguration? configuration)
+            EventConfiguration? configuration)
         {
             InstanceId = instanceId;
             ServerName = serverName;

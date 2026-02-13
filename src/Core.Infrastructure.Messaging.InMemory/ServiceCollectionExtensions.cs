@@ -1,5 +1,5 @@
-using Core.Application.McpServers;
-using Core.Domain.McpServers;
+using Core.Application.Events;
+using Core.Domain.Events;
 using Core.Infrastructure.Messaging;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,14 +22,14 @@ public static class ServiceCollectionExtensions
         IConfiguration configuration)
     {
         // Add event publisher infrastructure
-        services.AddEventPublisher<McpServerEvent>(configuration);
+        services.AddEventPublisher<Event>(configuration);
 
         // Register event store
         services.AddSingleton<EventStore>();
         services.AddSingleton<IEventStore>(sp => sp.GetRequiredService<EventStore>());
 
         // Register event store handler (with its own queue)
-        services.AddEventHandler<McpServerEvent, EventStoreHandler>();
+        services.AddEventHandler<Event, EventStoreHandler>();
 
         return services;
     }

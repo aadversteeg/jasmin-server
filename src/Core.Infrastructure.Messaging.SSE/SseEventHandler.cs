@@ -1,9 +1,9 @@
 using Core.Application.Events;
-using Core.Domain.McpServers;
+using Core.Domain.Events;
 
 namespace Core.Infrastructure.Messaging.SSE;
 
-public class SseEventHandler : IEventHandler<McpServerEvent>
+public class SseEventHandler : IEventHandler<Event>
 {
     private readonly SseClientManager _clientManager;
 
@@ -12,7 +12,7 @@ public class SseEventHandler : IEventHandler<McpServerEvent>
         _clientManager = clientManager;
     }
 
-    public Task HandleAsync(McpServerEvent @event, CancellationToken cancellationToken)
+    public Task HandleAsync(Event @event, CancellationToken cancellationToken)
     {
         _clientManager.Broadcast(@event);
         return Task.CompletedTask;

@@ -16,17 +16,12 @@ public static class ErrorCodes
     public static readonly ErrorCode InvalidIncludeOption = new("INVALID_INCLUDE_OPTION");
     public static readonly ErrorCode InvalidInstanceIncludeOption = new("INVALID_INSTANCE_INCLUDE_OPTION");
     public static readonly ErrorCode InvalidRequestAction = new("INVALID_REQUEST_ACTION");
-    public static readonly ErrorCode InstanceIdRequiredForStop = new("INSTANCE_ID_REQUIRED_FOR_STOP");
     public static readonly ErrorCode InvalidPage = new("INVALID_PAGE");
     public static readonly ErrorCode InvalidPageSize = new("INVALID_PAGE_SIZE");
     public static readonly ErrorCode ConfigurationRequired = new("CONFIGURATION_REQUIRED");
     public static readonly ErrorCode ConfigurationMissing = new("CONFIGURATION_MISSING");
     public static readonly ErrorCode ToolNameRequired = new("TOOL_NAME_REQUIRED");
     public static readonly ErrorCode ToolInvocationFailed = new("TOOL_INVOCATION_FAILED");
-    public static readonly ErrorCode InstanceIdRequiredForInvokeTool = new("INSTANCE_ID_REQUIRED_FOR_INVOKE_TOOL");
-    public static readonly ErrorCode InstanceIdRequiredForGetPrompt = new("INSTANCE_ID_REQUIRED_FOR_GET_PROMPT");
     public static readonly ErrorCode PromptNameRequired = new("PROMPT_NAME_REQUIRED");
-    public static readonly ErrorCode InstanceIdRequiredForReadResource = new("INSTANCE_ID_REQUIRED_FOR_READ_RESOURCE");
     public static readonly ErrorCode ResourceUriRequired = new("RESOURCE_URI_REQUIRED");
-    public static readonly ErrorCode InstanceIdRequiredForRefreshMetadata = new("INSTANCE_ID_REQUIRED_FOR_REFRESH_METADATA");
 }

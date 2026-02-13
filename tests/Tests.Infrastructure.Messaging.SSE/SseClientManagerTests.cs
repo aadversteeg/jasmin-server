@@ -1,4 +1,4 @@
-using Core.Domain.McpServers;
+using Core.Domain.Events;
 using Core.Infrastructure.Messaging.SSE;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
@@ -91,16 +91,18 @@ public class SseClientManagerTests
     {
         var clientId1 = _sseClientManager.RegisterClient();
         var clientId2 = _sseClientManager.RegisterClient();
-        var serverName = McpServerName.Create("test-server").Value;
-        var @event = new McpServerEvent(serverName, McpServerEventType.Started, DateTime.UtcNow);
+        var @event = new Event(
+            EventTypes.McpServer.Instance.Started,
+            "mcp-servers/test-server",
+            DateTime.UtcNow);
 
         _sseClientManager.Broadcast(@event);
 
         using var cts1 = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
         using var cts2 = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
 
-        var events1 = new List<McpServerEvent>();
-        var events2 = new List<McpServerEvent>();
+        var events1 = new List<Event>();
+        var events2 = new List<Event>();
 
         try
         {
@@ -123,16 +125,18 @@ public class SseClientManagerTests
         catch (OperationCanceledException) { }
 
         events1.Should().HaveCount(1);
-        events1[0].ServerName.Should().Be(serverName);
+        events1[0].Target.Should().Be("mcp-servers/test-server");
         events2.Should().HaveCount(1);
-        events2[0].ServerName.Should().Be(serverName);
+        events2[0].Target.Should().Be("mcp-servers/test-server");
     }
 
     [Fact(DisplayName = "SCM-008: Broadcast with no clients should not throw")]
     public void SCM008()
     {
-        var serverName = McpServerName.Create("test-server").Value;
-        var @event = new McpServerEvent(serverName, McpServerEventType.Started, DateTime.UtcNow);
+        var @event = new Event(
+            EventTypes.McpServer.Instance.Started,
+            "mcp-servers/test-server",
+            DateTime.UtcNow);
 
         var action = () => _sseClientManager.Broadcast(@event);
 
@@ -152,14 +156,13 @@ public class SseClientManagerTests
     public async Task SCM010()
     {
         var clientId = _sseClientManager.RegisterClient(channelCapacity: 2);
-        var serverName = McpServerName.Create("test-server").Value;
 
         // Broadcast 3 events but capacity is only 2
-        _sseClientManager.Broadcast(new McpServerEvent(serverName, McpServerEventType.Starting, DateTime.UtcNow));
-        _sseClientManager.Broadcast(new McpServerEvent(serverName, McpServerEventType.Started, DateTime.UtcNow));
-        _sseClientManager.Broadcast(new McpServerEvent(serverName, McpServerEventType.Stopping, DateTime.UtcNow));
+        _sseClientManager.Broadcast(new Event(EventTypes.McpServer.Instance.Starting, "mcp-servers/test-server", DateTime.UtcNow));
+        _sseClientManager.Broadcast(new Event(EventTypes.McpServer.Instance.Started, "mcp-servers/test-server", DateTime.UtcNow));
+        _sseClientManager.Broadcast(new Event(EventTypes.McpServer.Instance.Stopping, "mcp-servers/test-server", DateTime.UtcNow));
 
-        var events = new List<McpServerEvent>();
+        var events = new List<Event>();
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
 
         try
@@ -173,7 +176,7 @@ public class SseClientManagerTests
 
         // Should have 2 events (oldest was dropped)
         events.Should().HaveCount(2);
-        events[0].EventType.Should().Be(McpServerEventType.Started);
-        events[1].EventType.Should().Be(McpServerEventType.Stopping);
+        events[0].Type.Should().Be(EventTypes.McpServer.Instance.Started);
+        events[1].Type.Should().Be(EventTypes.McpServer.Instance.Stopping);
     }
 }

@@ -1,14 +1,13 @@
+using System.Text.Json;
+
 namespace Core.Infrastructure.WebApp.Models.McpServers;
 
 /// <summary>
-/// Response model for an MCP server event.
+/// Response model for an event.
 /// </summary>
 public record EventResponse(
-    string ServerName,
     string EventType,
+    string Target,
     string Timestamp,
-    IReadOnlyList<EventErrorResponse>? Errors,
-    string? InstanceId,
-    string? RequestId,
-    EventConfigurationResponse? OldConfiguration = null,
-    EventConfigurationResponse? Configuration = null);
+    JsonElement? Payload,
+    string? RequestId);

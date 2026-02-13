@@ -1,4 +1,4 @@
-using Core.Domain.McpServers;
+using Core.Domain.Events;
 using Core.Infrastructure.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -9,7 +9,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddSseEventStreaming(this IServiceCollection services)
     {
         services.AddSingleton<SseClientManager>();
-        services.AddEventHandler<McpServerEvent, SseEventHandler>();
+        services.AddEventHandler<Event, SseEventHandler>();
         return services;
     }
 }

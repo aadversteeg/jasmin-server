@@ -1,6 +1,8 @@
 using Ave.Extensions.Functional;
+using Ave.Extensions.Functional;
 using Core.Application.Events;
 using Core.Application.McpServers;
+using Core.Domain.Events;
 using Core.Domain.McpServers;
 using Core.Domain.Models;
 using FluentAssertions;
@@ -13,14 +15,14 @@ public class McpServerServiceTests
 {
     private readonly Mock<IMcpServerRepository> _mockRepository;
     private readonly Mock<IMcpServerConnectionStatusCache> _mockStatusCache;
-    private readonly Mock<IEventPublisher<McpServerEvent>> _mockEventPublisher;
+    private readonly Mock<IEventPublisher<Event>> _mockEventPublisher;
     private readonly McpServerService _service;
 
     public McpServerServiceTests()
     {
         _mockRepository = new Mock<IMcpServerRepository>();
         _mockStatusCache = new Mock<IMcpServerConnectionStatusCache>();
-        _mockEventPublisher = new Mock<IEventPublisher<McpServerEvent>>();
+        _mockEventPublisher = new Mock<IEventPublisher<Event>>();
         _service = new McpServerService(_mockRepository.Object, _mockStatusCache.Object, _mockEventPublisher.Object);
     }
 

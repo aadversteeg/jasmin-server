@@ -1,13 +1,13 @@
 using System.Collections.Concurrent;
 using System.Threading.Channels;
-using Core.Domain.McpServers;
+using Core.Domain.Events;
 using Microsoft.Extensions.Logging;
 
 namespace Core.Infrastructure.Messaging.SSE;
 
 public class SseClientManager
 {
-    private readonly ConcurrentDictionary<Guid, Channel<McpServerEvent>> _clients = new();
+    private readonly ConcurrentDictionary<Guid, Channel<Event>> _clients = new();
     private readonly ILogger<SseClientManager> _logger;
 
     public SseClientManager(ILogger<SseClientManager> logger)
@@ -18,7 +18,7 @@ public class SseClientManager
     public Guid RegisterClient(int channelCapacity = 100)
     {
         var clientId = Guid.NewGuid();
-        var channel = Channel.CreateBounded<McpServerEvent>(new BoundedChannelOptions(channelCapacity)
+        var channel = Channel.CreateBounded<Event>(new BoundedChannelOptions(channelCapacity)
         {
             FullMode = BoundedChannelFullMode.DropOldest,
             SingleReader = true,
@@ -38,7 +38,7 @@ public class SseClientManager
         }
     }
 
-    public IAsyncEnumerable<McpServerEvent> GetEventsAsync(Guid clientId, CancellationToken cancellationToken)
+    public IAsyncEnumerable<Event> GetEventsAsync(Guid clientId, CancellationToken cancellationToken)
     {
         if (_clients.TryGetValue(clientId, out var channel))
         {
@@ -47,7 +47,7 @@ public class SseClientManager
         throw new InvalidOperationException($"Client {clientId} not found");
     }
 
-    public void Broadcast(McpServerEvent @event)
+    public void Broadcast(Event @event)
     {
         foreach (var (clientId, channel) in _clients)
         {

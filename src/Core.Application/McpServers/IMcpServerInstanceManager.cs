@@ -18,7 +18,7 @@ public interface IMcpServerInstanceManager
     /// <returns>A result containing the instance ID if successful, or an error.</returns>
     Task<Result<McpServerInstanceId, Error>> StartInstanceAsync(
         McpServerName serverName,
-        McpServerRequestId? requestId = null,
+        string? requestId = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -30,7 +30,7 @@ public interface IMcpServerInstanceManager
     /// <returns>A result indicating success or failure.</returns>
     Task<Result<Unit, Error>> StopInstanceAsync(
         McpServerInstanceId instanceId,
-        McpServerRequestId? requestId = null,
+        string? requestId = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -75,7 +75,7 @@ public interface IMcpServerInstanceManager
         McpServerInstanceId instanceId,
         string toolName,
         IReadOnlyDictionary<string, object?>? arguments,
-        McpServerRequestId? requestId = null,
+        string? requestId = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -93,7 +93,7 @@ public interface IMcpServerInstanceManager
         McpServerInstanceId instanceId,
         string promptName,
         IReadOnlyDictionary<string, string?>? arguments,
-        McpServerRequestId? requestId = null,
+        string? requestId = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -109,7 +109,7 @@ public interface IMcpServerInstanceManager
         McpServerName serverName,
         McpServerInstanceId instanceId,
         string resourceUri,
-        McpServerRequestId? requestId = null,
+        string? requestId = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -138,6 +138,6 @@ public interface IMcpServerInstanceManager
     Task<Result<McpServerMetadata, Error>> RefreshMetadataAsync(
         McpServerName serverName,
         McpServerInstanceId instanceId,
-        McpServerRequestId? requestId = null,
+        string? requestId = null,
         CancellationToken cancellationToken = default);
 }

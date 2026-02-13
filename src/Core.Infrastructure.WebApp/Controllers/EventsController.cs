@@ -1,7 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
-using Core.Application.McpServers;
-using Core.Domain.McpServers;
+using Core.Application.Events;
+using Core.Domain.Events;
 using Core.Domain.Paging;
 using Core.Infrastructure.Messaging.SSE;
 using Core.Infrastructure.ModelContextProtocol.InMemory;
@@ -42,8 +42,8 @@ public class EventsController : ControllerBase
     /// <summary>
     /// Gets events with optional paging, filtering, and sorting.
     /// </summary>
-    /// <param name="serverName">Optional filter by server name.</param>
-    /// <param name="instanceId">Optional filter by instance ID.</param>
+    /// <param name="target">Optional filter by target URI prefix (e.g. 'mcp-servers/my-server').</param>
+    /// <param name="eventType">Optional filter by event type (e.g. 'mcp-server.instance.started').</param>
     /// <param name="requestId">Optional filter by request ID.</param>
     /// <param name="timeZone">Optional timezone for timestamps. Defaults to configured timezone or UTC.</param>
     /// <param name="page">Page number (1-based). Default: 1.</param>
@@ -56,8 +56,8 @@ public class EventsController : ControllerBase
     [ProducesResponseType(typeof(PagedResponse<EventResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public IActionResult GetEvents(
-        [FromQuery] string? serverName = null,
-        [FromQuery] string? instanceId = null,
+        [FromQuery] string? target = null,
+        [FromQuery] string? eventType = null,
         [FromQuery] string? requestId = null,
         [FromQuery] string? timeZone = null,
         [FromQuery] int page = 1,
@@ -78,27 +78,12 @@ public class EventsController : ControllerBase
             return BadRequest(ErrorResponse.FromError(pagingResult.Error));
         }
 
-        McpServerName? serverNameFilter = null;
-        if (!string.IsNullOrEmpty(serverName))
-        {
-            var serverNameResult = McpServerName.Create(serverName);
-            if (serverNameResult.IsFailure)
-            {
-                return BadRequest(ErrorResponse.FromError(serverNameResult.Error));
-            }
-            serverNameFilter = serverNameResult.Value;
-        }
+        var targetFilter = string.IsNullOrEmpty(target) ? null : target;
 
-        McpServerInstanceId? instanceIdFilter = null;
-        if (!string.IsNullOrEmpty(instanceId))
+        EventType? eventTypeFilter = null;
+        if (!string.IsNullOrEmpty(eventType))
         {
-            instanceIdFilter = McpServerInstanceId.From(instanceId);
-        }
-
-        McpServerRequestId? requestIdFilter = null;
-        if (!string.IsNullOrEmpty(requestId))
-        {
-            requestIdFilter = McpServerRequestId.From(requestId);
+            eventTypeFilter = new EventType(eventType);
         }
 
         var dateFilter = new DateRangeFilter(from, to);
@@ -108,9 +93,9 @@ public class EventsController : ControllerBase
 
         var pagedEvents = _eventStore.GetEvents(
             pagingResult.Value,
-            serverNameFilter,
-            instanceIdFilter,
-            requestIdFilter,
+            targetFilter,
+            eventTypeFilter,
+            requestId,
             dateFilter,
             sortDir);
 
@@ -122,7 +107,7 @@ public class EventsController : ControllerBase
     /// Streams events using Server-Sent Events (SSE).
     /// Supports reconnection via Last-Event-ID header or lastEventId query parameter to replay missed events.
     /// </summary>
-    /// <param name="serverName">Optional filter by server name.</param>
+    /// <param name="target">Optional filter by target URI prefix (e.g. 'mcp-servers/my-server').</param>
     /// <param name="timeZone">Optional timezone for timestamps. Defaults to configured timezone or UTC.</param>
     /// <param name="lastEventId">Optional last event ID for reconnection. If provided, events after this ID will be replayed. The Last-Event-ID header takes precedence if both are provided.</param>
     /// <param name="cancellationToken">Cancellation token for the stream.</param>
@@ -132,7 +117,7 @@ public class EventsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task StreamEvents(
-        [FromQuery] string? serverName = null,
+        [FromQuery] string? target = null,
         [FromQuery] string? timeZone = null,
         [FromQuery] string? lastEventId = null,
         CancellationToken cancellationToken = default)
@@ -142,18 +127,6 @@ public class EventsController : ControllerBase
         {
             Response.StatusCode = StatusCodes.Status400BadRequest;
             return;
-        }
-
-        McpServerName? serverNameFilter = null;
-        if (!string.IsNullOrEmpty(serverName))
-        {
-            var serverNameResult = McpServerName.Create(serverName);
-            if (serverNameResult.IsFailure)
-            {
-                Response.StatusCode = StatusCodes.Status400BadRequest;
-                return;
-            }
-            serverNameFilter = serverNameResult.Value;
         }
 
         // Check for Last-Event-ID header first, then query parameter for reconnection
@@ -181,7 +154,7 @@ public class EventsController : ControllerBase
             {
                 var missedEvents = _eventStore.GetEventsAfter(
                     lastEventTimestamp.Value,
-                    serverNameFilter);
+                    target);
 
                 foreach (var @event in missedEvents)
                 {
@@ -192,7 +165,7 @@ public class EventsController : ControllerBase
             // Stream live events
             await foreach (var @event in _sseClientManager.GetEventsAsync(clientId, cancellationToken))
             {
-                if (serverNameFilter != null && @event.ServerName != serverNameFilter)
+                if (target != null && !MatchesTargetPrefix(@event.Target, target))
                 {
                     continue;
                 }
@@ -207,7 +180,7 @@ public class EventsController : ControllerBase
     }
 
     private async Task SendSseEventAsync(
-        McpServerEvent @event,
+        Event @event,
         TimeZoneInfo timeZone,
         CancellationToken cancellationToken)
     {
@@ -216,7 +189,7 @@ public class EventsController : ControllerBase
         var eventId = @event.TimestampUtc.ToString("o");
 
         await Response.WriteAsync($"id: {eventId}\n", cancellationToken);
-        await Response.WriteAsync($"event: mcp-server-event\n", cancellationToken);
+        await Response.WriteAsync($"event: {@event.Type.Value}\n", cancellationToken);
         await Response.WriteAsync($"data: {json}\n\n", cancellationToken);
         await Response.Body.FlushAsync(cancellationToken);
     }
@@ -249,5 +222,11 @@ public class EventsController : ControllerBase
         {
             return null;
         }
+    }
+
+    private static bool MatchesTargetPrefix(string eventTarget, string filter)
+    {
+        return eventTarget.Equals(filter, StringComparison.OrdinalIgnoreCase)
+            || eventTarget.StartsWith(filter + "/", StringComparison.OrdinalIgnoreCase);
     }
 }

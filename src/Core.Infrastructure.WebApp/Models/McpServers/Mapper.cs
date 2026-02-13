@@ -1,16 +1,14 @@
 using Ave.Extensions.Functional;
 using Core.Application.McpServers;
+using Core.Domain.Events;
 using Core.Domain.McpServers;
 using Core.Domain.Models;
 using Core.Domain.Paging;
 using Core.Infrastructure.WebApp.Models.McpServers.Instances;
 using Core.Infrastructure.WebApp.Models.McpServers.Prompts;
-using Core.Infrastructure.WebApp.Models.McpServers.Requests;
 using Core.Infrastructure.WebApp.Models.McpServers.Resources;
 using Core.Infrastructure.WebApp.Models.McpServers.Tools;
 using Core.Infrastructure.WebApp.Models.Paging;
-
-using McpServerEvent = Core.Domain.McpServers.McpServerEvent;
 
 namespace Core.Infrastructure.WebApp.Models.McpServers;
 
@@ -43,7 +41,6 @@ public static class Mapper
         McpServerStatusCacheEntry statusEntry,
         TimeZoneInfo timeZone,
         McpServerDefinition? definition = null,
-        IReadOnlyList<McpServerRequest>? requests = null,
         IReadOnlyList<McpServerInstanceInfo>? instances = null,
         McpServerMetadata? metadata = null,
         bool includeTools = false,
@@ -56,12 +53,6 @@ public static class Mapper
         if (definition != null && definition.HasConfiguration)
         {
             configuration = ToConfigurationResponse(definition);
-        }
-
-        IReadOnlyList<RequestResponse>? requestResponses = null;
-        if (requests != null)
-        {
-            requestResponses = requests.Select(r => RequestMapper.ToResponse(r, timeZone)).ToList().AsReadOnly();
         }
 
         IReadOnlyList<InstanceResponse>? instanceResponses = null;
@@ -93,7 +84,6 @@ public static class Mapper
             statusEntry.Status.ToString().ToLowerInvariant(),
             updatedOn,
             configuration,
-            requestResponses,
             instanceResponses,
             toolResponses,
             promptResponses,
@@ -112,33 +102,16 @@ public static class Mapper
             configuration);
     }
 
-    public static EventResponse ToEventResponse(McpServerEvent source, TimeZoneInfo timeZone)
+    public static EventResponse ToEventResponse(Event source, TimeZoneInfo timeZone)
     {
         var timestamp = FormatTimestamp(source.TimestampUtc, timeZone)!;
-        var errors = source.Errors?.Select(e => new EventErrorResponse(e.Code, e.Message)).ToList().AsReadOnly();
-        var oldConfig = ToEventConfigurationResponse(source.OldConfiguration);
-        var config = ToEventConfigurationResponse(source.Configuration);
 
         return new(
-            source.ServerName.Value,
-            source.EventType.ToString(),
+            source.Type.Value,
+            source.Target,
             timestamp,
-            errors,
-            source.InstanceId?.Value,
-            source.RequestId?.Value,
-            oldConfig,
-            config);
-    }
-
-    private static EventConfigurationResponse? ToEventConfigurationResponse(
-        Core.Domain.McpServers.McpServerEventConfiguration? source)
-    {
-        if (source == null)
-        {
-            return null;
-        }
-
-        return new EventConfigurationResponse(source.Command, source.Args, source.Env);
+            source.Payload,
+            source.RequestId);
     }
 
     public static Result<McpServerDefinition, Error> ToDomain(CreateRequest request)
@@ -167,7 +140,7 @@ public static class Mapper
             (request.Env ?? new Dictionary<string, string>()).AsReadOnly()));
 
     public static PagedResponse<EventResponse> ToPagedResponse(
-        PagedResult<McpServerEvent> source,
+        PagedResult<Event> source,
         TimeZoneInfo timeZone)
     {
         var items = source.Items.Select(e => ToEventResponse(e, timeZone)).ToList().AsReadOnly();

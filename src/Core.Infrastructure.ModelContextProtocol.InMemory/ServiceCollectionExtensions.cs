@@ -1,4 +1,6 @@
 using Core.Application.McpServers;
+using Core.Application.Requests;
+using Core.Infrastructure.ModelContextProtocol.InMemory.Requests;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -9,6 +11,20 @@ namespace Core.Infrastructure.ModelContextProtocol.InMemory;
 /// </summary>
 public static class ServiceCollectionExtensions
 {
+    /// <summary>
+    /// Adds generic request processing infrastructure (store, queue, processor).
+    /// Call <c>AddRequestHandlers()</c> on the Hosting project to register handlers.
+    /// </summary>
+    /// <param name="services">The service collection.</param>
+    /// <returns>The service collection for chaining.</returns>
+    public static IServiceCollection AddRequestProcessing(this IServiceCollection services)
+    {
+        services.AddSingleton<IRequestStore, RequestStore>();
+        services.AddSingleton<IRequestQueue, RequestQueue>();
+        services.AddHostedService<RequestProcessorService>();
+        return services;
+    }
+
     /// <summary>
     /// Adds MCP server connection status caching and initialization.
     /// </summary>
@@ -32,13 +48,6 @@ public static class ServiceCollectionExtensions
 
         // Register the initialization background service
         services.AddHostedService<McpServerConnectionInitializationService>();
-
-        // Register request store and queue (singletons for shared state)
-        services.AddSingleton<IMcpServerRequestStore, McpServerRequestStore>();
-        services.AddSingleton<IMcpServerRequestQueue, McpServerRequestQueue>();
-
-        // Register the request processor background service
-        services.AddHostedService<McpServerRequestProcessorService>();
 
         // Register instance log store (singleton for shared state)
         services.AddSingleton<IMcpServerInstanceLogStore, McpServerInstanceLogStore>();

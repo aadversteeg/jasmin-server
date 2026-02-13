@@ -35,7 +35,7 @@ public static class Errors
 
     public static Error InvalidIncludeOption(string option) => new(
         ErrorCodes.InvalidIncludeOption,
-        $"Invalid value for include option: '{option}'. Valid options are: configuration, events, requests, instances, tools, prompts, resources, all");
+        $"Invalid value for include option: '{option}'. Valid options are: configuration, instances, tools, prompts, resources, all");
 
     public static Error InvalidInstanceIncludeOption(string option) => new(
         ErrorCodes.InvalidInstanceIncludeOption,
@@ -47,39 +47,19 @@ public static class Errors
 
     public static Error InvalidRequestAction(string action) => new(
         ErrorCodes.InvalidRequestAction,
-        $"Invalid request action: '{action}'. Valid actions are: start, stop, invokeTool, getPrompt, readResource, refreshMetadata");
-
-    public static readonly Error InstanceIdRequiredForStop = new(
-        ErrorCodes.InstanceIdRequiredForStop,
-        "InstanceId is required for stop action.");
-
-    public static readonly Error InstanceIdRequiredForInvokeTool = new(
-        ErrorCodes.InstanceIdRequiredForInvokeTool,
-        "InstanceId is required for invokeTool action.");
+        $"Invalid request action: '{action}'.");
 
     public static readonly Error ToolNameRequired = new(
         ErrorCodes.ToolNameRequired,
-        "ToolName is required for invokeTool action.");
-
-    public static readonly Error InstanceIdRequiredForGetPrompt = new(
-        ErrorCodes.InstanceIdRequiredForGetPrompt,
-        "InstanceId is required for getPrompt action.");
+        "ToolName is required for invoke-tool action.");
 
     public static readonly Error PromptNameRequired = new(
         ErrorCodes.PromptNameRequired,
-        "PromptName is required for getPrompt action.");
-
-    public static readonly Error InstanceIdRequiredForReadResource = new(
-        ErrorCodes.InstanceIdRequiredForReadResource,
-        "InstanceId is required for readResource action.");
+        "PromptName is required for get-prompt action.");
 
     public static readonly Error ResourceUriRequired = new(
         ErrorCodes.ResourceUriRequired,
-        "ResourceUri is required for readResource action.");
-
-    public static readonly Error InstanceIdRequiredForRefreshMetadata = new(
-        ErrorCodes.InstanceIdRequiredForRefreshMetadata,
-        "InstanceId is required for refreshMetadata action.");
+        "ResourceUri is required for read-resource action.");
 
     public static Error InvalidPage() => new(
         ErrorCodes.InvalidPage,

@@ -14,7 +14,6 @@ public class McpServerIncludeOptionsTests
 
         result.IsSuccess.Should().BeTrue();
         result.Value.IncludeConfiguration.Should().BeFalse();
-        result.Value.IncludeRequests.Should().BeFalse();
     }
 
     [Fact(DisplayName = "MIO-002: Create with empty string should return Default options")]
@@ -24,7 +23,6 @@ public class McpServerIncludeOptionsTests
 
         result.IsSuccess.Should().BeTrue();
         result.Value.IncludeConfiguration.Should().BeFalse();
-        result.Value.IncludeRequests.Should().BeFalse();
     }
 
     [Fact(DisplayName = "MIO-004: Create with 'all' should set all options to true")]
@@ -34,7 +32,6 @@ public class McpServerIncludeOptionsTests
 
         result.IsSuccess.Should().BeTrue();
         result.Value.IncludeConfiguration.Should().BeTrue();
-        result.Value.IncludeRequests.Should().BeTrue();
         result.Value.IncludeInstances.Should().BeTrue();
         result.Value.IncludeTools.Should().BeTrue();
         result.Value.IncludePrompts.Should().BeTrue();
@@ -48,7 +45,6 @@ public class McpServerIncludeOptionsTests
 
         result.IsSuccess.Should().BeTrue();
         result.Value.IncludeConfiguration.Should().BeTrue();
-        result.Value.IncludeRequests.Should().BeTrue();
         result.Value.IncludeInstances.Should().BeTrue();
         result.Value.IncludeTools.Should().BeTrue();
         result.Value.IncludePrompts.Should().BeTrue();
@@ -71,7 +67,6 @@ public class McpServerIncludeOptionsTests
         var options = McpServerIncludeOptions.Default;
 
         options.IncludeConfiguration.Should().BeFalse();
-        options.IncludeRequests.Should().BeFalse();
         options.IncludeInstances.Should().BeFalse();
         options.IncludeTools.Should().BeFalse();
         options.IncludePrompts.Should().BeFalse();
@@ -84,7 +79,6 @@ public class McpServerIncludeOptionsTests
         var options = McpServerIncludeOptions.All;
 
         options.IncludeConfiguration.Should().BeTrue();
-        options.IncludeRequests.Should().BeTrue();
         options.IncludeInstances.Should().BeTrue();
         options.IncludeTools.Should().BeTrue();
         options.IncludePrompts.Should().BeTrue();
@@ -98,27 +92,25 @@ public class McpServerIncludeOptionsTests
 
         result.IsSuccess.Should().BeTrue();
         result.Value.IncludeConfiguration.Should().BeTrue();
-        result.Value.IncludeRequests.Should().BeFalse();
     }
 
-    [Fact(DisplayName = "MIO-012: Create with 'requests' should set IncludeRequests to true")]
+    [Fact(DisplayName = "MIO-012: Create with 'requests' should return error")]
     public void MIO012()
     {
         var result = McpServerIncludeOptions.Create("requests");
 
-        result.IsSuccess.Should().BeTrue();
-        result.Value.IncludeRequests.Should().BeTrue();
-        result.Value.IncludeConfiguration.Should().BeFalse();
+        result.IsFailure.Should().BeTrue();
+        result.Error.Code.Should().Be(ErrorCodes.InvalidIncludeOption);
     }
 
     [Fact(DisplayName = "MIO-013: Create with comma-separated options should set multiple options")]
     public void MIO013()
     {
-        var result = McpServerIncludeOptions.Create("configuration,requests");
+        var result = McpServerIncludeOptions.Create("configuration,instances");
 
         result.IsSuccess.Should().BeTrue();
         result.Value.IncludeConfiguration.Should().BeTrue();
-        result.Value.IncludeRequests.Should().BeTrue();
+        result.Value.IncludeInstances.Should().BeTrue();
     }
 
     [Fact(DisplayName = "MIO-015: Create with 'instances' should set IncludeInstances to true")]
@@ -129,7 +121,6 @@ public class McpServerIncludeOptionsTests
         result.IsSuccess.Should().BeTrue();
         result.Value.IncludeInstances.Should().BeTrue();
         result.Value.IncludeConfiguration.Should().BeFalse();
-        result.Value.IncludeRequests.Should().BeFalse();
     }
 
     [Fact(DisplayName = "MIO-016: Create with 'tools' should set IncludeTools to true")]

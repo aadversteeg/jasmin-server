@@ -3,7 +3,6 @@ using Ave.Extensions.Functional;
 using Core.Application.McpServers;
 using Core.Domain.McpServers;
 using Core.Domain.Models;
-using Core.Domain.Paging;
 using Core.Infrastructure.ModelContextProtocol.InMemory;
 using Core.Infrastructure.WebApp.Extensions;
 using Core.Infrastructure.WebApp.Models;
@@ -15,8 +14,6 @@ using Core.Infrastructure.WebApp.Models.McpServers.Tools;
 using Core.Infrastructure.WebApp.Models.Paging;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
-
-using McpServerEvent = Core.Domain.McpServers.McpServerEvent;
 
 namespace Core.Infrastructure.WebApp.Controllers;
 
@@ -30,7 +27,6 @@ public class McpServersController : ControllerBase
 {
     private readonly IMcpServerService _mcpServerService;
     private readonly IMcpServerConnectionStatusCache _statusCache;
-    private readonly IMcpServerRequestStore _requestStore;
     private readonly IMcpServerInstanceManager _instanceManager;
     private readonly IMcpServerInstanceLogStore _logStore;
     private readonly McpServerStatusOptions _statusOptions;
@@ -39,7 +35,6 @@ public class McpServersController : ControllerBase
     public McpServersController(
         IMcpServerService mcpServerService,
         IMcpServerConnectionStatusCache statusCache,
-        IMcpServerRequestStore requestStore,
         IMcpServerInstanceManager instanceManager,
         IMcpServerInstanceLogStore logStore,
         IOptions<McpServerStatusOptions> statusOptions,
@@ -47,7 +42,6 @@ public class McpServersController : ControllerBase
     {
         _mcpServerService = mcpServerService;
         _statusCache = statusCache;
-        _requestStore = requestStore;
         _instanceManager = instanceManager;
         _logStore = logStore;
         _statusOptions = statusOptions.Value;
@@ -79,7 +73,7 @@ public class McpServersController : ControllerBase
     /// Gets details for a specific MCP server.
     /// </summary>
     /// <param name="id">The identifier of the MCP server.</param>
-    /// <param name="include">Optional comma-separated list of additional data to include (e.g., "configuration", "requests", "instances", "tools", "prompts", "resources", or "all").</param>
+    /// <param name="include">Optional comma-separated list of additional data to include (e.g., "configuration", "instances", "tools", "prompts", "resources", or "all").</param>
     /// <param name="timeZone">Optional timezone for timestamps. Defaults to configured timezone or UTC.</param>
     /// <returns>The server details if found.</returns>
     [HttpGet("{id}", Name = "GetMcpServerById")]
@@ -133,13 +127,6 @@ public class McpServersController : ControllerBase
             definition = definitionResult.Value.Value;
         }
 
-        // Get optional requests
-        IReadOnlyList<McpServerRequest>? requests = null;
-        if (includeOptions.IncludeRequests)
-        {
-            requests = _requestStore.GetByServerName(serverName);
-        }
-
         // Get optional instances
         IReadOnlyList<McpServerInstanceInfo>? instances = null;
         if (includeOptions.IncludeInstances)
@@ -159,7 +146,6 @@ public class McpServersController : ControllerBase
             statusEntry,
             resolvedTimeZone,
             definition,
-            requests,
             instances,
             metadata,
             includeOptions.IncludeTools,

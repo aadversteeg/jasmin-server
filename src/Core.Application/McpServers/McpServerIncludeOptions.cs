@@ -9,7 +9,6 @@ namespace Core.Application.McpServers;
 public record McpServerIncludeOptions
 {
     private const string ConfigurationOption = "configuration";
-    private const string RequestsOption = "requests";
     private const string InstancesOption = "instances";
     private const string ToolsOption = "tools";
     private const string PromptsOption = "prompts";
@@ -31,7 +30,6 @@ public record McpServerIncludeOptions
     public static McpServerIncludeOptions All => new()
     {
         IncludeConfiguration = true,
-        IncludeRequests = true,
         IncludeInstances = true,
         IncludeTools = true,
         IncludePrompts = true,
@@ -65,9 +63,6 @@ public record McpServerIncludeOptions
                 case ConfigurationOption:
                     result = result with { IncludeConfiguration = true };
                     break;
-                case RequestsOption:
-                    result = result with { IncludeRequests = true };
-                    break;
                 case InstancesOption:
                     result = result with { IncludeInstances = true };
                     break;
@@ -93,11 +88,6 @@ public record McpServerIncludeOptions
     /// Gets whether to include configuration in the response.
     /// </summary>
     public bool IncludeConfiguration { get; private init; }
-
-    /// <summary>
-    /// Gets whether to include requests in the response.
-    /// </summary>
-    public bool IncludeRequests { get; private init; }
 
     /// <summary>
     /// Gets whether to include instances in the response.

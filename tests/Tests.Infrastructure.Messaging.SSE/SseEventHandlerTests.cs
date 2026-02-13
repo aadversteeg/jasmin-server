@@ -1,4 +1,4 @@
-using Core.Domain.McpServers;
+using Core.Domain.Events;
 using Core.Infrastructure.Messaging.SSE;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
@@ -24,13 +24,15 @@ public class SseEventHandlerTests
     public async Task SEH001()
     {
         var clientId = _clientManager.RegisterClient();
-        var serverName = McpServerName.Create("test-server").Value;
-        var @event = new McpServerEvent(serverName, McpServerEventType.Started, DateTime.UtcNow);
+        var @event = new Event(
+            EventTypes.McpServer.Instance.Started,
+            "mcp-servers/test-server",
+            DateTime.UtcNow);
 
         await _handler.HandleAsync(@event, CancellationToken.None);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
-        var events = new List<McpServerEvent>();
+        var events = new List<Event>();
         try
         {
             await foreach (var e in _clientManager.GetEventsAsync(clientId, cts.Token))
@@ -48,8 +50,10 @@ public class SseEventHandlerTests
     [Fact(DisplayName = "SEH-002: HandleAsync should complete successfully without clients")]
     public async Task SEH002()
     {
-        var serverName = McpServerName.Create("test-server").Value;
-        var @event = new McpServerEvent(serverName, McpServerEventType.Started, DateTime.UtcNow);
+        var @event = new Event(
+            EventTypes.McpServer.Instance.Started,
+            "mcp-servers/test-server",
+            DateTime.UtcNow);
 
         var action = async () => await _handler.HandleAsync(@event, CancellationToken.None);
 
@@ -61,15 +65,17 @@ public class SseEventHandlerTests
     {
         var clientId1 = _clientManager.RegisterClient();
         var clientId2 = _clientManager.RegisterClient();
-        var serverName = McpServerName.Create("test-server").Value;
-        var @event = new McpServerEvent(serverName, McpServerEventType.Started, DateTime.UtcNow);
+        var @event = new Event(
+            EventTypes.McpServer.Instance.Started,
+            "mcp-servers/test-server",
+            DateTime.UtcNow);
 
         await _handler.HandleAsync(@event, CancellationToken.None);
 
         using var cts1 = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
         using var cts2 = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
-        var events1 = new List<McpServerEvent>();
-        var events2 = new List<McpServerEvent>();
+        var events1 = new List<Event>();
+        var events2 = new List<Event>();
 
         try
         {
@@ -100,8 +106,10 @@ public class SseEventHandlerTests
     [Fact(DisplayName = "SEH-004: HandleAsync should return completed task")]
     public async Task SEH004()
     {
-        var serverName = McpServerName.Create("test-server").Value;
-        var @event = new McpServerEvent(serverName, McpServerEventType.Started, DateTime.UtcNow);
+        var @event = new Event(
+            EventTypes.McpServer.Instance.Started,
+            "mcp-servers/test-server",
+            DateTime.UtcNow);
 
         var task = _handler.HandleAsync(@event, CancellationToken.None);
 

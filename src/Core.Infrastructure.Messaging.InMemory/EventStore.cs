@@ -1,5 +1,5 @@
-using Core.Application.McpServers;
-using Core.Domain.McpServers;
+using Core.Application.Events;
+using Core.Domain.Events;
 using Core.Domain.Paging;
 
 namespace Core.Infrastructure.Messaging.InMemory;
@@ -9,14 +9,14 @@ namespace Core.Infrastructure.Messaging.InMemory;
 /// </summary>
 public class EventStore : IEventStore
 {
-    private readonly List<McpServerEvent> _events = new();
+    private readonly List<Event> _events = new();
     private readonly object _lock = new();
 
     /// <summary>
     /// Stores an event in the event store.
     /// </summary>
     /// <param name="event">The event to store.</param>
-    public void Store(McpServerEvent @event)
+    public void Store(Event @event)
     {
         lock (_lock)
         {
@@ -25,11 +25,11 @@ public class EventStore : IEventStore
     }
 
     /// <inheritdoc />
-    public PagedResult<McpServerEvent> GetEvents(
+    public PagedResult<Event> GetEvents(
         PagingParameters paging,
-        McpServerName? serverNameFilter = null,
-        McpServerInstanceId? instanceIdFilter = null,
-        McpServerRequestId? requestIdFilter = null,
+        string? targetFilter = null,
+        EventType? eventTypeFilter = null,
+        string? requestIdFilter = null,
         DateRangeFilter? dateFilter = null,
         SortDirection sortDirection = SortDirection.Descending)
     {
@@ -37,17 +37,17 @@ public class EventStore : IEventStore
         {
             var filtered = _events.AsEnumerable();
 
-            if (serverNameFilter != null)
+            if (!string.IsNullOrEmpty(targetFilter))
             {
-                filtered = filtered.Where(e => e.ServerName == serverNameFilter);
+                filtered = filtered.Where(e => MatchesTargetPrefix(e.Target, targetFilter));
             }
 
-            if (instanceIdFilter != null)
+            if (eventTypeFilter.HasValue)
             {
-                filtered = filtered.Where(e => e.InstanceId == instanceIdFilter);
+                filtered = filtered.Where(e => e.Type == eventTypeFilter.Value);
             }
 
-            if (requestIdFilter != null)
+            if (!string.IsNullOrEmpty(requestIdFilter))
             {
                 filtered = filtered.Where(e => e.RequestId == requestIdFilter);
             }
@@ -65,14 +65,14 @@ public class EventStore : IEventStore
 
             var items = filtered.Skip(paging.Skip).Take(paging.PageSize).ToList();
 
-            return new PagedResult<McpServerEvent>(items, paging.Page, paging.PageSize, totalItems);
+            return new PagedResult<Event>(items, paging.Page, paging.PageSize, totalItems);
         }
     }
 
     /// <inheritdoc />
-    public IEnumerable<McpServerEvent> GetEventsAfter(
+    public IEnumerable<Event> GetEventsAfter(
         DateTime afterTimestampUtc,
-        McpServerName? serverNameFilter = null)
+        string? targetFilter = null)
     {
         lock (_lock)
         {
@@ -80,12 +80,18 @@ public class EventStore : IEventStore
                 .Where(e => e.TimestampUtc > afterTimestampUtc)
                 .OrderBy(e => e.TimestampUtc);
 
-            if (serverNameFilter != null)
+            if (!string.IsNullOrEmpty(targetFilter))
             {
-                return filtered.Where(e => e.ServerName == serverNameFilter).ToList();
+                return filtered.Where(e => MatchesTargetPrefix(e.Target, targetFilter)).ToList();
             }
 
             return filtered.ToList();
         }
+    }
+
+    private static bool MatchesTargetPrefix(string target, string filter)
+    {
+        return target.Equals(filter, StringComparison.OrdinalIgnoreCase)
+            || target.StartsWith(filter + "/", StringComparison.OrdinalIgnoreCase);
     }
 }

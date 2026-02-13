@@ -1,5 +1,5 @@
 using Core.Application.McpServers;
-using Core.Domain.McpServers;
+using Core.Domain.Events.Payloads;
 using Core.Infrastructure.WebApp.Models.McpServers.Prompts;
 using Core.Infrastructure.WebApp.Models.McpServers.Resources;
 using Core.Infrastructure.WebApp.Models.McpServers.Tools;
@@ -62,7 +62,7 @@ public static class InstanceMapper
     }
 
     private static InstanceConfigurationResponse? ToConfigurationResponse(
-        McpServerEventConfiguration? source)
+        EventConfiguration? source)
     {
         if (source == null)
         {

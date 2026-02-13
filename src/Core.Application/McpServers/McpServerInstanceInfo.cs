@@ -1,3 +1,4 @@
+using Core.Domain.Events.Payloads;
 using Core.Domain.McpServers;
 
 namespace Core.Application.McpServers;
@@ -14,5 +15,5 @@ public record McpServerInstanceInfo(
     McpServerInstanceId InstanceId,
     McpServerName ServerName,
     DateTime StartedAtUtc,
-    McpServerEventConfiguration? Configuration,
+    EventConfiguration? Configuration,
     McpServerMetadata? Metadata);

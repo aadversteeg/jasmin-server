@@ -1,8 +1,8 @@
 using Ave.Extensions.Functional;
 using Core.Application.McpServers;
+using Core.Domain.Events.Payloads;
 using Core.Domain.McpServers;
 using Core.Domain.Models;
-using Core.Domain.Paging;
 using Core.Infrastructure.ModelContextProtocol.InMemory;
 using Core.Infrastructure.WebApp.Controllers;
 using Core.Infrastructure.WebApp.Models.McpServers;
@@ -10,7 +10,6 @@ using Core.Infrastructure.WebApp.Models.McpServers.Instances;
 using Core.Infrastructure.WebApp.Models.McpServers.Prompts;
 using Core.Infrastructure.WebApp.Models.McpServers.Resources;
 using Core.Infrastructure.WebApp.Models.McpServers.Tools;
-using Core.Infrastructure.WebApp.Models.Paging;
 using FluentAssertions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -23,7 +22,6 @@ public class McpServersControllerTests
 {
     private readonly Mock<IMcpServerService> _mockService;
     private readonly Mock<IMcpServerConnectionStatusCache> _mockStatusCache;
-    private readonly Mock<IMcpServerRequestStore> _mockRequestStore;
     private readonly Mock<IMcpServerInstanceManager> _mockInstanceManager;
     private readonly Mock<IMcpServerInstanceLogStore> _mockLogStore;
     private readonly McpServersController _controller;
@@ -32,7 +30,6 @@ public class McpServersControllerTests
     {
         _mockService = new Mock<IMcpServerService>();
         _mockStatusCache = new Mock<IMcpServerConnectionStatusCache>();
-        _mockRequestStore = new Mock<IMcpServerRequestStore>();
         _mockInstanceManager = new Mock<IMcpServerInstanceManager>();
         _mockLogStore = new Mock<IMcpServerInstanceLogStore>();
         var statusOptions = Options.Create(new McpServerStatusOptions { DefaultTimeZone = "UTC" });
@@ -40,7 +37,6 @@ public class McpServersControllerTests
         _controller = new McpServersController(
             _mockService.Object,
             _mockStatusCache.Object,
-            _mockRequestStore.Object,
             _mockInstanceManager.Object,
             _mockLogStore.Object,
             statusOptions,
@@ -313,18 +309,12 @@ public class McpServersControllerTests
             "docker",
             new List<string> { "run" }.AsReadOnly(),
             new Dictionary<string, string>().AsReadOnly());
-        var requests = new List<McpServerRequest>
-        {
-            new(McpServerRequestId.Create(), chronosId, McpServerRequestAction.Start)
-        };
         var instances = new List<McpServerInstanceInfo>
         {
             new(McpServerInstanceId.Create(), chronosId, DateTime.UtcNow, null, null)
         };
         _mockService.Setup(x => x.GetById(It.Is<McpServerName>(id => id.Value == "chronos")))
             .Returns(Result<Maybe<McpServerDefinition>, Error>.Success(Maybe.From(server)));
-        _mockRequestStore.Setup(x => x.GetByServerName(It.Is<McpServerName>(id => id.Value == "chronos")))
-            .Returns(requests);
         _mockInstanceManager.Setup(x => x.GetRunningInstances(It.Is<McpServerName>(id => id.Value == "chronos")))
             .Returns(instances);
 
@@ -335,8 +325,6 @@ public class McpServersControllerTests
         var response = okResult.Value as DetailsResponse;
         response.Should().NotBeNull();
         response!.Configuration.Should().NotBeNull();
-        response.Requests.Should().NotBeNull();
-        response.Requests.Should().HaveCount(1);
         response.Instances.Should().NotBeNull();
         response.Instances.Should().HaveCount(1);
     }
@@ -404,7 +392,7 @@ public class McpServersControllerTests
             "docker",
             new List<string> { "run" }.AsReadOnly(),
             new Dictionary<string, string>().AsReadOnly());
-        var config = new McpServerEventConfiguration(
+        var config = new EventConfiguration(
             "docker",
             new List<string> { "run" }.AsReadOnly(),
             new Dictionary<string, string>().AsReadOnly());
@@ -474,7 +462,7 @@ public class McpServersControllerTests
         var chronosId = McpServerName.Create("chronos").Value;
         var server = new McpServerDefinition(chronosId);
         var instanceId = McpServerInstanceId.Create();
-        var config = new McpServerEventConfiguration(
+        var config = new EventConfiguration(
             "docker",
             new List<string> { "run" }.AsReadOnly(),
             new Dictionary<string, string> { ["TZ"] = "UTC" }.AsReadOnly());
@@ -549,7 +537,7 @@ public class McpServersControllerTests
             "docker",
             new List<string> { "run" }.AsReadOnly(),
             new Dictionary<string, string>().AsReadOnly());
-        var config = new McpServerEventConfiguration(
+        var config = new EventConfiguration(
             "docker",
             new List<string> { "run" }.AsReadOnly(),
             new Dictionary<string, string>().AsReadOnly());

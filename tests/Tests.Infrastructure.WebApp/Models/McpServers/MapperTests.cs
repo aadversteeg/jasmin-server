@@ -1,38 +1,35 @@
 using Ave.Extensions.Functional;
 using Core.Application.McpServers;
+using Core.Domain.Events;
 using Core.Domain.McpServers;
 using Core.Domain.Paging;
 using Core.Infrastructure.WebApp.Models.McpServers;
 using FluentAssertions;
 using Xunit;
 
-using McpServerEvent = Core.Domain.McpServers.McpServerEvent;
-
 namespace Tests.Infrastructure.WebApp.Models.McpServers;
 
 public class MapperTests
 {
-    private static readonly McpServerName TestServerName = McpServerName.Create("test-server").Value;
-
     [Fact(DisplayName = "MAP-001: ToEventResponse should map event type")]
     public void MAP001()
     {
-        var evt = new McpServerEvent(
-            TestServerName,
-            McpServerEventType.Starting,
+        var evt = new Event(
+            EventTypes.McpServer.Instance.Starting,
+            "mcp-servers/test-server",
             new DateTime(2024, 1, 15, 10, 30, 0, DateTimeKind.Utc));
 
         var result = Mapper.ToEventResponse(evt, TimeZoneInfo.Utc);
 
-        result.EventType.Should().Be("Starting");
+        result.EventType.Should().Be(EventTypes.McpServer.Instance.Starting.Value);
     }
 
     [Fact(DisplayName = "MAP-002: ToEventResponse should format UTC timestamp with Z suffix")]
     public void MAP002()
     {
-        var evt = new McpServerEvent(
-            TestServerName,
-            McpServerEventType.Started,
+        var evt = new Event(
+            EventTypes.McpServer.Instance.Started,
+            "mcp-servers/test-server",
             new DateTime(2024, 1, 15, 10, 30, 0, DateTimeKind.Utc));
 
         var result = Mapper.ToEventResponse(evt, TimeZoneInfo.Utc);
@@ -44,9 +41,9 @@ public class MapperTests
     [Fact(DisplayName = "MAP-003: ToEventResponse should convert to specified timezone")]
     public void MAP003()
     {
-        var evt = new McpServerEvent(
-            TestServerName,
-            McpServerEventType.Started,
+        var evt = new Event(
+            EventTypes.McpServer.Instance.Started,
+            "mcp-servers/test-server",
             new DateTime(2024, 1, 15, 10, 30, 0, DateTimeKind.Utc));
         var amsterdamTz = TimeZoneInfo.FindSystemTimeZoneById("Europe/Amsterdam");
 
@@ -57,38 +54,32 @@ public class MapperTests
         result.Timestamp.Should().EndWith("+01:00");
     }
 
-    [Fact(DisplayName = "MAP-004: ToEventResponse should include errors when present")]
+    [Fact(DisplayName = "MAP-004: ToEventResponse should include payload when present")]
     public void MAP004()
     {
-        var errors = new List<McpServerEventError>
-        {
-            new("ConnectionError", "Connection refused")
-        }.AsReadOnly();
-        var evt = new McpServerEvent(
-            TestServerName,
-            McpServerEventType.StartFailed,
+        var payload = System.Text.Json.JsonSerializer.SerializeToElement(new { code = "ConnectionError", message = "Connection refused" });
+        var evt = new Event(
+            EventTypes.McpServer.Instance.StartFailed,
+            "mcp-servers/test-server",
             new DateTime(2024, 1, 15, 10, 30, 0, DateTimeKind.Utc),
-            errors);
+            payload);
 
         var result = Mapper.ToEventResponse(evt, TimeZoneInfo.Utc);
 
-        result.Errors.Should().NotBeNull();
-        result.Errors.Should().HaveCount(1);
-        result.Errors![0].Code.Should().Be("ConnectionError");
-        result.Errors[0].Message.Should().Be("Connection refused");
+        result.Payload.Should().NotBeNull();
     }
 
-    [Fact(DisplayName = "MAP-005: ToEventResponse should have null errors when not present")]
+    [Fact(DisplayName = "MAP-005: ToEventResponse should have null payload when not present")]
     public void MAP005()
     {
-        var evt = new McpServerEvent(
-            TestServerName,
-            McpServerEventType.Started,
+        var evt = new Event(
+            EventTypes.McpServer.Instance.Started,
+            "mcp-servers/test-server",
             new DateTime(2024, 1, 15, 10, 30, 0, DateTimeKind.Utc));
 
         var result = Mapper.ToEventResponse(evt, TimeZoneInfo.Utc);
 
-        result.Errors.Should().BeNull();
+        result.Payload.Should().BeNull();
     }
 
     [Fact(DisplayName = "MAP-008: ToDetailsResponse should map configuration correctly")]
@@ -139,58 +130,41 @@ public class MapperTests
         result.UpdatedAt.Should().BeNull();
     }
 
-    [Fact(DisplayName = "MAP-011: ToEventResponse should include instance ID when present")]
+    [Fact(DisplayName = "MAP-011: ToEventResponse should include target")]
     public void MAP011()
     {
-        var instanceId = McpServerInstanceId.Create();
-        var evt = new McpServerEvent(
-            TestServerName,
-            McpServerEventType.Starting,
-            new DateTime(2024, 1, 15, 10, 30, 0, DateTimeKind.Utc),
-            null,
-            instanceId);
-
-        var result = Mapper.ToEventResponse(evt, TimeZoneInfo.Utc);
-
-        result.InstanceId.Should().Be(instanceId.Value);
-    }
-
-    [Fact(DisplayName = "MAP-012: ToEventResponse should have null instance ID when not present")]
-    public void MAP012()
-    {
-        var evt = new McpServerEvent(
-            TestServerName,
-            McpServerEventType.Started,
+        var evt = new Event(
+            EventTypes.McpServer.Instance.Starting,
+            "mcp-servers/test-server/instances/inst-123",
             new DateTime(2024, 1, 15, 10, 30, 0, DateTimeKind.Utc));
 
         var result = Mapper.ToEventResponse(evt, TimeZoneInfo.Utc);
 
-        result.InstanceId.Should().BeNull();
+        result.Target.Should().Be("mcp-servers/test-server/instances/inst-123");
     }
 
     [Fact(DisplayName = "MAP-013: ToEventResponse should include request ID when present")]
     public void MAP013()
     {
-        var requestId = McpServerRequestId.Create();
-        var evt = new McpServerEvent(
-            TestServerName,
-            McpServerEventType.Starting,
+        var requestId = Guid.NewGuid().ToString();
+        var evt = new Event(
+            EventTypes.McpServer.Instance.Starting,
+            "mcp-servers/test-server",
             new DateTime(2024, 1, 15, 10, 30, 0, DateTimeKind.Utc),
-            null,
             null,
             requestId);
 
         var result = Mapper.ToEventResponse(evt, TimeZoneInfo.Utc);
 
-        result.RequestId.Should().Be(requestId.Value);
+        result.RequestId.Should().Be(requestId);
     }
 
     [Fact(DisplayName = "MAP-014: ToEventResponse should have null request ID when not present")]
     public void MAP014()
     {
-        var evt = new McpServerEvent(
-            TestServerName,
-            McpServerEventType.Started,
+        var evt = new Event(
+            EventTypes.McpServer.Instance.Started,
+            "mcp-servers/test-server",
             new DateTime(2024, 1, 15, 10, 30, 0, DateTimeKind.Utc));
 
         var result = Mapper.ToEventResponse(evt, TimeZoneInfo.Utc);
@@ -201,12 +175,12 @@ public class MapperTests
     [Fact(DisplayName = "MAP-015: ToPagedResponse should map paged events correctly")]
     public void MAP015()
     {
-        var events = new List<McpServerEvent>
+        var events = new List<Event>
         {
-            new(TestServerName, McpServerEventType.Starting, new DateTime(2024, 1, 15, 10, 0, 0, DateTimeKind.Utc)),
-            new(TestServerName, McpServerEventType.Started, new DateTime(2024, 1, 15, 10, 0, 1, DateTimeKind.Utc))
+            new(EventTypes.McpServer.Instance.Starting, "mcp-servers/test-server", new DateTime(2024, 1, 15, 10, 0, 0, DateTimeKind.Utc)),
+            new(EventTypes.McpServer.Instance.Started, "mcp-servers/test-server", new DateTime(2024, 1, 15, 10, 0, 1, DateTimeKind.Utc))
         };
-        var pagedResult = new PagedResult<McpServerEvent>(events, 1, 10, 50);
+        var pagedResult = new PagedResult<Event>(events, 1, 10, 50);
 
         var result = Mapper.ToPagedResponse(pagedResult, TimeZoneInfo.Utc);
 
@@ -220,22 +194,22 @@ public class MapperTests
     [Fact(DisplayName = "MAP-016: ToPagedResponse should map event details correctly")]
     public void MAP016()
     {
-        var events = new List<McpServerEvent>
+        var events = new List<Event>
         {
-            new(TestServerName, McpServerEventType.Starting, new DateTime(2024, 1, 15, 10, 0, 0, DateTimeKind.Utc))
+            new(EventTypes.McpServer.Instance.Starting, "mcp-servers/test-server", new DateTime(2024, 1, 15, 10, 0, 0, DateTimeKind.Utc))
         };
-        var pagedResult = new PagedResult<McpServerEvent>(events, 1, 10, 1);
+        var pagedResult = new PagedResult<Event>(events, 1, 10, 1);
 
         var result = Mapper.ToPagedResponse(pagedResult, TimeZoneInfo.Utc);
 
-        result.Items[0].EventType.Should().Be("Starting");
+        result.Items[0].EventType.Should().Be(EventTypes.McpServer.Instance.Starting.Value);
         result.Items[0].Timestamp.Should().StartWith("2024-01-15T10:00:00");
     }
 
     [Fact(DisplayName = "MAP-017: ToPagedResponse should handle empty paged result")]
     public void MAP017()
     {
-        var pagedResult = new PagedResult<McpServerEvent>([], 1, 10, 0);
+        var pagedResult = new PagedResult<Event>([], 1, 10, 0);
 
         var result = Mapper.ToPagedResponse(pagedResult, TimeZoneInfo.Utc);
 
@@ -348,17 +322,16 @@ public class MapperTests
         result.Value.Env.Should().ContainKey("API_KEY");
     }
 
-    [Fact(DisplayName = "MAP-025: ToEventResponse should include server name")]
+    [Fact(DisplayName = "MAP-025: ToEventResponse should include event type")]
     public void MAP025()
     {
-        var serverName = McpServerName.Create("chronos").Value;
-        var evt = new McpServerEvent(
-            serverName,
-            McpServerEventType.Starting,
+        var evt = new Event(
+            EventTypes.McpServer.Instance.Starting,
+            "mcp-servers/chronos",
             new DateTime(2024, 1, 15, 10, 30, 0, DateTimeKind.Utc));
 
         var result = Mapper.ToEventResponse(evt, TimeZoneInfo.Utc);
 
-        result.ServerName.Should().Be("chronos");
+        result.EventType.Should().Be("mcp-server.instance.starting");
     }
 }

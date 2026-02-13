@@ -1,4 +1,5 @@
 using Core.Application.McpServers;
+using Core.Domain.Events.Payloads;
 using Core.Domain.McpServers;
 using Core.Infrastructure.WebApp.Models.McpServers.Instances;
 using Core.Infrastructure.WebApp.Models.McpServers.Prompts;
@@ -16,7 +17,7 @@ public class InstanceMapperTests
     {
         var serverName = McpServerName.Create("chronos").Value;
         var instanceId = McpServerInstanceId.Create();
-        var config = new McpServerEventConfiguration(
+        var config = new EventConfiguration(
             "docker",
             new List<string> { "run", "--rm" }.AsReadOnly(),
             new Dictionary<string, string> { ["TZ"] = "UTC" }.AsReadOnly());
@@ -39,7 +40,7 @@ public class InstanceMapperTests
     public void IMP002()
     {
         var serverName = McpServerName.Create("chronos").Value;
-        var config = new McpServerEventConfiguration(
+        var config = new EventConfiguration(
             "docker",
             new List<string> { "run", "--rm" }.AsReadOnly(),
             new Dictionary<string, string> { ["TZ"] = "UTC" }.AsReadOnly());
@@ -124,7 +125,7 @@ public class InstanceMapperTests
     public void IMP007()
     {
         var serverName = McpServerName.Create("chronos").Value;
-        var config = new McpServerEventConfiguration(
+        var config = new EventConfiguration(
             "docker",
             new List<string> { "run" }.AsReadOnly(),
             new Dictionary<string, string>().AsReadOnly());

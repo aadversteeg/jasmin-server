@@ -1,5 +1,8 @@
 using Ave.Extensions.Functional;
 using Core.Application.Events;
+using Core.Application.Requests;
+using Core.Domain.Events;
+using Core.Domain.Events.Payloads;
 using Core.Domain.McpServers;
 using Core.Domain.Models;
 
@@ -12,12 +15,12 @@ public class McpServerService : IMcpServerService
 {
     private readonly IMcpServerRepository _repository;
     private readonly IMcpServerConnectionStatusCache _statusCache;
-    private readonly IEventPublisher<McpServerEvent> _eventPublisher;
+    private readonly IEventPublisher<Event> _eventPublisher;
 
     public McpServerService(
         IMcpServerRepository repository,
         IMcpServerConnectionStatusCache statusCache,
-        IEventPublisher<McpServerEvent> eventPublisher)
+        IEventPublisher<Event> eventPublisher)
     {
         _repository = repository;
         _statusCache = statusCache;
@@ -42,14 +45,19 @@ public class McpServerService : IMcpServerService
         var result = _repository.Create(definition);
         if (result.IsSuccess)
         {
+            var target = TargetUri.McpServer(definition.Id.Value);
+
             // Record ServerCreated event
-            PublishEvent(definition.Id, McpServerEventType.ServerCreated);
+            _eventPublisher.Publish(EventFactory.Create(EventTypes.McpServer.Created, target));
 
             // Record ConfigurationCreated event if server has configuration
             if (definition.HasConfiguration)
             {
-                var newConfig = McpServerEventConfiguration.FromDefinition(definition);
-                PublishEvent(definition.Id, McpServerEventType.ConfigurationCreated, configuration: newConfig);
+                var newConfig = ToEventConfiguration(definition);
+                _eventPublisher.Publish(EventFactory.Create(
+                    EventTypes.McpServer.Configuration.Created,
+                    target,
+                    new ConfigurationPayload(null, newConfig)));
             }
         }
         return result;
@@ -60,26 +68,33 @@ public class McpServerService : IMcpServerService
     {
         // Get old configuration before update
         var oldDefinitionResult = _repository.GetById(definition.Id);
-        McpServerEventConfiguration? oldConfig = null;
+        EventConfiguration? oldConfig = null;
         bool hadConfiguration = false;
 
         if (oldDefinitionResult.IsSuccess && oldDefinitionResult.Value.HasValue)
         {
             var oldDefinition = oldDefinitionResult.Value.Value;
             hadConfiguration = oldDefinition.HasConfiguration;
-            oldConfig = McpServerEventConfiguration.FromDefinition(oldDefinition);
+            if (hadConfiguration)
+            {
+                oldConfig = ToEventConfiguration(oldDefinition);
+            }
         }
 
         var result = _repository.Update(definition);
         if (result.IsSuccess)
         {
-            var newConfig = McpServerEventConfiguration.FromDefinition(definition);
+            var target = TargetUri.McpServer(definition.Id.Value);
+            var newConfig = ToEventConfiguration(definition);
 
             var eventType = hadConfiguration
-                ? McpServerEventType.ConfigurationUpdated
-                : McpServerEventType.ConfigurationCreated;
+                ? EventTypes.McpServer.Configuration.Updated
+                : EventTypes.McpServer.Configuration.Created;
 
-            PublishEvent(definition.Id, eventType, oldConfiguration: oldConfig, configuration: newConfig);
+            _eventPublisher.Publish(EventFactory.Create(
+                eventType,
+                target,
+                new ConfigurationPayload(oldConfig, newConfig)));
         }
         return result;
     }
@@ -87,23 +102,32 @@ public class McpServerService : IMcpServerService
     /// <inheritdoc />
     public Result<Unit, Error> Delete(McpServerName id)
     {
+        var target = TargetUri.McpServer(id.Value);
+
         // Get old definition before delete to check for configuration
         var oldDefinitionResult = _repository.GetById(id);
-        McpServerEventConfiguration? oldConfig = null;
+        EventConfiguration? oldConfig = null;
 
         if (oldDefinitionResult.IsSuccess && oldDefinitionResult.Value.HasValue)
         {
-            oldConfig = McpServerEventConfiguration.FromDefinition(oldDefinitionResult.Value.Value);
+            var oldDef = oldDefinitionResult.Value.Value;
+            if (oldDef.HasConfiguration)
+            {
+                oldConfig = ToEventConfiguration(oldDef);
+            }
         }
 
         // Record ConfigurationDeleted event if server had configuration
         if (oldConfig != null)
         {
-            PublishEvent(id, McpServerEventType.ConfigurationDeleted, oldConfiguration: oldConfig);
+            _eventPublisher.Publish(EventFactory.Create(
+                EventTypes.McpServer.Configuration.Deleted,
+                target,
+                new ConfigurationPayload(oldConfig, null)));
         }
 
         // Record ServerDeleted event
-        PublishEvent(id, McpServerEventType.ServerDeleted);
+        _eventPublisher.Publish(EventFactory.Create(EventTypes.McpServer.Deleted, target));
 
         // Delete from repository (this will also clear the status cache)
         return _repository.Delete(id);
@@ -112,44 +136,34 @@ public class McpServerService : IMcpServerService
     /// <inheritdoc />
     public Result<McpServerDefinition, Error> DeleteConfiguration(McpServerName id)
     {
+        var target = TargetUri.McpServer(id.Value);
+
         // Get old configuration before delete
         var oldDefinitionResult = _repository.GetById(id);
-        McpServerEventConfiguration? oldConfig = null;
+        EventConfiguration? oldConfig = null;
 
         if (oldDefinitionResult.IsSuccess && oldDefinitionResult.Value.HasValue)
         {
-            oldConfig = McpServerEventConfiguration.FromDefinition(oldDefinitionResult.Value.Value);
+            var oldDef = oldDefinitionResult.Value.Value;
+            if (oldDef.HasConfiguration)
+            {
+                oldConfig = ToEventConfiguration(oldDef);
+            }
         }
 
         var result = _repository.DeleteConfiguration(id);
         if (result.IsSuccess && oldConfig != null)
         {
-            PublishEvent(id, McpServerEventType.ConfigurationDeleted, oldConfiguration: oldConfig);
+            _eventPublisher.Publish(EventFactory.Create(
+                EventTypes.McpServer.Configuration.Deleted,
+                target,
+                new ConfigurationPayload(oldConfig, null)));
         }
         return result;
     }
 
-    private void PublishEvent(
-        McpServerName serverName,
-        McpServerEventType eventType,
-        IReadOnlyList<McpServerEventError>? errors = null,
-        McpServerInstanceId? instanceId = null,
-        McpServerRequestId? requestId = null,
-        McpServerEventConfiguration? oldConfiguration = null,
-        McpServerEventConfiguration? configuration = null,
-        McpServerToolInvocationEventData? toolInvocationData = null)
+    private static EventConfiguration ToEventConfiguration(McpServerDefinition definition)
     {
-        var @event = new McpServerEvent(
-            serverName,
-            eventType,
-            DateTime.UtcNow,
-            errors,
-            instanceId,
-            requestId,
-            oldConfiguration,
-            configuration,
-            toolInvocationData);
-
-        _eventPublisher.Publish(@event);
+        return new EventConfiguration(definition.Command!, definition.Args!, definition.Env!);
     }
 }

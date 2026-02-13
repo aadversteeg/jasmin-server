@@ -1,12 +1,12 @@
 using Core.Application.Events;
-using Core.Domain.McpServers;
+using Core.Domain.Events;
 
 namespace Core.Infrastructure.Messaging.InMemory;
 
 /// <summary>
-/// Event handler that stores MCP server events in the event store.
+/// Event handler that stores events in the event store.
 /// </summary>
-public class EventStoreHandler : IEventHandler<McpServerEvent>
+public class EventStoreHandler : IEventHandler<Event>
 {
     private readonly EventStore _eventStore;
 
@@ -16,7 +16,7 @@ public class EventStoreHandler : IEventHandler<McpServerEvent>
     }
 
     /// <inheritdoc />
-    public Task HandleAsync(McpServerEvent @event, CancellationToken cancellationToken)
+    public Task HandleAsync(Event @event, CancellationToken cancellationToken)
     {
         _eventStore.Store(@event);
         return Task.CompletedTask;
