@@ -6,6 +6,12 @@
     <!-- Functional Programming -->
     <PackageVersion Include="Ave.Extensions.Functional" Version="0.0.5-preview.1" />
     <PackageVersion Include="Ave.Extensions.Functional.FluentAssertions" Version="0.0.5-preview.1" />
+    <!-- Error Paths -->
+    <PackageVersion Include="Ave.Extensions.ErrorPaths" Version="0.0.2-preview.1" />
+    <PackageVersion Include="Ave.Extensions.ErrorPaths.Functional" Version="0.0.2-preview.1" />
+    <PackageVersion Include="Ave.Extensions.ErrorPaths.Serialization" Version="0.0.2-preview.1" />
+    <PackageVersion Include="Ave.Extensions.ErrorPaths.AspNetCore" Version="0.0.2-preview.1" />
+    <PackageVersion Include="Ave.Extensions.ErrorPaths.FluentAssertions" Version="0.0.2-preview.1" />
     <!-- Infrastructure -->
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.0" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.0" />

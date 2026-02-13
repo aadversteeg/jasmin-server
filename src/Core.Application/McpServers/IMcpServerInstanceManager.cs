@@ -1,6 +1,6 @@
+using Ave.Extensions.ErrorPaths;
 using Ave.Extensions.Functional;
 using Core.Domain.McpServers;
-using Core.Domain.Models;
 
 namespace Core.Application.McpServers;
 

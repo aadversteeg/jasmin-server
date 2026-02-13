@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <PackageReference Include="Ave.Extensions.Functional" />
+    <PackageReference Include="Ave.Extensions.ErrorPaths.Functional" />
     <PackageReference Include="Microsoft.Extensions.Options" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
   </ItemGroup>

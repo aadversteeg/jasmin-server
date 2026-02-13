@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Ave.Extensions.ErrorPaths;
 using Core.Domain.Paging;
 using Core.Domain.Requests;
 using Core.Infrastructure.WebApp.Models.Requests;
@@ -56,9 +57,9 @@ public class RequestMapperTests
         var target = "mcp-servers/chronos";
         var request = new Request(requestId, action, target);
 
-        var errors = new List<RequestError>
+        var errors = new List<Error>
         {
-            new("TIMEOUT_ERROR", "Connection timeout")
+            new(new ErrorCode("TIMEOUT_ERROR"), "Connection timeout")
         }.AsReadOnly();
         request.MarkFailed(errors);
 

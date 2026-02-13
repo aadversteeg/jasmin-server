@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Ave.Extensions.ErrorPaths;
 
 namespace Core.Domain.Requests;
 
@@ -15,7 +16,7 @@ public class Request
     public DateTime? CompletedAtUtc { get; private set; }
     public JsonElement? Parameters { get; }
     public JsonElement? Output { get; private set; }
-    public IReadOnlyList<RequestError>? Errors { get; private set; }
+    public IReadOnlyList<Error>? Errors { get; private set; }
 
     public Request(
         RequestId id,
@@ -43,7 +44,7 @@ public class Request
         Output = output;
     }
 
-    public void MarkFailed(IReadOnlyList<RequestError> errors)
+    public void MarkFailed(IReadOnlyList<Error> errors)
     {
         Status = RequestStatus.Failed;
         CompletedAtUtc = DateTime.UtcNow;

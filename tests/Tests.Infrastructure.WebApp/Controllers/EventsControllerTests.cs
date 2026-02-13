@@ -153,7 +153,7 @@ public class EventsControllerTests
         var badRequest = (BadRequestObjectResult)result;
         var error = badRequest.Value as ErrorResponse;
         error.Should().NotBeNull();
-        error!.Errors.Should().Contain(e => e.Code == "INVALID_TIMEZONE");
+        error!.Errors.Should().Contain(e => e.Code == "InvalidTimezone");
     }
 
     [Fact(DisplayName = "EVC-007: GetEvents should return BadRequest for invalid page number")]

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Ave.Extensions.ErrorPaths;
 using Core.Domain.Requests;
 using FluentAssertions;
 using Xunit;
@@ -105,10 +106,10 @@ public class RequestTests
     public void GRQ010()
     {
         var request = CreateRequest();
-        var errors = new List<RequestError>
+        var errors = new List<Error>
         {
-            new("CONN_ERR", "Connection failed"),
-            new("TIMEOUT", "Operation timed out")
+            new(new ErrorCode("CONN_ERR"), "Connection failed"),
+            new(new ErrorCode("TIMEOUT"), "Operation timed out")
         }.AsReadOnly();
         var before = DateTime.UtcNow;
 
@@ -119,7 +120,7 @@ public class RequestTests
         request.CompletedAtUtc!.Value.Should().BeOnOrAfter(before);
         request.Errors.Should().NotBeNull();
         request.Errors.Should().HaveCount(2);
-        request.Errors![0].Code.Should().Be("CONN_ERR");
+        request.Errors![0].Code.Should().Be(new ErrorCode("CONN_ERR"));
         request.Errors[1].Message.Should().Be("Operation timed out");
     }
 
@@ -128,7 +129,7 @@ public class RequestTests
     {
         var request = CreateRequest();
 
-        request.MarkFailed(new List<RequestError> { new("ERR", "Error") }.AsReadOnly());
+        request.MarkFailed(new List<Error> { new(new ErrorCode("ERR"), "Error") }.AsReadOnly());
 
         request.Output.Should().BeNull();
     }

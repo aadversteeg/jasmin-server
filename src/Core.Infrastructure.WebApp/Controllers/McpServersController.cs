@@ -14,6 +14,7 @@ using Core.Infrastructure.WebApp.Models.McpServers.Tools;
 using Core.Infrastructure.WebApp.Models.Paging;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using Error = Ave.Extensions.ErrorPaths.Error;
 
 namespace Core.Infrastructure.WebApp.Controllers;
 
@@ -61,7 +62,7 @@ public class McpServersController : ControllerBase
         var resolvedTimeZone = ResolveTimeZone(timeZone);
         if (resolvedTimeZone == null)
         {
-            return BadRequest(ErrorResponse.Single("INVALID_TIMEZONE", $"Invalid timezone: {timeZone}"));
+            return BadRequest(ErrorResponse.FromError(new Error(ErrorCodes.InvalidTimezone, $"Invalid timezone: {timeZone}")));
         }
 
         return _mcpServerService
@@ -85,7 +86,7 @@ public class McpServersController : ControllerBase
         var resolvedTimeZone = ResolveTimeZone(timeZone);
         if (resolvedTimeZone == null)
         {
-            return BadRequest(ErrorResponse.Single("INVALID_TIMEZONE", $"Invalid timezone: {timeZone}"));
+            return BadRequest(ErrorResponse.FromError(new Error(ErrorCodes.InvalidTimezone, $"Invalid timezone: {timeZone}")));
         }
 
         var includeOptionsResult = McpServerIncludeOptions.Create(include);
@@ -242,7 +243,7 @@ public class McpServersController : ControllerBase
         var resolvedTimeZone = ResolveTimeZone(timeZone);
         if (resolvedTimeZone == null)
         {
-            return BadRequest(ErrorResponse.Single("INVALID_TIMEZONE", $"Invalid timezone: {timeZone}"));
+            return BadRequest(ErrorResponse.FromError(new Error(ErrorCodes.InvalidTimezone, $"Invalid timezone: {timeZone}")));
         }
 
         var serverNameResult = McpServerName.Create(id);
@@ -286,7 +287,7 @@ public class McpServersController : ControllerBase
         var resolvedTimeZone = ResolveTimeZone(timeZone);
         if (resolvedTimeZone == null)
         {
-            return BadRequest(ErrorResponse.Single("INVALID_TIMEZONE", $"Invalid timezone: {timeZone}"));
+            return BadRequest(ErrorResponse.FromError(new Error(ErrorCodes.InvalidTimezone, $"Invalid timezone: {timeZone}")));
         }
 
         var includeOptionsResult = McpServerInstanceIncludeOptions.Create(include);
@@ -342,7 +343,7 @@ public class McpServersController : ControllerBase
         var resolvedTimeZone = ResolveTimeZone(timeZone);
         if (resolvedTimeZone == null)
         {
-            return BadRequest(ErrorResponse.Single("INVALID_TIMEZONE", $"Invalid timezone: {timeZone}"));
+            return BadRequest(ErrorResponse.FromError(new Error(ErrorCodes.InvalidTimezone, $"Invalid timezone: {timeZone}")));
         }
 
         var serverNameResult = McpServerName.Create(id);
@@ -392,7 +393,7 @@ public class McpServersController : ControllerBase
         var resolvedTimeZone = ResolveTimeZone(timeZone);
         if (resolvedTimeZone == null)
         {
-            return BadRequest(ErrorResponse.Single("INVALID_TIMEZONE", $"Invalid timezone: {timeZone}"));
+            return BadRequest(ErrorResponse.FromError(new Error(ErrorCodes.InvalidTimezone, $"Invalid timezone: {timeZone}")));
         }
 
         var serverNameResult = McpServerName.Create(id);
@@ -442,7 +443,7 @@ public class McpServersController : ControllerBase
         var resolvedTimeZone = ResolveTimeZone(timeZone);
         if (resolvedTimeZone == null)
         {
-            return BadRequest(ErrorResponse.Single("INVALID_TIMEZONE", $"Invalid timezone: {timeZone}"));
+            return BadRequest(ErrorResponse.FromError(new Error(ErrorCodes.InvalidTimezone, $"Invalid timezone: {timeZone}")));
         }
 
         var serverNameResult = McpServerName.Create(id);
@@ -499,7 +500,7 @@ public class McpServersController : ControllerBase
         var resolvedTimeZone = ResolveTimeZone(timeZone);
         if (resolvedTimeZone == null)
         {
-            return BadRequest(ErrorResponse.Single("INVALID_TIMEZONE", $"Invalid timezone: {timeZone}"));
+            return BadRequest(ErrorResponse.FromError(new Error(ErrorCodes.InvalidTimezone, $"Invalid timezone: {timeZone}")));
         }
 
         if (limit < 1 || limit > 1000)
@@ -682,7 +683,7 @@ public class McpServersController : ControllerBase
         var resolvedTimeZone = ResolveTimeZone(timeZone);
         if (resolvedTimeZone == null)
         {
-            return BadRequest(ErrorResponse.Single("INVALID_TIMEZONE", $"Invalid timezone: {timeZone}"));
+            return BadRequest(ErrorResponse.FromError(new Error(ErrorCodes.InvalidTimezone, $"Invalid timezone: {timeZone}")));
         }
 
         var serverNameResult = McpServerName.Create(id);
@@ -726,7 +727,7 @@ public class McpServersController : ControllerBase
         var resolvedTimeZone = ResolveTimeZone(timeZone);
         if (resolvedTimeZone == null)
         {
-            return BadRequest(ErrorResponse.Single("INVALID_TIMEZONE", $"Invalid timezone: {timeZone}"));
+            return BadRequest(ErrorResponse.FromError(new Error(ErrorCodes.InvalidTimezone, $"Invalid timezone: {timeZone}")));
         }
 
         var serverNameResult = McpServerName.Create(id);
@@ -770,7 +771,7 @@ public class McpServersController : ControllerBase
         var resolvedTimeZone = ResolveTimeZone(timeZone);
         if (resolvedTimeZone == null)
         {
-            return BadRequest(ErrorResponse.Single("INVALID_TIMEZONE", $"Invalid timezone: {timeZone}"));
+            return BadRequest(ErrorResponse.FromError(new Error(ErrorCodes.InvalidTimezone, $"Invalid timezone: {timeZone}")));
         }
 
         var serverNameResult = McpServerName.Create(id);

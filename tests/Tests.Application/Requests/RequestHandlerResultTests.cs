@@ -1,6 +1,6 @@
 using System.Text.Json;
+using Ave.Extensions.ErrorPaths;
 using Core.Application.Requests;
-using Core.Domain.Requests;
 using FluentAssertions;
 using Xunit;
 
@@ -33,10 +33,10 @@ public class RequestHandlerResultTests
     [Fact(DisplayName = "RHR-003: Failure should have IsSuccess false and errors set")]
     public void RHR003()
     {
-        var errors = new List<RequestError>
+        var errors = new List<Error>
         {
-            new("ERR_001", "Something went wrong"),
-            new("ERR_002", "Another issue")
+            new(new ErrorCode("ERR_001"), "Something went wrong"),
+            new(new ErrorCode("ERR_002"), "Another issue")
         }.AsReadOnly();
 
         var result = RequestHandlerResult.Failure(errors);
@@ -45,7 +45,7 @@ public class RequestHandlerResultTests
         result.Output.Should().BeNull();
         result.Errors.Should().NotBeNull();
         result.Errors.Should().HaveCount(2);
-        result.Errors![0].Code.Should().Be("ERR_001");
+        result.Errors![0].Code.Should().Be(new ErrorCode("ERR_001"));
         result.Errors[1].Message.Should().Be("Another issue");
     }
 }

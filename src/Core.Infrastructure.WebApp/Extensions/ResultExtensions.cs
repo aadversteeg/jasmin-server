@@ -2,6 +2,7 @@ using Ave.Extensions.Functional;
 using Core.Domain.Models;
 using Core.Infrastructure.WebApp.Models;
 using Microsoft.AspNetCore.Mvc;
+using Error = Ave.Extensions.ErrorPaths.Error;
 
 namespace Core.Infrastructure.WebApp.Extensions;
 
@@ -59,7 +60,7 @@ public static class ResultExtensions
     {
         if (source.IsFailure)
         {
-            if (source.Error.Code == ErrorCodes.DuplicateMcpServerName)
+            if (source.Error.Is(ErrorCodes.McpServers.DuplicateName))
             {
                 return new ConflictObjectResult(ErrorResponse.FromError(source.Error));
             }
@@ -79,7 +80,7 @@ public static class ResultExtensions
     {
         if (source.IsFailure)
         {
-            if (source.Error.Code == ErrorCodes.McpServerNotFound)
+            if (source.Error.Is(ErrorCodes.McpServers.NotFound))
             {
                 return new NotFoundObjectResult(ErrorResponse.FromError(source.Error));
             }
@@ -97,7 +98,7 @@ public static class ResultExtensions
     {
         if (source.IsFailure)
         {
-            if (source.Error.Code == ErrorCodes.McpServerNotFound)
+            if (source.Error.Is(ErrorCodes.McpServers.NotFound))
             {
                 return new NotFoundObjectResult(ErrorResponse.FromError(source.Error));
             }

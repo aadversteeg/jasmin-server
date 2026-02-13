@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <PackageReference Include="Ave.Extensions.Functional" />
+    <PackageReference Include="Ave.Extensions.ErrorPaths" />
   </ItemGroup>
 
 </Project>

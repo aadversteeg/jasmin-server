@@ -1,5 +1,5 @@
 using System.Text.Json;
-using Core.Domain.Requests;
+using Ave.Extensions.ErrorPaths;
 
 namespace Core.Application.Requests;
 
@@ -10,9 +10,9 @@ public class RequestHandlerResult
 {
     public bool IsSuccess { get; }
     public JsonElement? Output { get; }
-    public IReadOnlyList<RequestError>? Errors { get; }
+    public IReadOnlyList<Error>? Errors { get; }
 
-    private RequestHandlerResult(bool isSuccess, JsonElement? output, IReadOnlyList<RequestError>? errors)
+    private RequestHandlerResult(bool isSuccess, JsonElement? output, IReadOnlyList<Error>? errors)
     {
         IsSuccess = isSuccess;
         Output = output;
@@ -34,5 +34,5 @@ public class RequestHandlerResult
     /// Creates a failure result with errors.
     /// </summary>
     /// <param name="errors">The errors that occurred.</param>
-    public static RequestHandlerResult Failure(IReadOnlyList<RequestError> errors) => new(false, null, errors);
+    public static RequestHandlerResult Failure(IReadOnlyList<Error> errors) => new(false, null, errors);
 }

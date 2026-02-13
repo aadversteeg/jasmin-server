@@ -1,5 +1,4 @@
 using Ave.Extensions.Functional;
-using Ave.Extensions.Functional;
 using Core.Application.Events;
 using Core.Application.McpServers;
 using Core.Domain.Events;
@@ -8,6 +7,7 @@ using Core.Domain.Models;
 using FluentAssertions;
 using Moq;
 using Xunit;
+using Error = Ave.Extensions.ErrorPaths.Error;
 
 namespace Tests.Application.McpServers;
 
@@ -51,7 +51,7 @@ public class McpServerServiceTests
         var result = _service.GetAll();
 
         result.IsSuccess.Should().BeFalse();
-        result.Error.Code.Should().Be(ErrorCodes.ConfigFileNotFound);
+        result.Error.Code.Should().Be(ErrorCodes.McpServers.Config.NotFound);
     }
 
     [Fact(DisplayName = "MSS-003: GetById should delegate to repository")]
@@ -119,7 +119,7 @@ public class McpServerServiceTests
         var result = _service.Create(definition);
 
         result.IsSuccess.Should().BeFalse();
-        result.Error.Code.Should().Be(ErrorCodes.DuplicateMcpServerName);
+        result.Error.Code.Should().Be(ErrorCodes.McpServers.DuplicateName);
     }
 
     [Fact(DisplayName = "MSS-007: Update should delegate to repository")]
@@ -155,7 +155,7 @@ public class McpServerServiceTests
         var result = _service.Update(definition);
 
         result.IsSuccess.Should().BeFalse();
-        result.Error.Code.Should().Be(ErrorCodes.McpServerNotFound);
+        result.Error.Code.Should().Be(ErrorCodes.McpServers.NotFound);
     }
 
     [Fact(DisplayName = "MSS-009: Delete should delegate to repository")]
@@ -182,6 +182,6 @@ public class McpServerServiceTests
         var result = _service.Delete(id);
 
         result.IsSuccess.Should().BeFalse();
-        result.Error.Code.Should().Be(ErrorCodes.McpServerNotFound);
+        result.Error.Code.Should().Be(ErrorCodes.McpServers.NotFound);
     }
 }

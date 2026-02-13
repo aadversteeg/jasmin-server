@@ -5,6 +5,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Ave.Extensions.ErrorPaths.AspNetCore" />
+    <PackageReference Include="Ave.Extensions.ErrorPaths.Serialization" />
     <PackageReference Include="Swashbuckle.AspNetCore" />
   </ItemGroup>
 

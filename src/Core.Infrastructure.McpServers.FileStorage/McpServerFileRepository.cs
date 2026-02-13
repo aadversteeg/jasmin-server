@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Ave.Extensions.Functional;
+using Error = Ave.Extensions.ErrorPaths.Error;
 using Core.Application.McpServers;
 using Core.Domain.McpServers;
 using Core.Domain.Models;

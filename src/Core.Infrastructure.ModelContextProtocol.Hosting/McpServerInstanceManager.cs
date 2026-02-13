@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
 using Ave.Extensions.Functional;
+using Error = Ave.Extensions.ErrorPaths.Error;
 using Core.Application.Events;
 using Core.Application.McpServers;
 using Core.Application.Requests;
@@ -122,7 +123,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
                 _eventPublisher.Publish(EventFactory.Create(EventTypes.McpServer.Instance.StartFailed, target, ToErrorPayload(ex), requestId));
                 _statusCache.SetStatus(serverId, McpServerConnectionStatus.Failed);
                 return Result<McpServerInstanceId, Error>.Failure(new Error(
-                    ErrorCodes.ConfigFileReadError,
+                    ErrorCodes.McpServers.Instance.ConnectionFailed,
                     $"Failed to start MCP server '{serverName.Value}': {ex.Message}"));
             }
 
@@ -163,7 +164,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
             _eventPublisher.Publish(EventFactory.Create(EventTypes.McpServer.Instance.StartFailed, target, ToErrorPayload(ex), requestId));
             _statusCache.SetStatus(serverId, McpServerConnectionStatus.Failed);
             return Result<McpServerInstanceId, Error>.Failure(new Error(
-                ErrorCodes.ConfigFileReadError,
+                ErrorCodes.McpServers.Instance.StartFailed,
                 $"Error starting MCP server '{serverName.Value}': {ex.Message}"));
         }
     }
@@ -177,7 +178,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
         if (!_instances.TryRemove(instanceId.Value, out var instance))
         {
             return Result<Unit, Error>.Failure(new Error(
-                ErrorCodes.McpServerInstanceNotFound,
+                ErrorCodes.McpServers.Instance.NotFound,
                 $"Instance '{instanceId.Value}' not found"));
         }
 
@@ -202,7 +203,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
             _logger.LogError(ex, "Error stopping MCP server instance {InstanceId}", instanceId.Value);
             _eventPublisher.Publish(EventFactory.Create(EventTypes.McpServer.Instance.StopFailed, target, ToErrorPayload(ex), requestId));
             return Result<Unit, Error>.Failure(new Error(
-                ErrorCodes.ConfigFileWriteError,
+                ErrorCodes.McpServers.Instance.StopFailed,
                 $"Error stopping instance '{instanceId.Value}': {ex.Message}"));
         }
     }
@@ -265,14 +266,14 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
         if (!_instances.TryGetValue(instanceId.Value, out var instance))
         {
             return Result<McpToolInvocationResult, Error>.Failure(new Error(
-                ErrorCodes.McpServerInstanceNotFound,
+                ErrorCodes.McpServers.Instance.NotFound,
                 $"Instance '{instanceId.Value}' not found"));
         }
 
         if (instance.ServerName.Value != serverName.Value)
         {
             return Result<McpToolInvocationResult, Error>.Failure(new Error(
-                ErrorCodes.McpServerInstanceNotFound,
+                ErrorCodes.McpServers.Instance.NotFound,
                 $"Instance '{instanceId.Value}' does not belong to server '{serverName.Value}'"));
         }
 
@@ -324,7 +325,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
                 requestId));
 
             return Result<McpToolInvocationResult, Error>.Failure(new Error(
-                ErrorCodes.ToolInvocationFailed,
+                ErrorCodes.McpServers.ToolInvocation.Timeout,
                 $"Tool invocation timed out after {_toolInvocationTimeout.TotalSeconds} seconds"));
         }
         catch (OperationCanceledException)
@@ -338,7 +339,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
                 requestId));
 
             return Result<McpToolInvocationResult, Error>.Failure(new Error(
-                ErrorCodes.ToolInvocationFailed,
+                ErrorCodes.McpServers.ToolInvocation.Cancelled,
                 "Tool invocation was cancelled"));
         }
         catch (McpException ex)
@@ -352,7 +353,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
                 requestId));
 
             return Result<McpToolInvocationResult, Error>.Failure(new Error(
-                ErrorCodes.ToolInvocationFailed,
+                ErrorCodes.McpServers.ToolInvocation.Failed,
                 $"Tool invocation failed: {ex.Message}"));
         }
         catch (Exception ex)
@@ -366,7 +367,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
                 requestId));
 
             return Result<McpToolInvocationResult, Error>.Failure(new Error(
-                ErrorCodes.ToolInvocationFailed,
+                ErrorCodes.McpServers.ToolInvocation.Failed,
                 $"Tool invocation failed: {ex.Message}"));
         }
     }
@@ -384,14 +385,14 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
         if (!_instances.TryGetValue(instanceId.Value, out var instance))
         {
             return Result<McpPromptResult, Error>.Failure(new Error(
-                ErrorCodes.McpServerInstanceNotFound,
+                ErrorCodes.McpServers.Instance.NotFound,
                 $"Instance '{instanceId.Value}' not found"));
         }
 
         if (instance.ServerName.Value != serverName.Value)
         {
             return Result<McpPromptResult, Error>.Failure(new Error(
-                ErrorCodes.McpServerInstanceNotFound,
+                ErrorCodes.McpServers.Instance.NotFound,
                 $"Instance '{instanceId.Value}' does not belong to server '{serverName.Value}'"));
         }
 
@@ -429,7 +430,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
                 promptName, instanceId.Value, _toolInvocationTimeout);
 
             return Result<McpPromptResult, Error>.Failure(new Error(
-                ErrorCodes.ToolInvocationFailed,
+                ErrorCodes.McpServers.Prompt.Timeout,
                 $"Get prompt timed out after {_toolInvocationTimeout.TotalSeconds} seconds"));
         }
         catch (OperationCanceledException)
@@ -438,7 +439,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
             _logger.LogInformation("Get prompt cancelled for {PromptName} on instance {InstanceId}", promptName, instanceId.Value);
 
             return Result<McpPromptResult, Error>.Failure(new Error(
-                ErrorCodes.ToolInvocationFailed,
+                ErrorCodes.McpServers.Prompt.Cancelled,
                 "Get prompt was cancelled"));
         }
         catch (McpException ex)
@@ -446,7 +447,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
             _logger.LogWarning(ex, "Get prompt failed for {PromptName} on instance {InstanceId}: MCP error", promptName, instanceId.Value);
 
             return Result<McpPromptResult, Error>.Failure(new Error(
-                ErrorCodes.ToolInvocationFailed,
+                ErrorCodes.McpServers.Prompt.Failed,
                 $"Get prompt failed: {ex.Message}"));
         }
         catch (Exception ex)
@@ -454,7 +455,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
             _logger.LogError(ex, "Get prompt failed for {PromptName} on instance {InstanceId}", promptName, instanceId.Value);
 
             return Result<McpPromptResult, Error>.Failure(new Error(
-                ErrorCodes.ToolInvocationFailed,
+                ErrorCodes.McpServers.Prompt.Failed,
                 $"Get prompt failed: {ex.Message}"));
         }
     }
@@ -584,14 +585,14 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
         if (!_instances.TryGetValue(instanceId.Value, out var instance))
         {
             return Result<McpResourceReadResult, Error>.Failure(new Error(
-                ErrorCodes.McpServerInstanceNotFound,
+                ErrorCodes.McpServers.Instance.NotFound,
                 $"Instance '{instanceId.Value}' not found"));
         }
 
         if (instance.ServerName.Value != serverName.Value)
         {
             return Result<McpResourceReadResult, Error>.Failure(new Error(
-                ErrorCodes.McpServerInstanceNotFound,
+                ErrorCodes.McpServers.Instance.NotFound,
                 $"Instance '{instanceId.Value}' does not belong to server '{serverName.Value}'"));
         }
 
@@ -625,7 +626,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
                 resourceUri, instanceId.Value, _toolInvocationTimeout);
 
             return Result<McpResourceReadResult, Error>.Failure(new Error(
-                ErrorCodes.ToolInvocationFailed,
+                ErrorCodes.McpServers.Resource.Timeout,
                 $"Read resource timed out after {_toolInvocationTimeout.TotalSeconds} seconds"));
         }
         catch (OperationCanceledException)
@@ -634,7 +635,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
             _logger.LogInformation("Read resource cancelled for {ResourceUri} on instance {InstanceId}", resourceUri, instanceId.Value);
 
             return Result<McpResourceReadResult, Error>.Failure(new Error(
-                ErrorCodes.ToolInvocationFailed,
+                ErrorCodes.McpServers.Resource.Cancelled,
                 "Read resource was cancelled"));
         }
         catch (McpException ex)
@@ -642,7 +643,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
             _logger.LogWarning(ex, "Read resource failed for {ResourceUri} on instance {InstanceId}: MCP error", resourceUri, instanceId.Value);
 
             return Result<McpResourceReadResult, Error>.Failure(new Error(
-                ErrorCodes.ToolInvocationFailed,
+                ErrorCodes.McpServers.Resource.Failed,
                 $"Read resource failed: {ex.Message}"));
         }
         catch (Exception ex)
@@ -650,7 +651,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
             _logger.LogError(ex, "Read resource failed for {ResourceUri} on instance {InstanceId}", resourceUri, instanceId.Value);
 
             return Result<McpResourceReadResult, Error>.Failure(new Error(
-                ErrorCodes.ToolInvocationFailed,
+                ErrorCodes.McpServers.Resource.Failed,
                 $"Read resource failed: {ex.Message}"));
         }
     }
@@ -711,7 +712,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
             {
                 _logger.LogDebug(ex, "Configuration test failed: could not start MCP server");
                 return Result<Unit, Error>.Failure(new Error(
-                    ErrorCodes.ConfigFileReadError,
+                    ErrorCodes.McpServers.Instance.ConnectionFailed,
                     $"Failed to start MCP server: {ex.Message}"));
             }
 
@@ -730,7 +731,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
         {
             _logger.LogError(ex, "Configuration test error");
             return Result<Unit, Error>.Failure(new Error(
-                ErrorCodes.ConfigFileReadError,
+                ErrorCodes.McpServers.Instance.ConnectionFailed,
                 $"Configuration test error: {ex.Message}"));
         }
     }
@@ -745,14 +746,14 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
         if (!_instances.TryGetValue(instanceId.Value, out var instance))
         {
             return Result<McpServerMetadata, Error>.Failure(new Error(
-                ErrorCodes.McpServerInstanceNotFound,
+                ErrorCodes.McpServers.Instance.NotFound,
                 $"Instance '{instanceId.Value}' not found"));
         }
 
         if (instance.ServerName.Value != serverName.Value)
         {
             return Result<McpServerMetadata, Error>.Failure(new Error(
-                ErrorCodes.McpServerInstanceNotFound,
+                ErrorCodes.McpServers.Instance.NotFound,
                 $"Instance '{instanceId.Value}' does not belong to server '{serverName.Value}'"));
         }
 
@@ -790,7 +791,7 @@ public class McpServerInstanceManager : IMcpServerInstanceManager, IAsyncDisposa
         {
             _logger.LogError(ex, "Failed to refresh metadata for instance {InstanceId}", instanceId.Value);
             return Result<McpServerMetadata, Error>.Failure(new Error(
-                ErrorCodes.ToolInvocationFailed,
+                ErrorCodes.McpServers.ToolInvocation.Failed,
                 $"Failed to refresh metadata: {ex.Message}"));
         }
     }

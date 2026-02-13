@@ -1,8 +1,11 @@
 using System.Collections.Concurrent;
 using Core.Application.Requests;
+using Core.Domain.Models;
 using Core.Domain.Requests;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Error = Ave.Extensions.ErrorPaths.Error;
+using ErrorCode = Ave.Extensions.ErrorPaths.ErrorCode;
 
 namespace Core.Infrastructure.ModelContextProtocol.InMemory.Requests;
 
@@ -82,7 +85,7 @@ public class RequestProcessorService : BackgroundService
             var handler = _registry.GetHandler(request.Action);
             if (handler == null)
             {
-                request.MarkFailed([new RequestError("UNKNOWN_ACTION", $"No handler registered for action '{request.Action.Value}'.")]);
+                request.MarkFailed([new Error(ErrorCodes.Request.UnknownAction, $"No handler registered for action '{request.Action.Value}'.")]);
                 _store.Update(request);
                 return;
             }
@@ -98,20 +101,20 @@ public class RequestProcessorService : BackgroundService
             {
                 request.MarkFailed(result.Errors!);
                 _logger.LogWarning("Request {RequestId} failed: {Errors}",
-                    request.Id.Value, string.Join(", ", result.Errors!.Select(e => $"{e.Code}: {e.Message}")));
+                    request.Id.Value, string.Join(", ", result.Errors!.Select(e => $"{e.Code.Value}: {e.Message}")));
             }
 
             _store.Update(request);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            request.MarkFailed([new RequestError("REQUEST_CANCELLED", "Request cancelled due to shutdown.")]);
+            request.MarkFailed([new Error(ErrorCodes.Request.Cancelled, "Request cancelled due to shutdown.")]);
             _store.Update(request);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error processing request {RequestId}", request.Id.Value);
-            request.MarkFailed([new RequestError(ex.GetType().Name, ex.Message)]);
+            request.MarkFailed([new Error(new ErrorCode(ex.GetType().Name), ex.Message)]);
             _store.Update(request);
         }
     }

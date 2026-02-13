@@ -1,4 +1,5 @@
 using Core.Application.Requests;
+using Core.Domain.Models;
 using Core.Domain.Paging;
 using Core.Domain.Requests;
 using Core.Infrastructure.ModelContextProtocol.InMemory;
@@ -6,6 +7,7 @@ using Core.Infrastructure.WebApp.Models;
 using Core.Infrastructure.WebApp.Models.Requests;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using Error = Ave.Extensions.ErrorPaths.Error;
 
 namespace Core.Infrastructure.WebApp.Controllers;
 
@@ -45,7 +47,7 @@ public class RequestsController : ControllerBase
         var resolvedTimeZone = ResolveTimeZone(timeZone);
         if (resolvedTimeZone == null)
         {
-            return BadRequest(ErrorResponse.Single("INVALID_TIMEZONE", $"Invalid timezone: {timeZone}"));
+            return BadRequest(ErrorResponse.FromError(new Error(ErrorCodes.InvalidTimezone, $"Invalid timezone: {timeZone}")));
         }
 
         var domainRequestResult = RequestMapper.ToDomain(body);
@@ -99,7 +101,7 @@ public class RequestsController : ControllerBase
         var resolvedTimeZone = ResolveTimeZone(timeZone);
         if (resolvedTimeZone == null)
         {
-            return BadRequest(ErrorResponse.Single("INVALID_TIMEZONE", $"Invalid timezone: {timeZone}"));
+            return BadRequest(ErrorResponse.FromError(new Error(ErrorCodes.InvalidTimezone, $"Invalid timezone: {timeZone}")));
         }
 
         var pagingResult = PagingParameters.Create(page, pageSize);
@@ -119,7 +121,7 @@ public class RequestsController : ControllerBase
         {
             if (!Enum.TryParse<RequestStatus>(status, ignoreCase: true, out var parsedStatus))
             {
-                return BadRequest(ErrorResponse.Single("INVALID_STATUS", $"Invalid status: '{status}'. Valid values are: pending, running, completed, failed"));
+                return BadRequest(ErrorResponse.FromError(new Error(ErrorCodes.Request.InvalidStatus, $"Invalid status: '{status}'. Valid values are: pending, running, completed, failed")));
             }
             statusFilter = parsedStatus;
         }
@@ -155,7 +157,7 @@ public class RequestsController : ControllerBase
         var resolvedTimeZone = ResolveTimeZone(timeZone);
         if (resolvedTimeZone == null)
         {
-            return BadRequest(ErrorResponse.Single("INVALID_TIMEZONE", $"Invalid timezone: {timeZone}"));
+            return BadRequest(ErrorResponse.FromError(new Error(ErrorCodes.InvalidTimezone, $"Invalid timezone: {timeZone}")));
         }
 
         var requestIdObj = RequestId.From(requestId);
@@ -163,7 +165,7 @@ public class RequestsController : ControllerBase
 
         if (maybeRequest.HasNoValue)
         {
-            return NotFound(ErrorResponse.Single("REQUEST_NOT_FOUND", $"Request '{requestId}' not found"));
+            return NotFound(ErrorResponse.FromError(new Error(ErrorCodes.Request.NotFound, $"Request '{requestId}' not found")));
         }
 
         return Ok(RequestMapper.ToResponse(maybeRequest.Value, resolvedTimeZone));

@@ -57,7 +57,7 @@ public class McpServerIncludeOptionsTests
         var result = McpServerIncludeOptions.Create("invalid");
 
         result.IsFailure.Should().BeTrue();
-        result.Error.Code.Should().Be(ErrorCodes.InvalidIncludeOption);
+        result.Error.Code.Should().Be(ErrorCodes.Include.InvalidOption);
         result.Error.Message.Should().Contain("invalid");
     }
 
@@ -100,7 +100,7 @@ public class McpServerIncludeOptionsTests
         var result = McpServerIncludeOptions.Create("requests");
 
         result.IsFailure.Should().BeTrue();
-        result.Error.Code.Should().Be(ErrorCodes.InvalidIncludeOption);
+        result.Error.Code.Should().Be(ErrorCodes.Include.InvalidOption);
     }
 
     [Fact(DisplayName = "MIO-013: Create with comma-separated options should set multiple options")]

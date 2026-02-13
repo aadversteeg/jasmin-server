@@ -5,12 +5,14 @@ using Core.Domain.Events;
 using Core.Domain.Paging;
 using Core.Infrastructure.Messaging.SSE;
 using Core.Infrastructure.ModelContextProtocol.InMemory;
+using Core.Domain.Models;
 using Core.Infrastructure.WebApp.Models;
 using Core.Infrastructure.WebApp.Models.Events;
 using Core.Infrastructure.WebApp.Models.McpServers;
 using Core.Infrastructure.WebApp.Models.Paging;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using Error = Ave.Extensions.ErrorPaths.Error;
 
 namespace Core.Infrastructure.WebApp.Controllers;
 
@@ -19,7 +21,7 @@ namespace Core.Infrastructure.WebApp.Controllers;
 /// </summary>
 [ApiController]
 [Route("v1/events")]
-[Tags("McpServers")]
+[Tags("Events")]
 public class EventsController : ControllerBase
 {
     private readonly IEventStore _eventStore;
@@ -69,7 +71,7 @@ public class EventsController : ControllerBase
         var resolvedTimeZone = ResolveTimeZone(timeZone);
         if (resolvedTimeZone == null)
         {
-            return BadRequest(ErrorResponse.Single("INVALID_TIMEZONE", $"Invalid timezone: {timeZone}"));
+            return BadRequest(ErrorResponse.FromError(new Error(ErrorCodes.InvalidTimezone, $"Invalid timezone: {timeZone}")));
         }
 
         var pagingResult = PagingParameters.Create(page, pageSize);

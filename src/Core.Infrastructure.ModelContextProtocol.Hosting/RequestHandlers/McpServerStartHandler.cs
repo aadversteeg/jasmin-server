@@ -2,8 +2,10 @@ using System.Text.Json;
 using Core.Application.McpServers;
 using Core.Application.Requests;
 using Core.Domain.McpServers;
+using Core.Domain.Models;
 using Core.Domain.Requests;
 using Microsoft.Extensions.Logging;
+using Error = Ave.Extensions.ErrorPaths.Error;
 
 namespace Core.Infrastructure.ModelContextProtocol.Hosting.RequestHandlers;
 
@@ -28,14 +30,14 @@ public class McpServerStartHandler : IRequestHandler
         if (!TargetUri.TryParseMcpServer(request.Target, out var name))
         {
             return RequestHandlerResult.Failure(
-                [new RequestError("INVALID_TARGET", $"Target '{request.Target}' is not a valid mcp-server target.")]);
+                [new Error(ErrorCodes.McpServers.InvalidTarget, $"Target '{request.Target}' is not a valid mcp-server target.")]);
         }
 
         var serverName = McpServerName.Create(name);
         if (serverName.IsFailure)
         {
             return RequestHandlerResult.Failure(
-                [new RequestError(serverName.Error.Code.Value, serverName.Error.Message)]);
+                [serverName.Error]);
         }
 
         var requestId = request.Id.Value;
@@ -51,6 +53,6 @@ public class McpServerStartHandler : IRequestHandler
         }
 
         return RequestHandlerResult.Failure(
-            [new RequestError(result.Error.Code.Value, result.Error.Message)]);
+            [result.Error]);
     }
 }

@@ -2,6 +2,7 @@ using Ave.Extensions.Functional;
 using Core.Application.McpServers;
 using Core.Domain.McpServers;
 using Core.Domain.Models;
+using Error = Ave.Extensions.ErrorPaths.Error;
 
 namespace Core.Infrastructure.ModelContextProtocol.InMemory;
 

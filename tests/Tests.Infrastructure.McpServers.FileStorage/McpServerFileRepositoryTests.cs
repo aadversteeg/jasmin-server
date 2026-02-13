@@ -153,7 +153,7 @@ public class McpServerFileRepositoryTests : IDisposable
         var result = repository.GetAll();
 
         result.IsSuccess.Should().BeFalse();
-        result.Error.Code.Should().Be(ErrorCodes.ConfigFileNotFound);
+        result.Error.Code.Should().Be(ErrorCodes.McpServers.Config.NotFound);
     }
 
     [Fact(DisplayName = "MFR-008: GetAll should return error when config file is invalid JSON")]
@@ -165,7 +165,7 @@ public class McpServerFileRepositoryTests : IDisposable
         var result = repository.GetAll();
 
         result.IsSuccess.Should().BeFalse();
-        result.Error.Code.Should().Be(ErrorCodes.ConfigFileInvalid);
+        result.Error.Code.Should().Be(ErrorCodes.McpServers.Config.Invalid);
     }
 
     [Fact(DisplayName = "MFR-009: Create should add new server to config file")]
@@ -211,7 +211,7 @@ public class McpServerFileRepositoryTests : IDisposable
         var result = repository.Create(definition);
 
         result.IsSuccess.Should().BeFalse();
-        result.Error.Code.Should().Be(ErrorCodes.DuplicateMcpServerName);
+        result.Error.Code.Should().Be(ErrorCodes.McpServers.DuplicateName);
     }
 
     [Fact(DisplayName = "MFR-011: Update should modify existing server in config file")]
@@ -257,7 +257,7 @@ public class McpServerFileRepositoryTests : IDisposable
         var result = repository.Update(definition);
 
         result.IsSuccess.Should().BeFalse();
-        result.Error.Code.Should().Be(ErrorCodes.McpServerNotFound);
+        result.Error.Code.Should().Be(ErrorCodes.McpServers.NotFound);
     }
 
     [Fact(DisplayName = "MFR-013: Delete should remove server from config file")]
@@ -299,7 +299,7 @@ public class McpServerFileRepositoryTests : IDisposable
         var result = repository.Delete(id);
 
         result.IsSuccess.Should().BeFalse();
-        result.Error.Code.Should().Be(ErrorCodes.McpServerNotFound);
+        result.Error.Code.Should().Be(ErrorCodes.McpServers.NotFound);
     }
 
     [Fact(DisplayName = "MFR-015: Create should persist with correct JSON structure")]

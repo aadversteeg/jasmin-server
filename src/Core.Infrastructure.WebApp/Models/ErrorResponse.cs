@@ -15,7 +15,7 @@ public record ErrorResponse(IReadOnlyList<ErrorDetail> Errors)
     /// <summary>
     /// Creates an error response from a domain error.
     /// </summary>
-    public static ErrorResponse FromError(Core.Domain.Models.Error error) =>
+    public static ErrorResponse FromError(Ave.Extensions.ErrorPaths.Error error) =>
         new([new ErrorDetail(error.Code.Value, error.Message)]);
 }
 

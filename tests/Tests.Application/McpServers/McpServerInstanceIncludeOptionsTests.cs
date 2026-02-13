@@ -1,4 +1,5 @@
 using Core.Application.McpServers;
+using Core.Domain.Models;
 using FluentAssertions;
 using Xunit;
 
@@ -89,7 +90,7 @@ public class McpServerInstanceIncludeOptionsTests
         var result = McpServerInstanceIncludeOptions.Create("invalid");
 
         result.IsFailure.Should().BeTrue();
-        result.Error.Code.Value.Should().Be("INVALID_INSTANCE_INCLUDE_OPTION");
+        result.Error.Code.Should().Be(ErrorCodes.Include.InvalidInstanceOption);
     }
 
     [Fact(DisplayName = "MIIO-009: Create should be case insensitive")]

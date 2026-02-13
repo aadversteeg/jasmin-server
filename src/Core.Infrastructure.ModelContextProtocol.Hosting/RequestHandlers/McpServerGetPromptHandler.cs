@@ -2,9 +2,11 @@ using System.Text.Json;
 using Core.Application.McpServers;
 using Core.Application.Requests;
 using Core.Domain.McpServers;
+using Core.Domain.Models;
 using Core.Domain.Requests;
 using Core.Domain.Requests.Parameters;
 using Microsoft.Extensions.Logging;
+using Error = Ave.Extensions.ErrorPaths.Error;
 
 namespace Core.Infrastructure.ModelContextProtocol.Hosting.RequestHandlers;
 
@@ -31,27 +33,27 @@ public class McpServerGetPromptHandler : IRequestHandler
         if (!TargetUri.TryParseMcpServerInstance(request.Target, out var name, out var instanceId))
         {
             return RequestHandlerResult.Failure(
-                [new RequestError("INVALID_TARGET", $"Target '{request.Target}' is not a valid mcp-server instance target.")]);
+                [new Error(ErrorCodes.McpServers.InvalidTarget, $"Target '{request.Target}' is not a valid mcp-server instance target.")]);
         }
 
         if (!request.Parameters.HasValue)
         {
             return RequestHandlerResult.Failure(
-                [new RequestError("PARAMETERS_REQUIRED", "Parameters are required for get-prompt action.")]);
+                [new Error(ErrorCodes.McpServers.Parameters.Required, "Parameters are required for get-prompt action.")]);
         }
 
         var parameters = JsonSerializer.Deserialize<GetPromptParameters>(request.Parameters.Value, JsonOptions);
         if (parameters == null || string.IsNullOrEmpty(parameters.PromptName))
         {
             return RequestHandlerResult.Failure(
-                [new RequestError("PROMPT_NAME_REQUIRED", "PromptName is required for get-prompt action.")]);
+                [new Error(ErrorCodes.McpServers.Parameters.PromptNameRequired, "PromptName is required for get-prompt action.")]);
         }
 
         var serverName = McpServerName.Create(name);
         if (serverName.IsFailure)
         {
             return RequestHandlerResult.Failure(
-                [new RequestError(serverName.Error.Code.Value, serverName.Error.Message)]);
+                [serverName.Error]);
         }
 
         var mcpInstanceId = McpServerInstanceId.From(instanceId);
@@ -77,6 +79,6 @@ public class McpServerGetPromptHandler : IRequestHandler
         }
 
         return RequestHandlerResult.Failure(
-            [new RequestError(result.Error.Code.Value, result.Error.Message)]);
+            [result.Error]);
     }
 }

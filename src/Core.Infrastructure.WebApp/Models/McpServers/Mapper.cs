@@ -3,6 +3,7 @@ using Core.Application.McpServers;
 using Core.Domain.Events;
 using Core.Domain.McpServers;
 using Core.Domain.Models;
+using Error = Ave.Extensions.ErrorPaths.Error;
 using Core.Domain.Paging;
 using Core.Infrastructure.WebApp.Models.McpServers.Instances;
 using Core.Infrastructure.WebApp.Models.McpServers.Prompts;

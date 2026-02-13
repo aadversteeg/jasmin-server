@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Ave.Extensions.Functional;
+using Error = Ave.Extensions.ErrorPaths.Error;
 using Core.Application.Requests;
 using Core.Domain.Models;
 using Core.Domain.Paging;
@@ -34,7 +35,7 @@ public static class RequestMapper
     /// </summary>
     public static RequestResponse ToResponse(Request source, TimeZoneInfo timeZone)
     {
-        var errors = source.Errors?.Select(e => new RequestErrorResponse(e.Code, e.Message)).ToList().AsReadOnly();
+        var errors = source.Errors?.Select(e => new RequestErrorResponse(e.Code.Value, e.Message)).ToList().AsReadOnly();
 
         return new RequestResponse(
             source.Id.Value,
@@ -69,13 +70,13 @@ public static class RequestMapper
         if (string.IsNullOrWhiteSpace(body.Target))
         {
             return Result<Request, Error>.Failure(
-                new Error(new ErrorCode("INVALID_TARGET"), "Target is required."));
+                new Error(ErrorCodes.McpServers.InvalidTarget, "Target is required."));
         }
 
         var validationError = ValidateParametersForAction(action, body.Target, body.Parameters);
         if (validationError != null)
         {
-            return Result<Request, Error>.Failure(validationError);
+            return Result<Request, Error>.Failure(validationError.Value);
         }
 
         var requestId = RequestId.Create();
@@ -105,7 +106,7 @@ public static class RequestMapper
         {
             if (!TargetUri.TryParseMcpServer(target, out _) && !TargetUri.TryParseMcpServerInstance(target, out _, out _))
             {
-                return new Error(new ErrorCode("INVALID_TARGET"), $"Target '{target}' is not a valid MCP server target. Expected format: mcp-servers/{{name}}");
+                return new Error(ErrorCodes.McpServers.InvalidTarget, $"Target '{target}' is not a valid MCP server target. Expected format: mcp-servers/{{name}}");
             }
         }
         else if (action == RequestActions.McpServer.Instance.Stop
@@ -113,14 +114,14 @@ public static class RequestMapper
         {
             if (!TargetUri.TryParseMcpServerInstance(target, out _, out _))
             {
-                return new Error(new ErrorCode("INVALID_TARGET"), $"Target '{target}' is not a valid MCP server instance target. Expected format: mcp-servers/{{name}}/instances/{{instanceId}}");
+                return new Error(ErrorCodes.McpServers.InvalidTarget, $"Target '{target}' is not a valid MCP server instance target. Expected format: mcp-servers/{{name}}/instances/{{instanceId}}");
             }
         }
         else if (action == RequestActions.McpServer.Instance.InvokeTool)
         {
             if (!TargetUri.TryParseMcpServerInstance(target, out _, out _))
             {
-                return new Error(new ErrorCode("INVALID_TARGET"), $"Target '{target}' is not a valid MCP server instance target. Expected format: mcp-servers/{{name}}/instances/{{instanceId}}");
+                return new Error(ErrorCodes.McpServers.InvalidTarget, $"Target '{target}' is not a valid MCP server instance target. Expected format: mcp-servers/{{name}}/instances/{{instanceId}}");
             }
 
             if (!parameters.HasValue)
@@ -138,7 +139,7 @@ public static class RequestMapper
         {
             if (!TargetUri.TryParseMcpServerInstance(target, out _, out _))
             {
-                return new Error(new ErrorCode("INVALID_TARGET"), $"Target '{target}' is not a valid MCP server instance target. Expected format: mcp-servers/{{name}}/instances/{{instanceId}}");
+                return new Error(ErrorCodes.McpServers.InvalidTarget, $"Target '{target}' is not a valid MCP server instance target. Expected format: mcp-servers/{{name}}/instances/{{instanceId}}");
             }
 
             if (!parameters.HasValue)
@@ -156,7 +157,7 @@ public static class RequestMapper
         {
             if (!TargetUri.TryParseMcpServerInstance(target, out _, out _))
             {
-                return new Error(new ErrorCode("INVALID_TARGET"), $"Target '{target}' is not a valid MCP server instance target. Expected format: mcp-servers/{{name}}/instances/{{instanceId}}");
+                return new Error(ErrorCodes.McpServers.InvalidTarget, $"Target '{target}' is not a valid MCP server instance target. Expected format: mcp-servers/{{name}}/instances/{{instanceId}}");
             }
 
             if (!parameters.HasValue)

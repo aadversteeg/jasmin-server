@@ -22,7 +22,7 @@ public class McpServerNameTests
         var result = McpServerName.Create(null!);
 
         result.IsFailure.Should().BeTrue();
-        result.Error.Code.Should().Be(ErrorCodes.InvalidMcpServerName);
+        result.Error.Code.Should().Be(ErrorCodes.McpServers.InvalidName);
     }
 
     [Fact(DisplayName = "MSN-003: Create with empty string should return failure")]
@@ -31,7 +31,7 @@ public class McpServerNameTests
         var result = McpServerName.Create("");
 
         result.IsFailure.Should().BeTrue();
-        result.Error.Code.Should().Be(ErrorCodes.InvalidMcpServerName);
+        result.Error.Code.Should().Be(ErrorCodes.McpServers.InvalidName);
     }
 
     [Fact(DisplayName = "MSN-004: ToString should return value")]

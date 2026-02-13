@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Moq;
 using Xunit;
+using Error = Ave.Extensions.ErrorPaths.Error;
 
 namespace Tests.Infrastructure.WebApp.Controllers;
 

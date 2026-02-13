@@ -1,10 +1,10 @@
+using Ave.Extensions.ErrorPaths;
 using Ave.Extensions.Functional;
 using Core.Application.Events;
 using Core.Application.Requests;
 using Core.Domain.Events;
 using Core.Domain.Events.Payloads;
 using Core.Domain.McpServers;
-using Core.Domain.Models;
 
 namespace Core.Application.McpServers;
 
